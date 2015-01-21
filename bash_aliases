@@ -9,9 +9,10 @@ alias gco='git checkout'
 alias gb='git branch'
 alias gst='git status'
 alias gup='git pull --rebase'
+alias gpoh='git push origin HEAD'
 
 alias tma='tmux attach-session -t'
-alias tmk='tmux kill-session -t'
+alias tmk='tmux kill-session'
 alias tml='tmux list-sessions'
 
 alias rk='be rake'
