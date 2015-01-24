@@ -16,3 +16,10 @@ autocmd BufWritePre *.rb :%s/\s\+$//e
 
 " I prefer this list style
 let g:netrw_liststyle=3
+
+" delete key not working on mac
+set backspace=indent,eol,start
+
+" vim/slime
+let g:slime_paste_file = "$HOME/.slime_paste"
+let g:slime_target = "tmux"
