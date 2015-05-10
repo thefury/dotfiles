@@ -7,6 +7,8 @@ set softtabstop=2
 set smarttab
 set nocompatible
 
+set number
+
 " pathogen for plugins
 execute pathogen#infect()
 syntax enable
