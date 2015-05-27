@@ -7,7 +7,11 @@ set softtabstop=2
 set smarttab
 set nocompatible
 
-set number
+set relativenumber
+
+" big line for 80 characters
+set textwidth=80
+set colorcolumn=+1
 
 " pathogen for plugins
 execute pathogen#infect()
