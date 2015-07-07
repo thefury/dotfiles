@@ -7,7 +7,7 @@ set softtabstop=2
 set smarttab
 set nocompatible
 
-set relativenumber
+set number
 
 " big line for 80 characters
 set textwidth=80
@@ -38,3 +38,6 @@ let g:slime_target='tmux'
 
 " markdown
 autocmd BufNewFile,BufReadPost *.md set filetype=markdown
+autocmd BufNewFile,BufRead *.dump set filetype=sql
+autocmd BufNewFile,BufRead *.pill set filetype=ruby
+autocmd BufNewFile,BufRead Gemfile set filetype=ruby
