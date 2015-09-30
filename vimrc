@@ -41,3 +41,10 @@ autocmd BufNewFile,BufReadPost *.md set filetype=markdown
 autocmd BufNewFile,BufRead *.dump set filetype=sql
 autocmd BufNewFile,BufRead *.pill set filetype=ruby
 autocmd BufNewFile,BufRead Gemfile set filetype=ruby
+
+" CtrlP
+set runtimepath^=~/.vim/bundle/ctrlp.vim
+
+" ruby block text objects
+runtime macros/matchit.vim
+

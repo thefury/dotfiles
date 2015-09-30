@@ -1,10 +1,10 @@
 #!/bin/bash
 
 
-for f in bashrc bash_profile bash_aliases vimrc
+for f in bashrc bash_profile bash_aliases vimrc vim
 do
   echo "processing $f"
-  rm ~/.$f
+  rm -r ~/.$f
   ln -s ~/dotfiles/$f ~/.$f
 done
 

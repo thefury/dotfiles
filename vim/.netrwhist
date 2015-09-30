@@ -1,0 +1,8 @@
+let g:netrw_dirhistmax  =10
+let g:netrw_dirhist_cnt =6
+let g:netrw_dirhist_1='/Users/trevoroke/dev/aldo-datahub-rails/config/local'
+let g:netrw_dirhist_2='/Users/trevoroke/dev/aldo-datahub-rails/lib/kinetic_cafe'
+let g:netrw_dirhist_3='/Users/trevoroke/dev/testo/app/models/concerns'
+let g:netrw_dirhist_4='/Users/trevoroke/.ssh'
+let g:netrw_dirhist_5='/Users/trevoroke/dev/hybris-client/lib'
+let g:netrw_dirhist_6='/Users/trevoroke/dev/hybris-client/lib/hybris'
