@@ -45,6 +45,3 @@ autocmd BufNewFile,BufRead Gemfile set filetype=ruby
 " CtrlP
 set runtimepath^=~/.vim/bundle/ctrlp.vim
 
-" ruby block text objects
-runtime macros/matchit.vim
-
