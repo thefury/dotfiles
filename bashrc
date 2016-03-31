@@ -8,8 +8,6 @@ fi
 export EDITOR=vim
 export PATH="$HOME/bin:$PATH"
 
-. ~/.bin/tmuxinator.bash
-
 # personal bin
 export PATH="$HOME/bin:$PATH"
 
