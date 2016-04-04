@@ -20,9 +20,9 @@
   (interactive)
   (find-file "~/Google Drive/GTD/inbox.org"))
 
-(defun journal ()
+(defun someday ()
   (interactive)
-  (find-file "~/Google Drive/GTD/journal.org"))
+  (find-file "~/Google Drive/GTD/someday.org"))
 
 
 (defun meetings ()
