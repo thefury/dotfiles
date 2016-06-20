@@ -49,7 +49,7 @@ plugins=(git ruby rails bundler)
 
 # User configuration
 
-export PATH="/Users/trevoroke/.rbenv/shims:/Users/trevoroke/.rbenv/bin:/Users/trevoroke/bin:/Users/trevoroke/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin"
+export PATH="/Users/trevoroke/bin:/Users/trevoroke/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin"
 # export MANPATH="/usr/local/man:$MANPATH"
 
 source $ZSH/oh-my-zsh.sh
@@ -87,9 +87,6 @@ function wip() {
   git add . && git commit -m "wip: $1"
 }
 
-export GOPATH=$HOME/golang
-export PATH=$PATH:$GOPATH/bin
-
 export PATH="$HOME/bin:$PATH"
 export JAVA_HOME="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home"
 
@@ -100,3 +97,13 @@ alias remoteprodjumpbox='ssh -At -l toke 66.228.41.123 ssh -At -l toke 25.15.164
 alias prodjumpbox='ssh -l toke 10.145.55.4'
 
 alias em='/Applications/Emacs.app/Contents/MacOS/Emacs'
+
+export GOPATH=$HOME/golang
+export GOROOT=/usr/local/opt/go/libexec
+export PATH=$PATH:$GOPATH/bin
+export PATH=$PATH:$GOROOT/bin
+
+function gocd () { 
+  cd `go list -f '{{.Dir}}' $1` 
+}
+

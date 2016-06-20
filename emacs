@@ -8,9 +8,11 @@
 ;; org mode for GTD
 
 ;; load all files in the GTD folder
-(setq org-agenda-files
-      (directory-files
-       (expand-file-name "~/Google Drive/GTD/") nil "org$"))
+;;(setq org-agenda-files
+;;      (directory-files
+;;       (expand-file-name "~/Google Drive/GTD/") nil "org$"))
+
+(setq org-agenda-files '("~/Google Drive/GTD"))
 
 
 (define-key global-map "\C-cl" 'org-store-link)
