@@ -76,28 +76,14 @@ source $ZSH/oh-my-zsh.sh
 # For a full list of active aliases, run `alias`.
 #
 # Example aliases
-# alias zshconfig="mate ~/.zshrc"
-# alias ohmyzsh="mate ~/.oh-my-zsh"
-alias rake="noglob rake"
-alias gpoh="git push origin HEAD"
-alias grhh="git reset HEAD --hard"
 
+# updates to PATH
+export PATH="$HOME/bin:/usr/local/bin:$PATH"
 
-function wip() {
-  git add . && git commit -m "wip: $1"
-}
-
-export PATH="$HOME/bin:$PATH"
+# Java
 export JAVA_HOME="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home"
 
-
-# connection aliases
-alias remotejumpbox='ssh -At -l toke 66.228.41.123 ssh -At -l toke 25.15.164.2 ssh -At -l toke 10.145.25.4'
-alias remoteprodjumpbox='ssh -At -l toke 66.228.41.123 ssh -At -l toke 25.15.164.2 ssh -At -l toke 10.145.55.4'
-alias prodjumpbox='ssh -l toke 10.145.55.4'
-
-alias em='/Applications/Emacs.app/Contents/MacOS/Emacs'
-
+# Go
 export GOPATH=$HOME/golang
 export GOROOT=/usr/local/opt/go/libexec
 export PATH=$PATH:$GOPATH/bin
@@ -107,3 +93,12 @@ function gocd () {
   cd `go list -f '{{.Dir}}' $1` 
 }
 
+source $HOME/.bash_aliases
+
+export PATH="$HOME/.rbenv/bin:$PATH"
+eval "$(rbenv init -)"
+
+
+# ensure brew versions of apps run first
+export PATH="/Applications/Postgres.app/Contents/Versions/latest/bin:$PATH"
+export PATH="/usr/local/bin:$PATH"

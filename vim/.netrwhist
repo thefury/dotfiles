@@ -1,7 +1,3 @@
 let g:netrw_dirhistmax  =10
-let g:netrw_dirhist_cnt =5
-let g:netrw_dirhist_1='/Users/trevoroke/dev/sof-store_hub-rails/app/models/concerns'
-let g:netrw_dirhist_2='/Users/trevoroke/devops/kcp_deploy/group_vars'
-let g:netrw_dirhist_3='/Users/trevoroke/devops/kcp_deploy/group_vars/all'
-let g:netrw_dirhist_4='/Users/trevoroke/dev/vagrant-environments/blog/provisioning/roles/nginx/tasks'
-let g:netrw_dirhist_5='/Users/trevoroke/bin'
+let g:netrw_dirhist_cnt =1
+let g:netrw_dirhist_1='/Users/trevoroke/dev/vault-consul-lab/roles/consul/tasks'
