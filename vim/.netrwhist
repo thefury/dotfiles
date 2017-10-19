@@ -1,0 +1,10 @@
+let g:netrw_dirhistmax  =10
+let g:netrw_dirhist_cnt =8
+let g:netrw_dirhist_1='/Users/trevoroke/dev/aldo_deploy/roles/jumpbox_user/defaults'
+let g:netrw_dirhist_2='/Users/trevoroke/dev/aldo_deploy/roles/users/templates'
+let g:netrw_dirhist_3='/Users/trevoroke/dev/rabbitmq-test-lab'
+let g:netrw_dirhist_4='/Users/trevoroke/dev/elixir-build-server/roles/configure.security'
+let g:netrw_dirhist_5='/Users/trevoroke/temp'
+let g:netrw_dirhist_6='/Users/trevoroke'
+let g:netrw_dirhist_7='/Users'
+let g:netrw_dirhist_8='/'

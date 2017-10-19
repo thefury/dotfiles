@@ -10,12 +10,25 @@ set nocompatible
 set number
 
 " big line for 80 characters
-set textwidth=80
-set colorcolumn=+1
+" set textwidth=80
+" set colorcolumn=+1
 
-" pathogen for plugins
-execute pathogen#infect()
-syntax enable
+
+call plug#begin('~/.vim/plugged')
+Plug 'junegunn/goyo.vim'
+Plug 'altercation/vim-colors-solarized'
+Plug 'tpope/vim-endwise'
+Plug 'bling/vim-airline'
+Plug 'fatih/vim-go'
+Plug 'vim-ruby/vim-ruby'
+Plug 'chase/vim-ansible-yaml'
+Plug 'stephpy/vim-yaml'
+call plug#end()
+
+" visual style
+syntax on
+set background=dark
+colorscheme solarized
 filetype plugin indent on
 
 " remove trailing whitespace on save for ruby files
@@ -28,20 +41,34 @@ let g:netrw_liststyle=3
 set backspace=indent,eol,start
 
 " vim/slime
-let g:slime_paste_file = "$HOME/.slime_paste"
-let g:slime_target = "tmux"
+"let g:slime_paste_file = "$HOME/.slime_paste"
+"let g:slime_target = "tmux"
 
 " tags
-set tags=./tags;/
+"set tags=./tags;/
 " slime
-let g:slime_target='tmux'
+"let g:slime_target='tmux'
 
 " markdown
-autocmd BufNewFile,BufReadPost *.md set filetype=markdown
-autocmd BufNewFile,BufRead *.dump set filetype=sql
-autocmd BufNewFile,BufRead *.pill set filetype=ruby
-autocmd BufNewFile,BufRead Gemfile set filetype=ruby
+"autocmd BufNewFile,BufReadPost *.md set filetype=markdown
+"autocmd BufNewFile,BufRead *.dump set filetype=sql
+"autocmd BufNewFile,BufRead *.pill set filetype=ruby
+"autocmd BufNewFile,BufRead Gemfile set filetype=ruby
 
 " CtrlP
-set runtimepath^=~/.vim/bundle/ctrlp.vim
+"set runtimepath^=~/.vim/bundle/ctrlp.vim
 
+" tmux integration
+" re-run last command in top right pane of window 0
+nmap \r :!tmux send-keys -t 0:0.1 C-p C-j <CR><CR>
+
+" Prose Mode
+function! ProseMode()
+  call goyo#execute(0, [])
+  set spell noci nosi noai nolist noshowmode noshowcmd
+  set complete+=s
+  colors solarized
+endfunction
+
+command! ProseMode call ProseMode()
+nmap \p :ProseMode<CR>

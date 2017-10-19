@@ -7,40 +7,6 @@ export ZSH=$HOME/.oh-my-zsh
 # time that oh-my-zsh is loaded.
 ZSH_THEME="robbyrussell"
 
-# Uncomment the following line to use case-sensitive completion.
-# CASE_SENSITIVE="true"
-
-# Uncomment the following line to disable bi-weekly auto-update checks.
-# DISABLE_AUTO_UPDATE="true"
-
-# Uncomment the following line to change how often to auto-update (in days).
-# export UPDATE_ZSH_DAYS=13
-
-# Uncomment the following line to disable colors in ls.
-# DISABLE_LS_COLORS="true"
-
-# Uncomment the following line to disable auto-setting terminal title.
-# DISABLE_AUTO_TITLE="true"
-
-# Uncomment the following line to enable command auto-correction.
-# ENABLE_CORRECTION="true"
-
-# Uncomment the following line to display red dots whilst waiting for completion.
-# COMPLETION_WAITING_DOTS="true"
-
-# Uncomment the following line if you want to disable marking untracked files
-# under VCS as dirty. This makes repository status check for large repositories
-# much, much faster.
-# DISABLE_UNTRACKED_FILES_DIRTY="true"
-
-# Uncomment the following line if you want to change the command execution time
-# stamp shown in the history command output.
-# The optional three formats: "mm/dd/yyyy"|"dd.mm.yyyy"|"yyyy-mm-dd"
-# HIST_STAMPS="mm/dd/yyyy"
-
-# Would you like to use another custom folder than $ZSH/custom?
-# ZSH_CUSTOM=/path/to/new-custom-folder
-
 # Which plugins would you like to load? (plugins can be found in ~/.oh-my-zsh/plugins/*)
 # Custom plugins may be added to ~/.oh-my-zsh/custom/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
@@ -48,37 +14,47 @@ ZSH_THEME="robbyrussell"
 plugins=(git ruby rails bundler)
 
 # User configuration
+export EDITOR=vim
+export VISUAL=vim
 
-export PATH="/Users/trevoroke/bin:/Users/trevoroke/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin"
+# History control.
+SAVEHIST=100000
+HISTSIZE=100000
+if [ -e ~/priv/ ]; then
+  HISTFILE=~/priv/zsh_history
+elif [ -e ~/secure/ ]; then
+  HISTFILE=~/secure/zsh_history
+else
+  HISTFILE=~/.zsh_history
+fi
+if [ -n "$HISTFILE" -a ! -w $HISTFILE ]; then
+  echo
+  echo "[31;1m HISTFILE [$HISTFILE] not writable! [0m"
+  echo
+fi
+
 # export MANPATH="/usr/local/man:$MANPATH"
-
 source $ZSH/oh-my-zsh.sh
 
-# You may need to manually set your language environment
-# export LANG=en_US.UTF-8
-
-# Preferred editor for local and remote sessions
-# if [[ -n $SSH_CONNECTION ]]; then
-#   export EDITOR='vim'
-# else
-#   export EDITOR='mvim'
-# fi
-
-# Compilation flags
-# export ARCHFLAGS="-arch x86_64"
-
-# ssh
-# export SSH_KEY_PATH="~/.ssh/dsa_id"
-
-# Set personal aliases, overriding those provided by oh-my-zsh libs,
-# plugins, and themes. Aliases can be placed here, though oh-my-zsh
-# users are encouraged to define aliases within the ZSH_CUSTOM folder.
-# For a full list of active aliases, run `alias`.
-#
-# Example aliases
-
 # updates to PATH
-export PATH="$HOME/bin:/usr/local/bin:$PATH"
+_prepend_to_path() {
+  if [ -d $1 -a -z ${path[(r)$1]} ]; then
+    path=($1 $path);
+  fi
+}
+
+_append_to_path() {
+  if [ -d $1 -a -z ${path[(r)$1]} ]; then
+    path=($1 $path);
+  fi
+}
+
+export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin"
+_prepend_to_path /usr/local/sbin
+_prepend_to_path /usr/local/bin
+_prepend_to_path ~/bin
+_prepend_to_path /Applications/Postgres.app/Contents/Versions/latest/bin
+
 
 # Java
 export JAVA_HOME="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home"
@@ -86,19 +62,76 @@ export JAVA_HOME="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Ho
 # Go
 export GOPATH=$HOME/golang
 export GOROOT=/usr/local/opt/go/libexec
-export PATH=$PATH:$GOPATH/bin
-export PATH=$PATH:$GOROOT/bin
 
-function gocd () { 
-  cd `go list -f '{{.Dir}}' $1` 
-}
+_append_to_path $GOPATH/bin
+_append_to_path $GOROOT/bin
 
-source $HOME/.bash_aliases
-
-export PATH="$HOME/.rbenv/bin:$PATH"
+_prepend_to_path $HOME/.rbenv/bin
 eval "$(rbenv init -)"
 
+# Aliases
+alias reload='source ~/.zshrc'
+alias ll='ls -la'
+alias gc='git commit'
+alias ga='git add'
+alias gco='git checkout'
+alias gb='git branch'
+alias gst='git status'
+alias gup='git pull --rebase'
+alias gpoh='git push origin HEAD'
+alias gprune='gco master && git branch --merged | grep -v "\\*\\|master\\|develop" | xargs -n 1 git branch -d'
+alias gclean="gco master && git branch -r --merged | grep origin | grep -v '>' | grep -v master | xargs -L1 | awk '{split($0,a,"/"); print a[2]}'"
+alias grh='git reset HEAD --hard'
+alias j='jrnl'
+alias hist="history | cut -c 8-"
+alias myip="curl icanhazip.com"
+alias myips="ifconfig | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p'"
+alias wgetdir='wget -r -l1 -P035 -nd --no-parent'
+alias mirror="wget --mirror --convert-links --adjust-extension --page-requisites --no-parent"
+alias f1="awk '{print \$1}'"
+alias f2="awk '{print \$2}'"
 
-# ensure brew versions of apps run first
-export PATH="/Applications/Postgres.app/Contents/Versions/latest/bin:$PATH"
-export PATH="/usr/local/bin:$PATH"
+# pecohist show your command history and let you grep them, then copy your selection to your clipboard
+func pecohist() {
+  cmd=$(hist | peco | tr -d '\n')
+  $(echo $cmd | pbcopy)
+  echo $cmd
+}
+# Quick commands to sync CWD between terminals.
+pin() {
+  rm -f ~/.pindir
+  echo $PWD >~/.pindir
+  chmod 0600 ~/.pindir >/dev/null 2>&1
+}
+pout() {
+  cd `cat ~/.pindir`
+}
+
+# Make a new command.
+vix() {
+  if [ -z "$1" ]; then
+    echo "usage: $0 <newfilename>"
+    return 1
+  fi
+  touch $1
+  chmod -v 0755 $1
+  $EDITOR $1
+}
+
+# Make a new command in ~/bin
+makecommand() {
+  if [ -z "$1" ]; then
+    echo "Gotta specify a command name, champ" >&2
+    return 1
+  fi
+
+  mkdir -p ~/bin
+  local cmd=~/bin/$1
+  if [ -e $cmd ]; then
+    echo "Command $1 already exists" >&2
+  else
+    echo "#!${2:-/bin/sh}" >$cmd
+  fi
+
+  vix $cmd
+}
