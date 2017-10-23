@@ -23,12 +23,13 @@ Plug 'fatih/vim-go'
 Plug 'vim-ruby/vim-ruby'
 Plug 'chase/vim-ansible-yaml'
 Plug 'stephpy/vim-yaml'
+Plug 'tpope/vim-markdown'
 call plug#end()
 
 " visual style
 syntax on
 set background=dark
-let g:solarized_termcolors=256
+let g:solarized_termcolors=16
 colorscheme solarized
 filetype plugin indent on
 
@@ -51,10 +52,10 @@ set backspace=indent,eol,start
 "let g:slime_target='tmux'
 
 " markdown
-"autocmd BufNewFile,BufReadPost *.md set filetype=markdown
-"autocmd BufNewFile,BufRead *.dump set filetype=sql
-"autocmd BufNewFile,BufRead *.pill set filetype=ruby
-"autocmd BufNewFile,BufRead Gemfile set filetype=ruby
+autocmd BufNewFile,BufReadPost *.md set filetype=markdown
+autocmd BufNewFile,BufRead *.dump set filetype=sql
+autocmd BufNewFile,BufRead *.pill set filetype=ruby
+autocmd BufNewFile,BufRead Gemfile set filetype=ruby
 
 " CtrlP
 "set runtimepath^=~/.vim/bundle/ctrlp.vim

@@ -107,6 +107,12 @@ pout() {
   cd `cat ~/.pindir`
 }
 
+# WIP in git
+wip() {
+  git add .
+  git commit -m $1
+}
+
 # Make a new command.
 vix() {
   if [ -z "$1" ]; then
