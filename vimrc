@@ -29,7 +29,7 @@ call plug#end()
 " visual style
 syntax on
 set background=dark
-let g:solarized_termcolors=16
+let g:solarized_termcolors=256
 colorscheme solarized
 filetype plugin indent on
 
