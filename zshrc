@@ -49,6 +49,12 @@ _append_to_path() {
   fi
 }
 
+_include () {
+  if [ -f "$1" ]; then
+    source "$1"
+  fi
+}
+
 export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin"
 _prepend_to_path /usr/local/sbin
 _prepend_to_path /usr/local/bin
@@ -91,6 +97,8 @@ alias mirror="wget --mirror --convert-links --adjust-extension --page-requisites
 alias f1="awk '{print \$1}'"
 alias f2="awk '{print \$2}'"
 
+_include ~/.work_aliases.sh
+
 # pecohist show your command history and let you grep them, then copy your selection to your clipboard
 func pecohist() {
   cmd=$(hist | peco | tr -d '\n')
@@ -103,6 +111,7 @@ pin() {
   echo $PWD >~/.pindir
   chmod 0600 ~/.pindir >/dev/null 2>&1
 }
+
 pout() {
   cd `cat ~/.pindir`
 }
@@ -140,4 +149,9 @@ makecommand() {
   fi
 
   vix $cmd
+}
+
+delmerged () {  
+  git checkout master
+  git branch --merged | grep -v '* ' | xargs git branch -D 
 }
