@@ -96,6 +96,8 @@ alias wgetdir='wget -r -l1 -P035 -nd --no-parent'
 alias mirror="wget --mirror --convert-links --adjust-extension --page-requisites --no-parent"
 alias f1="awk '{print \$1}'"
 alias f2="awk '{print \$2}'"
+alias ts="tmux list-ssesions"
+alias emacs="/usr/local/bin/emacs"
 
 _include ~/.work_aliases.sh
 
@@ -119,7 +121,7 @@ pout() {
 # WIP in git
 wip() {
   git add .
-  git commit -m $1
+  git commit -m "wip: $1"
 }
 
 # Make a new command.

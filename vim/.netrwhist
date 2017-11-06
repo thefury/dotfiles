@@ -1,4 +1,6 @@
 let g:netrw_dirhistmax  =10
-let g:netrw_dirhist_cnt =2
+let g:netrw_dirhist_cnt =4
 let g:netrw_dirhist_1='/Users/trevoroke/dev/aldo_deploy'
 let g:netrw_dirhist_2='/Users/trevoroke/temp'
+let g:netrw_dirhist_3='/Users/trevoroke/dev'
+let g:netrw_dirhist_4='/Users/trevoroke/dev/kcs-infrastructure/env-dev'
