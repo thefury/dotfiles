@@ -68,14 +68,15 @@ export JAVA_HOME="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Ho
 # Go
 export GOPATH=$HOME/golang
 export GOROOT=/usr/local/opt/go/libexec
+export GOBIN=$GOPATH/bin
+export PATH=$PATH:$GOPATH
+export PATH=$PATH:$GOROOT/bin
 
-_append_to_path $GOPATH/bin
-_append_to_path $GOROOT/bin
-
-_prepend_to_path $HOME/.rbenv/bin
+#_prepend_to_path $HOME/.rbenv/bin
 eval "$(rbenv init -)"
 
 # Aliases
+alias dce='docker-compose exec'
 alias reload='source ~/.zshrc'
 alias ll='ls -la'
 alias gc='git commit'
@@ -89,6 +90,7 @@ alias gprune='gco master && git branch --merged | grep -v "\\*\\|master\\|develo
 alias gclean="gco master && git branch -r --merged | grep origin | grep -v '>' | grep -v master | xargs -L1 | awk '{split($0,a,"/"); print a[2]}'"
 alias grh='git reset HEAD --hard'
 alias j='jrnl'
+alias t='task'
 alias hist="history | cut -c 8-"
 alias myip="curl icanhazip.com"
 alias myips="ifconfig | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p'"
@@ -98,6 +100,7 @@ alias f1="awk '{print \$1}'"
 alias f2="awk '{print \$2}'"
 alias ts="tmux list-ssesions"
 alias emacs="/usr/local/bin/emacs"
+alias timestamp=$(date +%s)
 
 _include ~/.work_aliases.sh
 

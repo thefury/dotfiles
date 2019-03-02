@@ -29,9 +29,9 @@ call plug#end()
 
 " visual style
 syntax on
-set background=dark
-let g:solarized_termcolors=256
-colorscheme solarized
+"set background=light
+"let g:solarized_termcolors=256
+"colorscheme solarized
 filetype plugin indent on
 
 " remove trailing whitespace on save for ruby files
