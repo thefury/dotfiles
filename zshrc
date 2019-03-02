@@ -103,14 +103,8 @@ alias emacs="/usr/local/bin/emacs"
 alias timestamp=$(date +%s)
 alias stripcolors="sed $'s,\x1b\\[[0-9;]*[a-zA-Z],,g'"
 alias tmux="tmux -2"
-alias did="vim +'r!date' ~/Dropbox/kcshare/did.txt"
 
 _include ~/.work_aliases.sh
-
-inbox() {
-  echo $@ >> ~/Dropbox/kcshare/wiki/index.wiki
-}
-alias ib="inbox"
 
 # pecohist show your command history and let you grep them, then copy your selection to your clipboard
 func pecohist() {
@@ -208,7 +202,7 @@ waiting() {
 
 note() {
   local id="$1"
-  local dir="$HOME/Dropbox/kcshare/workflow/projects"
+  local dir="$HOME/Nextcloud/workflow/projects"
   local file="$dir/$id.md"
 
   mkdir -p $dir
