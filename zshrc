@@ -75,93 +75,9 @@ export PATH=$PATH:$GOROOT/bin
 #_prepend_to_path $HOME/.rbenv/bin
 eval "$(rbenv init -)"
 
-# Aliases
-alias dce='docker-compose exec'
-alias reload='source ~/.zshrc'
-alias ll='ls -la'
-alias gc='git commit'
-alias ga='git add'
-alias gco='git checkout'
-alias gb='git branch'
-alias gst='git status'
-alias gup='git pull --rebase'
-alias gpoh='git push origin HEAD'
-alias gprune='gco master && git branch --merged | grep -v "\\*\\|master\\|develop" | xargs -n 1 git branch -d'
-alias gclean="gco master && git branch -r --merged | grep origin | grep -v '>' | grep -v master | xargs -L1 | awk '{split($0,a,"/"); print a[2]}'"
-alias grh='git reset HEAD --hard'
-alias j='jrnl'
-alias t='task'
-alias hist="history | cut -c 8-"
-alias myip="curl icanhazip.com"
-alias myips="ifconfig | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p'"
-alias wgetdir='wget -r -l1 -P035 -nd --no-parent'
-alias mirror="wget --mirror --convert-links --adjust-extension --page-requisites --no-parent"
-alias f1="awk '{print \$1}'"
-alias f2="awk '{print \$2}'"
-alias ts="tmux list-ssesions"
-alias emacs="/usr/local/bin/emacs"
-alias timestamp=$(date +%s)
-alias stripcolors="sed $'s,\x1b\\[[0-9;]*[a-zA-Z],,g'"
-alias tmux="tmux -2"
-
+_include ~/.bash_aliases 
 _include ~/.work_aliases.sh
 
-# pecohist show your command history and let you grep them, then copy your selection to your clipboard
-func pecohist() {
-  cmd=$(hist | peco | tr -d '\n')
-  $(echo $cmd | pbcopy)
-  echo $cmd
-}
-# Quick commands to sync CWD between terminals.
-pin() {
-  rm -f ~/.pindir
-  echo $PWD >~/.pindir
-  chmod 0600 ~/.pindir >/dev/null 2>&1
-}
-
-pout() {
-  cd `cat ~/.pindir`
-}
-
-# WIP in git
-wip() {
-  git add .
-  git commit -m "wip: $1"
-}
-
-# Make a new command.
-vix() {
-  if [ -z "$1" ]; then
-    echo "usage: $0 <newfilename>"
-    return 1
-  fi
-  touch $1
-  chmod -v 0755 $1
-  $EDITOR $1
-}
-
-# Make a new command in ~/bin
-makecommand() {
-  if [ -z "$1" ]; then
-    echo "Gotta specify a command name, champ" >&2
-    return 1
-  fi
-
-  mkdir -p ~/bin
-  local cmd=~/bin/$1
-  if [ -e $cmd ]; then
-    echo "Command $1 already exists" >&2
-  else
-    echo "#!${2:-/bin/sh}" >$cmd
-  fi
-
-  vix $cmd
-}
-
-delmerged () {  
-  git checkout master
-  git branch --merged | grep -v '* ' | xargs git branch -D 
-}
 
 build-ssh-config () {
   echo "building .ssh/config"
@@ -178,35 +94,6 @@ build-ssh-config () {
 
 randpass () {
   openssl rand -base64 32 | tr -d '\n' | sed 's/=//g' 
-}
-
-projects() {
-  local proj=$(~/bin/projects_without_next_action.py)
-  if [ "$proj" != "" ]
-  then
-    echo "Attention: The following projects don't currently have a next action:\n"
-    echo $proj
-    echo
-  fi
-}
-
-waiting() {
-  local waiting_cnt=$(task +waiting +PENDING count)
-
-  if [ "$waiting_cnt" != 0 ]
-  then
-    echo "Any progress on these waiting for items?"
-    task +waiting +PENDING ls
-  fi
-}
-
-note() {
-  local id="$1"
-  local dir="$HOME/Nextcloud/workflow/projects"
-  local file="$dir/$id.md"
-
-  mkdir -p $dir
-  $EDITOR $file
 }
 
 source /usr/local/share/zsh/site-functions/_aws
