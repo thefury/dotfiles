@@ -208,7 +208,7 @@ waiting() {
 
 note() {
   local id="$1"
-  local dir="$HOME/Dropbox/workflow/projects"
+  local dir="$HOME/Dropbox/kcshare/workflow/projects"
   local file="$dir/$id.md"
 
   mkdir -p $dir
