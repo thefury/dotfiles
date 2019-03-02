@@ -25,13 +25,12 @@ Plug 'chase/vim-ansible-yaml'
 Plug 'stephpy/vim-yaml'
 Plug 'tpope/vim-markdown'
 Plug 'vimwiki/vimwiki'
+Plug 'mattn/calendar-vim'
+Plug 'tpope/vim-surround'
 call plug#end()
 
 " visual style
 syntax on
-"set background=light
-"let g:solarized_termcolors=256
-"colorscheme solarized
 filetype plugin indent on
 
 " remove trailing whitespace on save for ruby files
@@ -39,7 +38,12 @@ autocmd BufWritePre *.rb :%s/\s\+$//e
 
 " I prefer this list style
 let g:netrw_liststyle=3
-let g:vimwiki_list = [{'path': '$HOME/Dropbox/Kinetic Share/wiki'}]
+
+" VimWiki
+let wiki_kc = {}
+let wiki_kc.path = '~/Dropbox/kcshare/wiki/'
+let wiki_kc.path_html = '~/Dropbox/kcshare/wiki_html'
+let g:vimwiki_list = [wiki_kc]
 
 " delete key not working on mac
 set backspace=indent,eol,start

@@ -19,3 +19,5 @@ export PATH=$PATH:$GOPATH/bin
 export PATH=$PATH:$GOROOT/bin
 
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
+
+complete -C aws_completer aws
