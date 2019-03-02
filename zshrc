@@ -186,4 +186,33 @@ randpass () {
   openssl rand -base64 32 | tr -d '\n' | sed 's/=//g' 
 }
 
+projects() {
+  local proj=$(~/bin/projects_without_next_action.py)
+  if [ "$proj" != "" ]
+  then
+    echo "Attention: The following projects don't currently have a next action:\n"
+    echo $proj
+    echo
+  fi
+}
+
+waiting() {
+  local waiting_cnt=$(task +waiting +PENDING count)
+
+  if [ "$waiting_cnt" != 0 ]
+  then
+    echo "Any progress on these waiting for items?"
+    task +waiting +PENDING ls
+  fi
+}
+
+note() {
+  local id="$1"
+  local dir="$HOME/Dropbox/workflow/projects"
+  local file="$dir/$id.md"
+
+  mkdir -p $dir
+  $EDITOR $file
+}
+
 source /usr/local/share/zsh/site-functions/_aws
