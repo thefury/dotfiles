@@ -8,6 +8,3 @@ do
   rm -r ~/.$f
   ln -s ~/dotfiles/$f ~/.$f
 done
-
-source ~/.zshrc
-

@@ -14,6 +14,9 @@ alias gpoh='git push origin HEAD'
 alias gprune='gco master && git branch --merged | grep -v "\\*\\|master\\|develop" | xargs -n 1 git branch -d'
 alias gclean="gco master && git branch -r --merged | grep origin | grep -v '>' | grep -v master | xargs -L1 | awk '{split($0,a,"/"); print a[2]}'"
 alias grh='git reset HEAD --hard'
+alias j='jrnl'
+alias t='task'
+alias tt='task +TODAY'
 alias hist="history | cut -c 8-"
 alias myip="curl icanhazip.com"
 alias myips="ifconfig | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p'"
@@ -81,6 +84,22 @@ waiting() {
     echo "Any progress on these waiting for items?"
     task +waiting +PENDING ls
   fi
+}
+
+today() {
+  projects
+  waiting
+  task +TODAY
+}
+
+review() {
+  echo "Daily Review"
+  echo "======================="
+  task end.after:today completed
+  echo
+  echo "Journal"
+  echo "======================="
+  jrnl -from today 
 }
 
 note() {
