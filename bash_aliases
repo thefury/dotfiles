@@ -87,9 +87,11 @@ waiting() {
 }
 
 today() {
+  echo "Prepare for the day"
+  echo "======================="
   projects
   waiting
-  task +TODAY
+  task next +next
 }
 
 review() {
