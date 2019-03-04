@@ -60,7 +60,7 @@ delmerged () {
 #=============================================
 # Workflow Functions
 #=============================================
-WORKFLOW_DIR="$HOME/Nextcloud/wprkflow"
+WORKFLOW_DIR="$HOME/Nextcloud/workflow"
 projects() {
   local proj=$(~/bin/projects_without_next_action.py)
   if [ "$proj" != "" ]
