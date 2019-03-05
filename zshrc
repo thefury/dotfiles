@@ -69,8 +69,7 @@ export JAVA_HOME="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Ho
 export GOPATH=$HOME/golang
 export GOROOT=/usr/local/opt/go/libexec
 export GOBIN=$GOPATH/bin
-export PATH=$PATH:$GOPATH
-export PATH=$PATH:$GOROOT/bin
+export PATH=$PATH:$GOPATH:$GOBIN:$GOROOT/bin
 
 #_prepend_to_path $HOME/.rbenv/bin
 eval "$(rbenv init -)"
