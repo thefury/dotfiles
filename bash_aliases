@@ -14,8 +14,6 @@ alias gpoh='git push origin HEAD'
 alias gprune='gco master && git branch --merged | grep -v "\\*\\|master\\|develop" | xargs -n 1 git branch -d'
 alias gclean="gco master && git branch -r --merged | grep origin | grep -v '>' | grep -v master | xargs -L1 | awk '{split($0,a,"/"); print a[2]}'"
 alias grh='git reset HEAD --hard'
-alias j='jrnl'
-alias t='task'
 alias hist="history | cut -c 8-"
 alias myip="curl icanhazip.com"
 alias myips="ifconfig | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p'"
@@ -28,6 +26,9 @@ alias emacs="/usr/local/bin/emacs"
 alias timestamp=$(date +%s)
 alias stripcolors="sed $'s,\x1b\\[[0-9;]*[a-zA-Z],,g'"
 alias tmux="tmux -2"
+alias j='jrnl'
+alias t='task'
+alias tv="terminal_velocity $HOME/Nextcloud/workflow/notes"
 
 #=============================================
 # Movement Functions
@@ -62,7 +63,8 @@ delmerged () {
 #=============================================
 WORKFLOW_DIR="$HOME/Nextcloud/workflow"
 projects() {
-  local proj=$(~/bin/projects_without_next_action.py)
+  local proj=$(python3 ~/bin/projects_without_next_action.py)
+
   if [ "$proj" != "" ]
   then
     echo "Attention: The following projects don't currently have a next action:\n"
