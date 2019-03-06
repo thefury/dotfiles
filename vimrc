@@ -41,8 +41,8 @@ let g:netrw_liststyle=3
 
 " VimWiki
 let wiki_kc = {}
-let wiki_kc.path = '~/Dropbox/kcshare/wiki/'
-let wiki_kc.path_html = '~/Dropbox/kcshare/wiki_html'
+let wiki_kc.path = '~/Nextcloud/workflow/wiki/'
+let wiki_kc.path_html = '~/Nextcloud/workflow/wiki_html'
 let g:vimwiki_list = [wiki_kc]
 
 " delete key not working on mac
