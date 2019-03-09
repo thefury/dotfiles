@@ -13,8 +13,9 @@
 # Files
 data.location=~/Nextcloud/workflow/.task
 
-urgency.user.tag.next.coefficient=10.0
-urgency.user.tag.mit.coefficient=12.0
+urgency.user.tag.today.coefficient=15.0
+urgency.user.tag.next.coefficient=4.0
+urgency.user.goal.next.coefficient=7.0
 urgency.active.coefficient=8.0
 urgency.tags.coefficient=
 urgency.project.coefficient=

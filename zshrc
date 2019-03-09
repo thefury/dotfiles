@@ -1,4 +1,5 @@
 # Path to your oh-my-zsh installation.
+echo "$(date) -- .zshrc executed" >> $HOME/.zshrc.log
 export ZSH=$HOME/.oh-my-zsh
 
 # Set name of the theme to load.
@@ -66,10 +67,19 @@ _prepend_to_path /Applications/Postgres.app/Contents/Versions/latest/bin
 export JAVA_HOME="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home"
 
 # Go
-export GOPATH=$HOME/golang
-export GOROOT=/usr/local/opt/go/libexec
-export GOBIN=$GOPATH/bin
-export PATH=$PATH:$GOPATH:$GOBIN:$GOROOT/bin
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  export GOPATH=$HOME/golang
+  export GOROOT=/usr/local/opt/go/libexec
+  export GOBIN=$GOPATH/bin
+  export PATH=$PATH:$GOPATH:$GOBIN:$GOROOT/bin
+elif [[ "$OSTYPE" == "linux-gnu" ]]; then
+  export GOPATH=$HOME/golang
+  export GOROOT=/usr/local/go
+  export GOBIN=$GOPATH/bin
+  export PATH=$PATH:$GOROOT/bin:$GOBIN
+fi
+
 
 _include ~/.bash_aliases 
 _include ~/.work_aliases.sh
