@@ -71,9 +71,6 @@ export GOROOT=/usr/local/opt/go/libexec
 export GOBIN=$GOPATH/bin
 export PATH=$PATH:$GOPATH:$GOBIN:$GOROOT/bin
 
-#_prepend_to_path $HOME/.rbenv/bin
-eval "$(rbenv init -)"
-
 _include ~/.bash_aliases 
 _include ~/.work_aliases.sh
 
@@ -94,5 +91,3 @@ build-ssh-config () {
 randpass () {
   openssl rand -base64 32 | tr -d '\n' | sed 's/=//g' 
 }
-
-source /usr/local/share/zsh/site-functions/_aws
