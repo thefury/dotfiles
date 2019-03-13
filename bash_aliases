@@ -104,12 +104,12 @@ review() {
   jrnl -from today 
 }
 
-note() {
-  local id="$1"
-  local dir="$WORKFLOW_DIR/projects"
-  local file="$dir/$id.md"
-
-  mkdir -p $dir
-  $EDITOR $file
+inbox() {
+  if  [ $# -eq 0 ]; then
+    t +inbox
+  else
+    t add +inbox "$@"
+  fi
 }
 
+alias i="inbox"
