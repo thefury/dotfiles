@@ -87,7 +87,7 @@ waiting() {
   fi
 }
 
-today() {
+startday() {
   echo "Prepare for the day"
   echo "======================="
   projects
@@ -105,6 +105,15 @@ review() {
   jrnl -from today 
 }
 
+today() {
+  if [ $# -eq 0 ]; then
+    task -waiting due.before:tomorrow
+  else
+    t add due:eod "$@"
+  fi
+}
+alias td="today"
+
 inbox() {
   if  [ $# -eq 0 ]; then
     t +inbox
@@ -114,3 +123,14 @@ inbox() {
 }
 
 alias i="inbox"
+
+update() {
+  cd $HOME/dotfiles
+
+  git stash
+  git pull --rebase
+  git stash pop
+
+  $HOME/dotfiles/install.sh
+  source $HOME/.zshrc
+}
