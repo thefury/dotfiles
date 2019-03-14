@@ -17,6 +17,7 @@ alias grh='git reset HEAD --hard'
 alias j='jrnl'
 alias t='task'
 alias tt='task -waiting due.before:tomorrow'
+alias tom='task -waiting due.before:2d'
 alias hist="history | cut -c 8-"
 alias myip="curl icanhazip.com"
 alias myips="ifconfig | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p'"
