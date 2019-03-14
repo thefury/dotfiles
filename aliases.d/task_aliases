@@ -47,7 +47,6 @@ today() {
     t add due:eod "$@"
   fi
 }
-alias td="today"
 
 inbox() {
   if  [ $# -eq 0 ]; then
@@ -59,5 +58,5 @@ inbox() {
 
 alias i="inbox"
 alias t='task'
-alias tt='task -waiting due.before:tomorrow'
+alias tt="today"
 alias tom='task -waiting due.before:2d'

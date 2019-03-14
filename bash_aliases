@@ -48,3 +48,13 @@ update() {
   $HOME/dotfiles/install.sh
   source $HOME/.zshrc
 }
+
+upgrade() {
+  brew update
+  brew upgrade
+  brew cleanup -s
+  brew cask cleanup
+  #now diagnotic
+  brew doctor
+  brew missing
+}
