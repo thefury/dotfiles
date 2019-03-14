@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+
+WORKFLOW_DIR="$HOME/Nextcloud/workflow"
+projects() {
+  local proj=$(python3 ~/bin/projects_without_next_action.py)
+
+  if [ "$proj" != "" ]
+  then
+    echo "Attention: The following projects don't currently have a next action:\n"
+    echo $proj
+    echo
+  fi
+}
+
+waiting() {
+  local waiting_cnt=$(task +waiting +PENDING count)
+
+  if [ "$waiting_cnt" != 0 ]
+  then
+    echo "Any progress on these waiting for items?"
+    task +waiting +PENDING ls
+  fi
+}
+
+startday() {
+  echo "Prepare for the day"
+  echo "======================="
+  projects
+  waiting
+  task next +next
+}
+
+review() {
+  echo "Daily Review"
+  echo "======================="
+  task end.after:today completed
+  echo
+  echo "Journal"
+  echo "======================="
+  jrnl -from today 
+}
+
+today() {
+  if [ $# -eq 0 ]; then
+    task -waiting due.before:tomorrow
+  else
+    t add due:eod "$@"
+  fi
+}
+alias td="today"
+
+inbox() {
+  if  [ $# -eq 0 ]; then
+    t +inbox
+  else
+    t add +inbox "$@"
+  fi
+}
+
+alias i="inbox"
+alias t='task'
+alias tt='task -waiting due.before:tomorrow'
+alias tom='task -waiting due.before:2d'

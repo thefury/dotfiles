@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+wip() {
+  git add .
+  git commit -m "wip: $1"
+}
+
+delmerged () {  
+  git checkout master
+  git branch --merged | grep -v '* ' | xargs git branch -D 
+}
+
+alias gc='git commit'
+alias ga='git add'
+alias gco='git checkout'
+alias gb='git branch'
+alias gst='git status'
+alias gup='git pull --rebase'
+alias gpoh='git push origin HEAD'
+alias gprune='gco master && git branch --merged | grep -v "\\*\\|master\\|develop" | xargs -n 1 git branch -d'
+alias gclean="gco master && git branch -r --merged | grep origin | grep -v '>' | grep -v master | xargs -L1 | awk '{split($0,a,"/"); print a[2]}'"
+alias grh='git reset HEAD --hard'
+
+
+
