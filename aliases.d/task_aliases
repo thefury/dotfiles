@@ -60,3 +60,4 @@ alias i="inbox"
 alias t='task'
 alias tt="today"
 alias tom='task -waiting due.before:2d'
+alias tw='task -waiting due.before:tomorrow -home'
