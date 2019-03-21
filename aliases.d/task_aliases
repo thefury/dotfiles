@@ -44,15 +44,15 @@ today() {
   if [ $# -eq 0 ]; then
     task -waiting due.before:tomorrow
   else
-    t add due:eod "$@"
+    task add due:eod "$@"
   fi
 }
 
 inbox() {
   if  [ $# -eq 0 ]; then
-    t +inbox
+    task +inbox
   else
-    t add +inbox "$@"
+    task add +inbox "$@"
   fi
 }
 
