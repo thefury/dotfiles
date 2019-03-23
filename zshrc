@@ -118,4 +118,3 @@ randpass () {
   openssl rand -base64 32 | tr -d '\n' | sed 's/=//g' 
 }
 
-source /usr/local/share/zsh/site-functions/_aws
