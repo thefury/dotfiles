@@ -39,7 +39,7 @@ pout() {
 
 
 update() {
-  cd $HOME/dotfiles
+  pushd $HOME/dotfiles
 
   git stash
   git pull --rebase
@@ -47,6 +47,8 @@ update() {
 
   $HOME/dotfiles/install.sh
   source $HOME/.zshrc
+
+  popd
 }
 
 upgrade() {
