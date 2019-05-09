@@ -22,6 +22,7 @@ alias stripcolors="sed $'s,\x1b\\[[0-9;]*[a-zA-Z],,g'"
 alias tmux="tmux -2"
 alias j='jrnl'
 alias t='task'
+alias org="emacs ~/Nextcloud/workflow/notes/index.org"
 
 #=============================================
 # Movement Functions

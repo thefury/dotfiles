@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for f in bash_profile bashrc bash_aliases vimrc vim zshrc tmux.conf taskrc jrnl_config aliases.d spacemacs
+for f in bash_profile bashrc bash_aliases vimrc vim zshrc tmux.conf taskrc jrnl_config aliases.d spacemacs emacs.d
 do
   echo "processing $f"
   rm -r ~/.$f

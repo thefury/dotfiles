@@ -1,0 +1,1 @@
+("~/dev/KCS/bigquery-export/" "~/dotfiles/")
