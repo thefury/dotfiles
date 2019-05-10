@@ -3,8 +3,8 @@
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
 (("org-capture-last-stored"
- (filename . "~/Nextcloud/workflow/notes/gtd.org")
- (front-context-string . "** This is a tas")
- (rear-context-string . "5-08 Wed 15:49]\n")
- (position . 1628))
+ (filename . "~/Nextcloud/workflow/notes/journal.org")
+ (front-context-string . "**** Many new it")
+ (rear-context-string . "org-mode file \n\n")
+ (position . 119))
 )

@@ -1,8 +1,8 @@
-(use-package projectile :ensure t
-  :diminish ""
+(use-package projectile
+  :ensure t
+  :init
+  (setq projectile-require-project-root nil)
   :config
-  (setq projectile-completion-system 'helm)
-  (projectile-mode))
-  ;;(require 'defuns-projects))
+  (projectile-mode 1))
 
 (provide 'setup-projects)
