@@ -28,10 +28,5 @@
 (require 'setup-org)
 
 
-(defun gtd ()
-  (interactive)
-  (find-file org-default-gtd-file))
-
-
 
 
