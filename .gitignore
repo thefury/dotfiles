@@ -1,3 +1,6 @@
 *.swp
 *.elc
 vim/plugged/*
+ido.last
+auto-save-list/
+bookmarks

@@ -4,6 +4,7 @@
 
 (setq org-root-path "~/Nextcloud/workflow/org")
 (setq org-refile-file "~/Nextcloud/workflow/org/refile.org")
+(setq org-journal-file "~/Nextcloud/workflow/org/journal.org")
 
 (setq org-enforce-todo-dependencies t ; can't close without subtasks being done
       org-use-fast-todo-selection t)
@@ -395,9 +396,9 @@ Skip project and sub-project tasks, habits, and loose non-project tasks."
 	("n" "Note" entry (file org-refile-file)
 	 "* %? :NOTE:")
 	("m" "Meeting" (file org-refile-file)
-	 "* MEETING with %? :MEETING: \n")
-	("j" "Journal Entry" entry (file+datetree+prompt (fury/org-file "journal.org")
-	 "* %?" :empty-lines 1))))
+	 "* MEETING with %? :MEETING:")
+	("j" "Journal Entry" entry (file+datetree+prompt org-journal-file)
+	 "* %?" :empty-lines 1)))
 
 
 ;; Refiling

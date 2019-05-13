@@ -4,9 +4,9 @@
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
 (("org-refile-last-stored"
  (filename . "~/Nextcloud/workflow/org/kinetic.org")
- (front-context-string . "** NEXT Respond ")
- (rear-context-string . "g things today \n")
- (position . 142))
+ (front-context-string . "** lots of time ")
+ (rear-context-string . "         :NOTE:\n")
+ (position . 2270))
 ("org-capture-last-stored"
  (filename . "~/Nextcloud/workflow/org/refile.org")
  (front-context-string . "* lots of time s")
