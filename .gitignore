@@ -3,4 +3,6 @@
 vim/plugged/*
 ido.last
 auto-save-list/
-bookmarks
+emacs.d/bookmarks
+emacs.d/history
+emacs.d/recentf
