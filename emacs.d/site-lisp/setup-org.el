@@ -1,4 +1,5 @@
 (require 'org)
+(require 'org-agenda)
 
 (add-to-list 'org-modules 'org-habit)
 
@@ -31,10 +32,6 @@
 (setq org-agenda-files
       (list org-root-path))
 
-(setq org-agenda-custom-commands
-      '(("w" todo "WAITING" nil) 
-	("n" todo "NEXT" nil)
-	("d" "Agenda + Next Actions" ((agenda) (todo "NEXT")))))
 ;; Do not dim blocked tasks
 (setq org-agenda-dim-blocked-tasks nil)
 
@@ -43,10 +40,32 @@
 
 ;; Custom agenda command definitions
 (defvar  bh/hide-scheduled-and-waiting-next-tasks t)
-
 ;; start
 (setq org-stuck-projects '("" nil nil ""))
 
+;; Sacha
+(defun my/org-agenda-done (&optional arg)
+  "Mark current TODO as done.
+This changes the line at point, all other lines in the agenda referring to
+the same tree node, and the headline of the tree node in the Org-mode file."
+  (interactive "P")
+  (org-agenda-todo "DONE"))
+;; Override the key definition for org-exit
+(define-key org-agenda-mode-map "x" 'my/org-agenda-done)
+
+  (defun my/org-agenda-mark-done-and-add-followup ()
+    "Mark the current TODO as done and add another task after it.
+Creates it at the same level as the previous task, so it's better to use
+this with to-do items than with projects or headings."
+    (interactive)
+    (org-agenda-todo "DONE")
+    (org-agenda-switch-to)
+    (org-capture 0 "t"))
+
+;; Override the key definition
+(define-key org-agenda-mode-map "X" 'my/org-agenda-mark-done-and-add-followup)
+
+;; end Sacha
 (defun bh/is-project-p ()
   "Any task with a todo keyword subtask"
   (save-restriction
@@ -314,10 +333,19 @@ Skip project and sub-project tasks, habits, and loose non-project tasks."
       (goto-char parent-task)
       parent-task)))
 
+;;(setq org-agenda-custom-commands
+ ;;     '(("w" todo "WAITING" nil) 
+;;	("n" todo "NEXT" nil);
+;;	("d" "Agenda + Next Actions" ((agenda) (todo "NEXT")))))
 (setq org-agenda-custom-commands
       (quote (("N" "Notes" tags "NOTE"
                ((org-agenda-overriding-header "Notes")
                 (org-tags-match-list-sublevels t)))
+	      ("Q" "Questions" tags "QUESTION"
+	       ((org-agenda-overriding-header "Questions")
+		(org-tags-match-list-sublevels t )))
+	      ("d" "Daily" ((agenda)(todo "NEXT")))
+	      ("w" "Waiting" ((todo "WAITING")))
               ("h" "Habits" tags-todo "STYLE=\"habit\""
                ((org-agenda-overriding-header "Habits")
                 (org-agenda-sorting-strategy
@@ -393,8 +421,12 @@ Skip project and sub-project tasks, habits, and loose non-project tasks."
 	 "* TODO %?")
 	("r" "Respond" entry (file org-refile-file)
 	 "* NEXT Respond to %:from on %:subject")
+	("i" "Interuption" entry (file org-refile-file)
+	 "* NEXT %?" :clock-in :clock-resume)
 	("n" "Note" entry (file org-refile-file)
 	 "* %? :NOTE:")
+	("q" "Question" entry (file org-refile-file)
+	 "* %? :QUESTION:")
 	("m" "Meeting" (file org-refile-file)
 	 "* MEETING with %? :MEETING:")
 	("j" "Journal Entry" entry (file+datetree+prompt org-journal-file)
@@ -433,6 +465,7 @@ Skip project and sub-project tasks, habits, and loose non-project tasks."
 (define-key global-map "\C-ca" 'org-agenda)
 (define-key global-map "\C-cc" 'org-capture)
 
+
 ;; Org defuns
 (defun fury/gtd ()
   (interactive)
@@ -440,7 +473,7 @@ Skip project and sub-project tasks, habits, and loose non-project tasks."
 
 (defun fury/journal ()
   (interactive)
-  (find-file (fury/org-file "refile.org")))
+  (find-file (fury/org-file "journal.org")))
 
 (provide 'setup-org)
 

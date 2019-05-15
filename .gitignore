@@ -1,7 +1,8 @@
 *.swp
 *.elc
+*~
 vim/plugged/*
-ido.last
+emacs.d/ido.last
 auto-save-list/
 emacs.d/bookmarks
 emacs.d/history
