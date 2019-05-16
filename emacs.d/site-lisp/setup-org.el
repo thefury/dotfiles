@@ -43,6 +43,8 @@
 (defvar  bh/hide-scheduled-and-waiting-next-tasks t)
 
 ;; stuck projects
+
+(setq org-agenda-todo-list-sublevels nil)
 (setq org-tags-exclude-from-inheritance '("PROJECT")
       org-stuck-projects '("+PROJECT/-SOMEDAY-DONE"
 			   ("TODO") ()))
@@ -71,10 +73,11 @@ this with to-do items than with projects or headings."
 
 
 
-
+(defun fury/org-skip-scheduled-tasks ()
+  (org-agenda-skip-entry-if 'notscheduled 'regexp ":PROJECT:"))
+  
 (defun fury/org-skip-unscheduled-tasks ()
-  (org-agenda-skip-entry-if
-   (quote scheduled)))
+  (org-agenda-skip-entry-if 'scheduled 'regexp ":PROJECT:"))
 
 (setq org-agenda-custom-commands
       (quote (("N" "Notes" tags "NOTE"
@@ -83,10 +86,20 @@ this with to-do items than with projects or headings."
 	      ("Q" "Questions" tags "QUESTION"
 	       ((org-agenda-overriding-header "Questions")
 		(org-tags-match-list-sublevels t )))
+	      ("d" "Daily Tasks"
+	       ((agenda ""
+			((org-agenda-overriding-header "Kinetic Tasks")))
+		(tags "PROJECT"
+		      ((org-agenda-overriding-header "Current Projects:")
+		       (org-tags-match-list-sublevels nil)))))
 	      ("k" "Kinetic"
 	       ((agenda ""
 			((org-agenda-overriding-header "Kinetic Tasks")
-			 (org-agenda-files fury/org-kinetic-files)))))
+			 (org-agenda-files fury/org-kinetic-files)))
+		(tags "PROJECT"
+		      ((org-agenda-overriding-header "Current Projects:")
+		       (org-agenda-files fury/org-kinetic-files)
+		       (org-tags-match-list-sublevels nil)))))
 	      ("w" "Waiting" ((todo "WAITING")))
 	      ("u" "Unscheduled Tasks"
 	       ((todo "TODO"
@@ -99,9 +112,12 @@ this with to-do items than with projects or headings."
                        (org-tags-match-list-sublevels nil)))
 		(tags "PROJECT"
 		      ((org-agenda-overriding-header "Current Projects:")
-		       (org-agenda-skip-function 'fury/org-skip-unscheduled-tasks)
 		       (org-tags-match-list-sublevels nil)))
 		(org-agenda-list-stuck-projects)
+		(todo "TODO"
+		      ((org-agenda-overriding-header "Scheduled Tasks:")
+		       (org-agenda-skip-function 'fury/org-skip-scheduled-tasks)
+		       (org-tags-match-list-sublevels nil)))
 		(todo "TODO"
 		      ((org-agenda-overriding-header "Unscheduled Tasks:")
 		       (org-agenda-skip-function 'fury/org-skip-unscheduled-tasks)
@@ -119,10 +135,12 @@ this with to-do items than with projects or headings."
 (setq org-capture-templates
       '(("t" "Todo" entry (file org-refile-file)
 	 "* TODO %?")
+	("p" "Project" entry (file org-refile-file)
+	 "* %? :PROJECT:")
 	("r" "Respond" entry (file org-refile-file)
 	 "* TODO Respond to %:from on %:subject")
 	("i" "Interuption" entry (file org-refile-file)
-	 "* DONE %?\nSCHEDULED: <%(org-read-date nil nil nil)>" :clock-in :clock-resume)
+	 "* DONE %? :INTERUPTION:\nSCHEDULED: <%(org-read-date nil nil nil)>" :clock-in :clock-resume)
 	("n" "Note" entry (file org-refile-file)
 	 "* %? :NOTE:")
 	("Q" "Question" entry (file org-refile-file)

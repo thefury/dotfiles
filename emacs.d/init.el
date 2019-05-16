@@ -19,6 +19,7 @@
 
 ;; Core Setup
 (require 'setup-core)
+(require 'setup-elisp)
 (require 'setup-appearance)
 
 
