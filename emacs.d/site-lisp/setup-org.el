@@ -42,8 +42,10 @@
 ;; Custom agenda command definitions
 (defvar  bh/hide-scheduled-and-waiting-next-tasks t)
 
-;; stuck projects 
-;;(setq org-stuck-projects '("" ("TODO") nil ""))
+;; stuck projects
+(setq org-tags-exclude-from-inheritance '("PROJECT")
+      org-stuck-projects '("+PROJECT/-SOMEDAY-DONE"
+			   ("TODO") ()))
 
 ;; These two funtions scooped from Sacha
 (defun fury/gcorg-agenda-done (&optional arg)
@@ -68,6 +70,8 @@ this with to-do items than with projects or headings."
 (define-key org-agenda-mode-map "X" 'fury/gcorg-agenda-mark-done-and-add-followup)
 
 
+
+
 (defun fury/org-skip-unscheduled-tasks ()
   (org-agenda-skip-entry-if
    (quote scheduled)))
@@ -83,28 +87,31 @@ this with to-do items than with projects or headings."
 	       ((agenda ""
 			((org-agenda-overriding-header "Kinetic Tasks")
 			 (org-agenda-files fury/org-kinetic-files)))))
-	      ("w" "Waiting" (todo "WAITING"))
+	      ("w" "Waiting" ((todo "WAITING")))
 	      ("u" "Unscheduled Tasks"
 	       ((todo "TODO"
-		      ((org-agenda-overriding-header "Unscheduled Tasks")
+		      ((org-agenda-overriding-header "Unscheduled Tasks:")
 		       (org-agenda-skip-function 'fury/org-skip-unscheduled-tasks)))))
               (" " "Review"
 	       ((tags "REFILE"
-                      ((org-agenda-overriding-header "Tasks to Refile")
+                      ((org-agenda-overriding-header "Tasks to Refile:")
                        (org-tags-match-list-sublevels nil)))
+		(tags "PROJECT"
+		      ((org-agenda-overriding-header "Current Projects:")
+		       (org-agenda-skip-function 'fury/org-skip-unscheduled-tasks)
+		       (org-tags-match-list-sublevels nil)))
+		(org-agenda-list-stuck-projects)
 		(todo "TODO"
-		      ((org-agenda-overriding-header "Unscheduled Tasks")
+		      ((org-agenda-overriding-header "Unscheduled Tasks:")
 		       (org-agenda-skip-function 'fury/org-skip-unscheduled-tasks)
 		       (org-tags-match-list-sublevels nil)))
 		(todo "WAITING|HOLD"
-		      ((org-agenda-overriding-header "Waiting and Postponed Tasks")
+		      ((org-agenda-overriding-header "Waiting and Postponed Tasks:")
 		       (org-tags-match-list-sublevels nil)))
 		(todo "SOMEDAY"
-		      ((org-agenda-overriding-header "Someday/Maybe Tasks")
+		      ((org-agenda-overriding-header "Someday/Maybe Tasks:")
 		       (org-tags-match-list-sublevels nil)))
-		;; Someday/Maybe Projects
 		;; tasks to Archive
-		;; Stuck Projects
 		)))))
 
 ;; Org capture
