@@ -91,6 +91,7 @@ this with to-do items than with projects or headings."
 	      ("u" "Unscheduled Tasks"
 	       ((todo "TODO"
 		      ((org-agenda-overriding-header "Unscheduled Tasks:")
+		       (org-agenda-todo-list-sublevels nil)
 		       (org-agenda-skip-function 'fury/org-skip-unscheduled-tasks)))))
               (" " "Review"
 	       ((tags "REFILE"
