@@ -13,8 +13,8 @@
  (rear-context-string . "2019-05-16 Thu>\n")
  (position . 5086))
 ("org-capture-last-stored"
- (filename . "~/Nextcloud/workflow/org/refile.org")
- (front-context-string . "* NEXT Check to ")
- (rear-context-string . "ILETAGS: REFILE\n")
- (position . 20))
+ (filename . "~/Nextcloud/workflow/org/journal.org")
+ (front-context-string . "**** Customized ")
+ (rear-context-string . "05-16 Thursday\n\n")
+ (position . 1915))
 )
