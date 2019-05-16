@@ -2,14 +2,19 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("org-refile-last-stored"
+(("org-capture-last-stored-marker"
  (filename . "~/Nextcloud/workflow/org/kinetic.org")
- (front-context-string . "** TODO Schedule")
- (rear-context-string . "g KFC log issue\n")
- (position . 2926))
+ (front-context-string . "** TODO Check on")
+ (rear-context-string . "2019-05-16 Thu>\n")
+ (position . 5086))
+("org-refile-last-stored"
+ (filename . "~/Nextcloud/workflow/org/kinetic.org")
+ (front-context-string . "** TODO Check on")
+ (rear-context-string . "2019-05-16 Thu>\n")
+ (position . 5086))
 ("org-capture-last-stored"
  (filename . "~/Nextcloud/workflow/org/refile.org")
- (front-context-string . "* TODO I need a ")
- (rear-context-string . "nance at mom's \n")
- (position . 208))
+ (front-context-string . "* NEXT Check to ")
+ (rear-context-string . "ILETAGS: REFILE\n")
+ (position . 20))
 )
