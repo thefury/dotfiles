@@ -11,11 +11,12 @@
       org-use-fast-todo-selection t)
 
 (setq org-todo-keywords
-      '((sequence "TODO(t)" "|" "DONE(d)")
+      '((sequence "TODO(t)" "STARTED(s)" "|" "DONE(d)")
 	(sequence "WAITING(w@/!)" "SOMEDAY(h)" "|" "CANCELLED(c@/!)" "MEETING")))
 
 (setq org-todo-keyword-faces
       '(("TODO" :foreground "red" :weight bold)
+	("STARTED" :foreground "forest green" :weight bold)
 	("DONE" :foreground "forest green" :weight bold)
 	("WAITING" :foreground "orange" :weight bold)
 	("SOMEDAY" :foreground "magenta" :weight bold)
@@ -127,6 +128,9 @@ this with to-do items than with projects or headings."
 		       (org-tags-match-list-sublevels nil)))
 		(todo "SOMEDAY"
 		      ((org-agenda-overriding-header "Someday/Maybe Tasks:")
+		       (org-tags-match-list-sublevels nil)))
+		(todo "DONE"
+		      ((org-agenda-overriding-header "Possibly Archive:")
 		       (org-tags-match-list-sublevels nil)))
 		;; tasks to Archive
 		)))))
