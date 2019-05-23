@@ -27,6 +27,9 @@
 (require 'setup-evil)
 (require 'setup-projects)
 (require 'setup-org)
+(require 'setup-terraform)
+(require 'setup-golang)
+(require 'setup-ruby)
 
 
 

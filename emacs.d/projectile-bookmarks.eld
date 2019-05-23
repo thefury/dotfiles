@@ -1,1 +1,1 @@
-("~/dotfiles/")
+("~/dotfiles/" "~/dev/KCS/kcs-infrastructure/")
