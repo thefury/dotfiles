@@ -112,7 +112,7 @@ this with to-do items than with projects or headings."
                       ((org-agenda-overriding-header "Tasks to Refile:")
                        (org-tags-match-list-sublevels nil)))
 		(tags "PROJECT"
-		      ((org-agenda-overriding-header "Current Projects:")
+		      ((org-agenda-overriding-header "Current Projects (including stuck):")
 		       (org-tags-match-list-sublevels nil)))
 		(org-agenda-list-stuck-projects)
 		(todo "TODO"

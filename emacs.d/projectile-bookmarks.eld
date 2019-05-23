@@ -1,1 +1,1 @@
-("~/dotfiles/" "~/dev/KCS/kcs-infrastructure/")
+("~/dotfiles/" "~/golang/src/bitbucket.org/halogenmobile/kiehls-contact-import/" "~/dev/KCS/kiehls-contact-import/" "~/dev/KCS/bigquery-export/" "~/dev/KCS/kcs-infrastructure/")
