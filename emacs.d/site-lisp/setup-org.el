@@ -6,6 +6,7 @@
 (setq org-root-path "~/Nextcloud/workflow/org")
 (setq org-refile-file "~/Nextcloud/workflow/org/refile.org")
 (setq org-journal-file "~/Nextcloud/workflow/org/journal.org")
+(setq org-review-template "~/Nextcloud/wprkflow/org/templates/weekly-review.txt")
 
 (setq org-enforce-todo-dependencies t ; can't close without subtasks being done
       org-use-fast-todo-selection t)
@@ -51,16 +52,16 @@
 			   ("TODO") ()))
 
 ;; These two funtions scooped from Sacha
-(defun fury/gcorg-agenda-done (&optional arg)
+(defun fury/org-agenda-done (&optional arg)
   "Mark current TODO as done.
 This changes the line at point, all other lines in the agenda referring to
 the same tree node, and the headline of the tree node in the Org-mode file."
   (interactive "P")
   (org-agenda-todo "DONE"))
 ;; Override the key definition for org-exit
-(define-key org-agenda-mode-map "x" 'fury/gcorg-agenda-done)
+(define-key org-agenda-mode-map "x" 'fury/org-agenda-done)
 
-  (defun fury/gcorg-agenda-mark-done-and-add-followup ()
+  (defun fury/org-agenda-mark-done-and-add-followup ()
     "Mark the current TODO as done and add another task after it.
 Creates it at the same level as the previous task, so it's better to use
 this with to-do items than with projects or headings."
@@ -70,7 +71,7 @@ this with to-do items than with projects or headings."
     (org-capture 0 "t"))
 
 ;; Override the key definition
-(define-key org-agenda-mode-map "X" 'fury/gcorg-agenda-mark-done-and-add-followup)
+(define-key org-agenda-mode-map "X" 'fury/org-agenda-mark-done-and-add-followup)
 
 
 
@@ -79,6 +80,18 @@ this with to-do items than with projects or headings."
   
 (defun fury/org-skip-unscheduled-tasks ()
   (org-agenda-skip-entry-if 'scheduled 'regexp ":PROJECT:"))
+
+(defun fury/org-skip-active-projects ()
+  "Skip project trees that are TODO or STARTED"
+  (org-agenda-skip-entry-if 'todo '("TODO" "STARTED" "DONE" "SOMEDAY")))
+
+(defun fury/org-skip-stuck-projects ()
+  "Skip project trees that are TODO or STARTED"
+  (org-agenda-skip-entry-if 'todo '("WAITING" "CANCELLED" "SOMEDAY" "DONE")))
+
+(defun fury/org-skip-incomplete-projects ()
+  "Skip project trees that are TODO or STARTED"
+  (org-agenda-skip-entry-if 'todo '("TODO" "STARTED" "WAITING" "SOMEDAY")))
 
 (setq org-agenda-custom-commands
       (quote (("N" "Notes" tags "NOTE"
@@ -92,6 +105,7 @@ this with to-do items than with projects or headings."
 			((org-agenda-overriding-header "Kinetic Tasks")))
 		(tags "PROJECT"
 		      ((org-agenda-overriding-header "Current Projects:")
+		       (org-agenda-skip-function 'fury/org-skip-stuck-projects)
 		       (org-tags-match-list-sublevels nil)))))
 	      ("k" "Kinetic"
 	       ((agenda ""
@@ -100,6 +114,7 @@ this with to-do items than with projects or headings."
 		(tags "PROJECT"
 		      ((org-agenda-overriding-header "Current Projects:")
 		       (org-agenda-files fury/org-kinetic-files)
+		       (org-agenda-skip-function 'fury/org-skip-stuck-projects)
 		       (org-tags-match-list-sublevels nil)))))
 	      ("w" "Waiting" ((todo "WAITING")))
 	      ("u" "Unscheduled Tasks"
@@ -112,9 +127,18 @@ this with to-do items than with projects or headings."
                       ((org-agenda-overriding-header "Tasks to Refile:")
                        (org-tags-match-list-sublevels nil)))
 		(tags "PROJECT"
-		      ((org-agenda-overriding-header "Current Projects (including stuck):")
+		      ((org-agenda-overriding-header "Current Projects:")
+		       (org-agenda-skip-function 'fury/org-skip-stuck-projects)
 		       (org-tags-match-list-sublevels nil)))
-		(org-agenda-list-stuck-projects)
+		(tags "PROJECT"
+		      ((org-agenda-overriding-header "Stuck Projects:")
+		       (org-agenda-todo-list-sublevels nil)
+		       (org-agenda-skip-function 'fury/org-skip-active-projects)))
+		(tags "PROJECT"
+		       ((org-agenda-overriding-header "Completed Projects:")
+			(org-agenda-skip-function 'fury/org-skip-incomplete-projects)
+			(org-agenda-todo-list-sublevels nil)))
+		;; (org-agenda-list-stuck-projects)
 		(todo "TODO"
 		      ((org-agenda-overriding-header "Scheduled Tasks:")
 		       (org-agenda-skip-function 'fury/org-skip-scheduled-tasks)
@@ -136,22 +160,31 @@ this with to-do items than with projects or headings."
 		)))))
 
 ;; Org capture
+
 (setq org-capture-templates
-      '(("t" "Todo" entry (file org-refile-file)
+      '(("t" "Todo" entry
+	 (file org-refile-file)
 	 "* TODO %?")
-	("p" "Project" entry (file org-refile-file)
+	("p" "Project" entry
+	 (file org-refile-file)
 	 "* %? :PROJECT:")
-	("r" "Respond" entry (file org-refile-file)
-	 "* TODO Respond to %:from on %:subject")
-	("i" "Interuption" entry (file org-refile-file)
+	("r" "Review" entry
+	 (file+datetree+prompt org-journal-file)
+	 (file "~/Nextcloud/workflow/org/templates/weekly-review.txt"))
+	("i" "Interuption" entry
+	 (file org-refile-file)
 	 "* DONE %? :INTERUPTION:\nSCHEDULED: <%(org-read-date nil nil nil)>" :clock-in :clock-resume)
-	("n" "Note" entry (file org-refile-file)
+	("n" "Note" entry
+	 (file org-refile-file)
 	 "* %? :NOTE:")
-	("Q" "Question" entry (file org-refile-file)
+	("Q" "Question" entry
+	 (file org-refile-file)
 	 "* %? :QUESTION:")
-	("m" "Meeting" (file org-refile-file)
+	("m" "Meeting" entry
+	 (file org-refile-file)
 	 "* MEETING with %? :MEETING:")
-	("j" "Journal Entry" entry (file+datetree+prompt org-journal-file)
+	("j" "Journal Entry" entry
+	 (file+datetree+prompt org-journal-file)
 	 "* %?" :empty-lines 1)))
 
 
