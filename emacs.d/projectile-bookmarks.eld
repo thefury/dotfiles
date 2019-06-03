@@ -1,1 +1,1 @@
-("~/dotfiles/" "~/golang/src/bitbucket.org/halogenmobile/kiehls-contact-import/" "~/golang/src/bitbucket.org/halogenmobile/paramstore/" "~/dev/KCS/kiehls-contact-import/" "~/dev/KCS/bigquery-export/" "~/dev/KCS/kcs-infrastructure/")
+("~/dotfiles/" "~/golang/src/slareport/" "~/golang/src/bitbucket.org/halogenmobile/kiehls-contact-import/" "~/golang/src/bitbucket.org/halogenmobile/paramstore/" "~/dev/KCS/kiehls-contact-import/" "~/dev/KCS/bigquery-export/" "~/dev/KCS/kcs-infrastructure/")

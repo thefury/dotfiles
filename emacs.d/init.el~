@@ -1,3 +1,4 @@
+
 ;; Package configs
 (require 'package)
 (setq package-enable-at-startup nil)
@@ -5,13 +6,31 @@
                          ("gnu"   . "http://elpa.gnu.org/packages/")
                          ("melpa" . "https://melpa.org/packages/")))
 (package-initialize)
-
 ;; Bootstrap `use-package`
 (unless (package-installed-p 'use-package)
   (package-refresh-contents)
   (package-install 'use-package))
+
 (require 'use-package)
 
+(add-to-list 'load-path (expand-file-name "site-lisp" user-emacs-directory))
+(add-to-list 'load-path (expand-file-name "plugins" user-emacs-directory))
+
+
+;; Core Setup
+(require 'setup-core)
+(require 'setup-elisp)
+(require 'setup-appearance)
+
+
+;; Additional Packages
+(require 'setup-evil)
+(require 'setup-projects)
+(require 'setup-org)
+(require 'setup-elfeed)
+(require 'setup-terraform)
+(require 'setup-golang)
+(require 'setup-ruby)
 
 
 
@@ -21,63 +40,12 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(package-selected-packages (quote (projectile doom-themes evil use-package))))
+ '(package-selected-packages
+   (quote
+    (terraform-mode use-package projectile exec-path-from-shell evil doom-themes))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  )
-
-
-;; Appearance
-;; minimal UI
-(scroll-bar-mode -1)
-(tool-bar-mode   -1)
-(tooltip-mode    -1)
-(menu-bar-mode   -1)
-
-(add-to-list 'default-frame-alist '(font . "mononoki-12"))
-(add-to-list 'default-frame-alist '(height . 24))
-(add-to-list 'default-frame-alist '(width . 80))
-
-;; Fancy titlebar for MacOS
-(add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
-(add-to-list 'default-frame-alist '(ns-appearance . dark))
-(setq ns-use-proxy-icon  nil)
-(setq frame-title-format nil)
-
-;; Theme
-(use-package doom-themes
-  :ensure t
-  :config
-  (load-theme 'doom-one t))
-
-;; Vim mode
-(use-package evil
-  :ensure t
-  :config
-  (evil-mode 1))
-;; Projectile
-(use-package projectile
-  :ensure t
-  :init
-  (setq projectile-require-project-root nil)
-  :config
-  (projectile-mode 1))
-
-;; Show matching parens
-(setq show-paren-delay 0)
-(show-paren-mode 1)
-
-
-;; defuns
-(defun reload ()
-  "reload ~/.emaqcs.d/init.el"
-  (interactive)
-  (load-file "~/.emacs.d/init.el"))
-
-(defun find-init ()
-  "edit ~/.emacs.d/init.el"
-  (interactive)
-  (find-file "~/.emacs.d/init.el"))
