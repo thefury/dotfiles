@@ -1,0 +1,216 @@
+<p>Automated testing is a critical component to a well-designed software development lifecycle. When you test front-end applications, you often use a browser in combination with testing frameworks. A headless browser is one that is used on a server that does not normally need to run visual applications. In this blog post, I will show you how to configure <a href="https://aws.amazon.com/cloud9/">AWS Cloud9</a> and <a href="https://aws.amazon.com/codebuild/">AWS CodeBuild</a> to support testing an Angular application with the headless version of Chrome. AWS Cloud9 has deep integration with services such as <a href="https://aws.amazon.com/lambda/">AWS Lambda</a>, and the environment is easily accessible anywhere, from any internet-connected device.</p> 
+<p><strong>AWS Cloud9</strong></p> 
+<p>By default, Cloud9 runs on an <a href="https://aws.amazon.com/ec2/">Amazon EC2</a> instance that is managed for you. You can also run it on any Linux machine that is accessible through SSH.</p> 
+<p>First, create a Cloud9 environment.</p> 
+<ol> 
+ <li>Sign in to the AWS Management Console, scroll down to <strong>Developer Tools</strong>, and choose <strong>Cloud9</strong>.</li> 
+ <li>On the following page, choose <strong>Create Environment</strong>.</li> 
+ <li>Enter a name for your environment and then choose <strong>Next Step</strong>.</li> 
+ <li>On the following page, leave the defaults for the time being and click <strong>Next Step</strong>.</li> 
+ <li>On the following page, choose <strong>Create Environment</strong>.</li> 
+</ol> 
+<p>It might take a few minutes for your environment to initialize. Behind the scenes, an EC2 instance is created for you in the region you have currently selected in the console. In the environment, press <code class="lang-bash">Alt-T</code> to bring up a bash terminal tab. For the remaining steps in this post, you will enter commands into this tab.</p> 
+<p>There is a lot to take in if this is your first time using Cloud9. If you need help getting set up or want to learn more, see the <a href="https://docs.aws.amazon.com/cloud9/latest/user-guide/get-started.html">Cloud9 User Guide</a>.</p> 
+<p><strong>Install and configure Angular</strong></p> 
+<p>The first thing we will do in our new environment is to install and configure an Angular application.</p> 
+<ol> 
+ <li>Upgrade Node to the latest version supported by AWS Lambda. (At the time of this writing, that’s 8.10.) <pre><code class="lang-bash">nvm install 8.10</code></pre> </li> 
+ <li>Install the Angular CLI using npm, the Node Package Manager. Install it as a global package with the –g option so that it is available to run from anywhere in your environment. <pre><code class="lang-bash">npm install -g @angular/cli</code></pre> </li> 
+ <li>Use the Angular CLI to create an Angular application. <pre><code class="lang-bash">ng new my-app
+cd my-app/</code></pre> </li> 
+ <li>Run the application to make sure everything is working as expected. To <a href="https://docs.aws.amazon.com/cloud9/latest/user-guide/app-preview.html">preview a running application in Cloud9</a>, the app must run on a specific port. With Angular, you must disable the default host header check. <pre><code class="lang-bash">ng serve --port 8080 --host localhost --disable-host-check</code></pre> <p>&nbsp;</p> <p>On the toolbar, next to <strong>Run</strong>, choose <strong>Preview</strong> and then choose <strong>Preview Running Application</strong>. You should see something like this:</p> <p><img class="alignnone wp-image-2576 size-full" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/09/17/welcome_to_app.png" alt="" width="1028" height="475" /></p></li> 
+ <li>Press <code class="lang-bash">Ctrl-C</code> to stop serving and then in the <code class="lang-bash">my-app</code> directory, try to test your application. <pre><code class="lang-bash">ng test --watch=false</code></pre> <p><img /><img class="alignnone wp-image-2578 size-full" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/09/17/ng_test_error.png" alt="" width="1028" height="248" /></p> <p>That obviously doesn’t work the way you would expect it to on a regular workstation. The testing framework can’t find Chrome because we are running on a headless EC2 instance. To start addressing the problem, first install a package called <a href="https://www.npmjs.com/package/puppeteer">Puppeteer</a> as a development dependency in your application.</p> <p>I’d like to give credit here to Alex Bainter, a software developer who wrote a comprehensive <a href="https://medium.com/@metalex9/replace-phantomjs-with-headless-chromium-for-javascript-unit-testing-in-karma-59812e6f8ce4">blog post about replacing PhantomJS with headless Chromium and Karma</a>. His post was extremely helpful to me when I had to figure this out for the first time.</p></li> 
+ <li>Install Puppeteer and its dependencies. <pre><code class="lang-bash">npm i -D puppeteer
+npm i -D @angular-devkit/build-angular</code></pre> </li> 
+ <li>You can get a good look at the missing Chrome libraries by running the ldd command on the binary that comes with Puppeteer. <pre><code class="lang-bash">cd node_modules/puppeteer/.local-chromium/linux-564778/chrome-linux/</code></pre> <p>(By the time you read this post, the version number in that path will probably be different. Look in the <code>puppeteer/.local-chromium</code> directory to see what it is for your installation.)</p> <pre><code class="lang-bash">ldd chrome | grep not</code></pre> <p>You should see output that looks like this:</p> <pre><code>libXcursor.so.1 =&gt; not found
+libXdamage.so.1 =&gt; not found
+libXfixes.so.3 =&gt; not found
+libcups.so.2 =&gt; not found
+libXss.so.1 =&gt; not found
+libXrandr.so.2 =&gt; not found
+libpangocairo-1.0.so.0 =&gt; not found
+libpango-1.0.so.0 =&gt; not found
+libcairo.so.2 =&gt; not found
+libatk-1.0.so.0 =&gt; not found
+libatk-bridge-2.0.so.0 =&gt; not found
+libgtk-3.so.0 =&gt; not found
+libgdk-3.so.0 =&gt; not found
+libgdk_pixbuf-2.0.so.0 =&gt; not found</code></pre> </li> 
+</ol> 
+<p>&nbsp;</p> 
+<p><strong>Install headless Chrome</strong></p> 
+<p>Now comes the tricky part. Installing headless Chrome on an Amazon Linux EC2 instance is no simple task. One strategy is to install the various dependencies by compiling from source, but the chain of dependencies for Chrome, which includes gtk+ and glib, soon gets out of hand. I found <a href="https://mockingbot.com/posts/run-puppeteer-chrome-headless-on-ec2-amazon-linux">another blogger who solved the problem by borrowing from the CentOS and Fedora package repositories</a>. Thanks to Yuanyi for this part of the solution.</p> 
+<ol> 
+ <li>Install yum packages to cover basic dependencies. <pre><code class="lang-bash">sudo yum install -y libXcursor libXdamage libcups libXss libXrandr \
+    cups-libs dbus-glib libXinerama cairo cairo-gobject pango</code></pre> </li> 
+ <li>Borrow packages from CentOS and Fedora. <pre><code class="lang-bash">sudo rpm -ivh --nodeps http://mirror.centos.org/centos/7/os/x86_64/Packages/atk-2.22.0-3.el7.x86_64.rpm
+sudo rpm -ivh --nodeps http://mirror.centos.org/centos/7/os/x86_64/Packages/at-spi2-atk-2.22.0-2.el7.x86_64.rpm
+sudo rpm -ivh --nodeps http://mirror.centos.org/centos/7/os/x86_64/Packages/at-spi2-core-2.22.0-1.el7.x86_64.rpm
+sudo rpm -ivh --nodeps http://dl.fedoraproject.org/pub/archive/fedora/linux/releases/20/Fedora/x86_64/os/Packages/g/GConf2-3.2.6-7.fc20.x86_64.rpm
+sudo rpm -ivh --nodeps http://dl.fedoraproject.org/pub/archive/fedora/linux/releases/20/Fedora/x86_64/os/Packages/l/libXScrnSaver-1.2.2-6.fc20.x86_64.rpm
+sudo rpm -ivh --nodeps http://dl.fedoraproject.org/pub/archive/fedora/linux/releases/20/Fedora/x86_64/os/Packages/l/libxkbcommon-0.3.1-1.fc20.x86_64.rpm
+sudo rpm -ivh --nodeps http://dl.fedoraproject.org/pub/archive/fedora/linux/releases/20/Fedora/x86_64/os/Packages/l/libwayland-client-1.2.0-3.fc20.x86_64.rpm
+sudo rpm -ivh --nodeps http://dl.fedoraproject.org/pub/archive/fedora/linux/releases/20/Fedora/x86_64/os/Packages/l/libwayland-cursor-1.2.0-3.fc20.x86_64.rpm
+sudo rpm -ivh --nodeps http://dl.fedoraproject.org/pub/archive/fedora/linux/releases/20/Fedora/x86_64/os/Packages/g/gtk3-3.10.4-1.fc20.x86_64.rpm
+sudo rpm -ivh --nodeps http://dl.fedoraproject.org/pub/archive/fedora/linux/releases/16/Fedora/x86_64/os/Packages/gdk-pixbuf2-2.24.0-1.fc16.x86_64.rpm</code></pre> </li> 
+ <li>Edit <code>src/karma.conf.js</code> to require Puppeteer and set the <code>CHROME_BIN</code> environment variable. Here is the full content of that file after the changes. <pre><code class="lang-js">const puppeteer = require(&quot;puppeteer&quot;);
+process.env.CHROME_BIN = puppeteer.executablePath();
+
+module.exports = function (config) {
+    config.set({
+        basePath: '',
+        frameworks: ['jasmine', '@angular-devkit/build-angular'],
+        plugins: [
+            require('karma-jasmine'),
+            require('karma-chrome-launcher'),
+            require('karma-jasmine-html-reporter'),
+            require('karma-coverage-istanbul-reporter'),
+           require('@angular-devkit/build-angular/plugins/karma')
+        ],
+        client:{
+            clearContext: false // leave Jasmine Spec Runner output visible in browser
+        },
+    coverageIstanbulReporter: {
+        reports: [ 'html', 'lcovonly' ],
+        fixWebpackSourcePaths: true
+    },
+    angularCli: {
+        environment: 'dev'
+    },
+    reporters: ['progress', 'kjhtml'],
+    port: 8080,
+    colors: true,
+    logLevel: config.LOG_INFO,
+    autoWatch: true,
+    browsers: ['ChromeHeadlessNoSandbox'],
+    customLaunchers: {
+        ChromeHeadlessNoSandbox: {
+            base: 'ChromeHeadless',
+            flags: ['--no-sandbox']
+        }
+    },
+    singleRun: false
+
+});
+
+};</code></pre> </li> 
+ <li>Make a small adjustment to your test specification in <code>src/app/app.component.spec.ts</code> so that it is checking for the title in the test called <code>&quot;should render title in a h1 tag&quot;</code>. Run <code>ng test</code> again. <pre><code class="lang-bash">ng test --watch=false</code></pre> </li> 
+</ol> 
+<p><img class="alignnone wp-image-2579 size-full" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/09/17/ng_test_ok.png" alt="" width="1028" height="216" /></p> 
+<p>If you see that green <code>SUCCESS</code> indicator, then you have done it! You installed Angular and created an application, installed Puppeteer, and by filling in the missing libraries for Chrome, you made it possible to run headless Chrome tests in Cloud9!</p> 
+<p><strong>AWS CodeBuild</strong></p> 
+<p>The next piece of the puzzle is your CI/CD pipeline. When a developer checks in new code, you want to test that code with a <a href="https://aws.amazon.com/devops/continuous-integration/">continuous integration</a> tool like <a href="https://docs.aws.amazon.com/codebuild/latest/userguide/getting-started.html">AWS CodeBuild</a>. With CodeBuild, the problem related to headless Chrome is slightly different than it was with Cloud9, because the default build environment for Node apps is an Ubuntu image. You still need to install Chromium and its dependencies, but Ubuntu packages make it easier.</p> 
+<ol> 
+ <li>Navigate to the CodeBuild console and create a new build project. Give it a name and configure the source repository. You will need to store your code for this exercise with one of the providers listed later so that CodeBuild knows where to find it when you start a build. Since you are already logged in to the AWS console, <a href="https://aws.amazon.com/codecommit/">AWS CodeCommit</a> is a good option, but you could also choose <a href="https://aws.amazon.com/s3/">Amazon S3</a>, Bitbucket, or GitHub.<img class="alignleft wp-image-2583 size-full" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/09/17/codebuild.png" alt="" width="1028" height="616" /></li> 
+ <li>Configure the build environment. For Operating system, choose <strong>Ubuntu</strong>. For <strong>Runtime</strong>, choose <strong>Node.js</strong>. You can specify your own container image for the build, but the <code class="lang-bash">buildspec.yml</code> described in step 3 works out of the box with the default image.<img class="alignleft wp-image-2582 size-full" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/09/17/cbenv.png" alt="" width="1028" height="741" /></li> 
+ <li>For the build specification, provide the following <code class="lang-bash">buildspec.yml</code> file in the root directory of the source code repository. <pre><code class="lang-yaml">
+version: 0.2
+phases:
+  install:
+    commands:
+
+      # Install the Angular CLI
+      - npm install -g @angular/cli
+
+      # Install puppeteer as a dev dependency
+      - npm i -D puppeteer
+      - npm i –D @angular-devkit/build-angular
+
+      # Print out missing libs
+      - echo &quot;Missing Libs&quot; || ldd ./node_modules/puppeteer/.local-chromium/linux-549031/chrome-linux/chrome | grep not
+
+      # Upgrade apt
+      - apt-get upgrade
+
+      # Update libs
+      - apt-get update
+
+      # Install apt-transport-https
+      - apt-get install -y apt-transport-https
+
+      # Use apt to install the Chrome dependencies
+      - apt-get install -y libxcursor1
+      - apt-get install -y libgtk-3-dev
+      - apt-get install -y libxss1
+      - apt-get install -y libasound2
+      - apt-get install -y libnspr4
+      - apt-get install -y libnss3
+      - apt-get install -y libx11-xcb1
+
+      # Print out missing libs
+      - echo &quot;Missing Libs&quot; || ldd ./node_modules/puppeteer/.local-chromium/linux-549031/chrome-linux/chrome | grep not
+
+      # Install project dependencies
+      - npm install
+
+  pre_build:
+    commands
+	  - echo &quot;Nothing to pre_build&quot;
+
+  build:
+    commands:
+
+      - printenv&nbsp;
+
+      # Build the project
+      - ng build
+
+      # Run headless Chrome tests
+      - ng test --watch=false
+      - printenv
+
+  post_build:
+    commands:
+
+      - printenv
+
+      # Deploy the project to S3
+
+      - if [ ${CODEBUILD_BUILD_SUCCEEDING}=1 ]; then aws s3 sync --delete dist/ &quot;s3://${BUCKET_NAME}&quot;; else echo &quot;Skipping aws sync&quot;; fi
+
+artifacts:
+  files:
+    - src/*
+
+</code></pre> <p>Feel free to remove those ldd and printenv statements, but it is worth taking a look at the output to get a better understanding of what is going on with the build.</p></li> 
+ <li>Specify the location for artifacts. The following step isn’t required, but it makes it possible to incorporate the build project into <a href="https://aws.amazon.com/codepipeline/">AWS CodePipeline</a>.<img class="alignleft wp-image-2581 size-full" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/09/17/cbartif.png" alt="" width="1028" height="507" /></li> 
+ <li>Expand Advanced Settings and configure an environment variable for the website bucket name.<img class="alignleft wp-image-2580 size-full" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/09/17/cbadvanced.png" alt="" width="1028" height="677" /></li> 
+ <li>Configure the buckets. CodeBuild can’t write to the S3 buckets unless you give the service explicit permissions to do so. This is one of the most common causes of build failures for projects that involve S3. Attach the following policy to the CodeBuild service role to give it access to those buckets. Choose <strong>Continue</strong> and <strong>Save</strong> to create the build project, and then navigate to the IAM console and search for the CodeBuild service role that was just created for you. Add this as an inline policy. <pre><code class="lang-js">
+{
+	&quot;Version&quot;: &quot;2012-10-17&quot;,
+	&quot;Statement&quot;: [
+		{
+			&quot;Sid&quot;: &quot;VisualEditor0&quot;,
+			&quot;Effect&quot;: &quot;Allow&quot;,
+			&quot;Action&quot;: &quot;s3:*&quot;,
+			&quot;Resource&quot;: [
+				&quot;arn:aws:s3:::YOUR_BUCKET_FOR_ARTIFACTS&quot;,
+				&quot;arn:aws:s3:::YOUR_BUCKET_FOR_ARTIFACTS /*&quot;
+			]
+		},
+		{
+			&quot;Sid&quot;: &quot;VisualEditor1&quot;,
+			&quot;Effect&quot;: &quot;Allow&quot;,
+			&quot;Action&quot;: &quot;s3:*&quot;,
+			&quot;Resource&quot;: [
+				&quot;arn:aws:s3:::YOUR_BUCKET_FOR_THE_WEBSITE&quot;,
+				&quot;arn:aws:s3:::YOUR_BUCKET_FOR_THE_WEBSITE /*&quot;
+			]
+		}
+	]
+}
+
+</code></pre> </li> 
+ <li>You should now be able to start the build and see that the compiled website has been copied to your S3 bucket after the build is complete.</li> 
+</ol> 
+<p>&nbsp;</p> 
+<p><strong>Alternative Cloud9 installation using SSH and Ubuntu</strong></p> 
+<p>You can run the Cloud9 IDE from a Linux machine that you create, rather than letting Cloud9 provision it for you. Create a Cloud9 environment and choose <strong>Connect and run in remote server</strong>. For more information about this type of setup, see <a href="https://docs.aws.amazon.com/cloud9/latest/user-guide/create-environment.html#create-environment-ssh">Creating an SSH Environment</a> in the AWS Cloud9 User Guide.</p> 
+<p>After you have configured the environment, the work you have to do is much simpler than on the Amazon Linux instance, because there are Ubuntu packages that install the required dependencies. Follow the instructions earlier in this post until you get to the “Install headless Chrome” section. Issue this command:</p> 
+<pre><code class="lang-bash">sudo apt install -y libxcursor1 libgtk-3-dev libxss1 libasound2 libnspr4 libnss3</code></pre> 
+<p>You don’t need to borrow from any of the CentOS or Fedora repositories.</p> 
+<p>Make changes to karma.conf.js as described earlier and you should then be ready to test your application.</p> 
+<p>&nbsp;</p> 
+<p><strong>Summary</strong></p> 
+<p>You are now able to run headless integration tests using Cloud9 by installing Puppeteer and filling in the required Chrome dependencies. You can also extend this to the container image used to test your application with CodeBuild. Automated testing is vital to a trustworthy DevOps pipeline, and Cloud9 opens up new possibilities for developers of all types, including front-end developers.</p> 
+<p>Happy coding! –EZB</p>

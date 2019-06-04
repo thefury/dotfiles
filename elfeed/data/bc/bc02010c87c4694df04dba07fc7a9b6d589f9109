@@ -1,0 +1,142 @@
+<p>If you have ever written code that accesses a relational database, you know the drill. You open a connection, use it to process one or more SQL queries or other statements, and then close the connection. You probably used a client library that was specific to your operating system, programming language, and your database. At some point you realized that creating connections took a lot of clock time and consumed memory on the database engine, and soon after found out that you could (or had to) deal with connection pooling and other tricks. Sound familiar?</p> 
+<p>The connection-oriented model that I described above is adequate for traditional, long-running programs where the setup time can be amortized over hours or even days. It is not, however, a great fit for serverless functions that are frequently invoked and that run for time intervals that range from milliseconds to minutes. Because there is no long-running server, there’s no place to store a connection identifier for reuse.</p> 
+<p><span style="text-decoration: underline"><strong>Aurora Serverless Data API</strong></span><br /> In order to resolve this mismatch between serverless applications and relational databases, we are launching a Data API for the MySQL-compatible version of <a href="https://aws.amazon.com/rds/aurora/serverless/">Amazon Aurora Serverless</a>. This API frees you from the complexity and overhead that come along with traditional connection management, and gives you the power to quickly and easily execute SQL statements that access and modify your Amazon Aurora Serverless Database instances.</p> 
+<p>The Data API is designed to meet the needs of both traditional and serverless apps. It takes care of managing and scaling long-term connections to the database and returns data in JSON form for easy parsing. All traffic runs over secure HTTPS connections. It includes the following functions:</p> 
+<p><strong>ExecuteStatement</strong> – Run a single SQL statement, optionally within a transaction.</p> 
+<p><strong>BatchExecuteStatement</strong> – Run a single SQL statement across an array of data, optionally within a transaction.</p> 
+<p><strong>BeginTransaction</strong> – Begin a transaction, and return a transaction identifier. Transactions are expected to be short (generally 2 to 5 minutes).</p> 
+<p><strong>CommitTransaction</strong> – End a transaction and commit the operations that took place within it.</p> 
+<p><strong>RollbackTransaction</strong> – End a transaction without committing the operations that took place within it.</p> 
+<p>Each function must run to completion within 1 minute, and can return up to 1 megabyte of data.</p> 
+<p><span style="text-decoration: underline"><strong>Using the Data API</strong></span><br /> I can use the Data API from the <a href="https://console.aws.amazon.com/rds/home?region=us-east-1">Amazon RDS Console</a>, the command line, or by writing code that calls the functions that I described above. I’ll show you all three in this post.</p> 
+<p>The Data API is really easy to use! The first step is to enable it for the desired Amazon Aurora Serverless database. I open the <a href="https://console.aws.amazon.com/rds/home#databases:">Amazon RDS Console</a>, find &amp; select the cluster, and click <strong>Modify</strong>:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/rds_mod_cluster_1.png" width="900" height="472" /></p> 
+<p>Then I scroll down to the <strong>Network &amp; Security</strong> section, click <strong>Data API</strong>, and <strong>Continue</strong>:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/rds_enable_data_api_1.png" width="900" height="362" /></p> 
+<p>On the next page I choose to apply the settings immediately, and click <strong>Modify cluster</strong>:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/rds_go_ahead_mod_my_cluster_1.png" width="900" height="793" /></p> 
+<p>Now I need to create a secret to store the credentials that are needed to access my database. I open the <a href="https://console.aws.amazon.com/secretsmanager/home">Secrets Manager Console</a> and click <strong>Store a new secret</strong>. I leave <strong>Credentials for RDS</strong> selected, enter a valid database user name and password, optionally choose a non-default encryption key, and then select my serverless database. Then I click <strong>Next</strong>:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/rds_make_a_secret_1.png" width="900" height="889" /></p> 
+<p>I name my secret and tag it, and click <strong>Next</strong> to configure it:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/rds_keep_a_secret_1.png" width="900" height="700" /></p> 
+<p>I use the default values on the next page, click <strong>Next</strong> again, and now I have a brand new secret:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/rds_my_secrets_1.png" width="900" height="348" /></p> 
+<p>Now I need two ARNs, one for the database and one for the secret. I fetch both from the console, first for the database:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/rds_db_arn_2.png" width="900" height="512" /></p> 
+<p>And then for the secret:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/rds_secret_arn_1.png" width="866" height="488" /></p> 
+<p>The pair of ARNs (database and secret) provides me with access to my database, and I will protect them accordingly!</p> 
+<p><span style="text-decoration: underline"><strong>Using the Data API from the Amazon RDS Console</strong></span><br /> I can use the Query Editor in the Amazon RDS Console to run queries that call the Data API. I open the console and click <strong>Query Editor</strong>, and create a connection to the database. I select the cluster, enter my credentials, and pre-select the table of interest. Then I click <strong>Connect to database</strong> to proceed:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/da_connect_1.png" width="700" height="556" /></p> 
+<p>I enter a query and click <strong>Run</strong>, and view the results within the editor:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/da_run_2.png" /></p> 
+<p><span style="text-decoration: underline"><strong>Using the Data API from the Command Line</strong></span><br /> I can exercise the Data API from the <a href="https://docs.aws.amazon.com/cli/latest/reference/rds-data/index.html">command line</a>:</p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-bash">$ aws rds-data execute-statement \
+  --secret-arn &quot;arn:aws:secretsmanager:us-east-1:123456789012:secret:aurora-serverless-data-api-sl-admin-2Ir1oL&quot; \
+  --resource-arn &quot;arn:aws:rds:us-east-1:123456789012:cluster:aurora-sl-1&quot; \
+  --database users \
+  --sql &quot;show tables&quot; \
+  --output json
+</code></pre> 
+</div> 
+<p>I can use <code>jq</code> to pick out the part of the result that is of interest to me:</p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-json">... | jq .records
+[
+  {
+    &quot;values&quot;: [
+      {
+        &quot;stringValue&quot;: &quot;users&quot;
+      }
+    ]
+  }
+]
+</code></pre> 
+</div> 
+<p>I can query the table and get the results (the SQL statement is <code>&quot;select * from users where userid='jeffbarr'&quot;</code>):</p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-json">... | jq .records
+[
+  {
+    &quot;values&quot;: [
+      {
+        &quot;stringValue&quot;: &quot;jeffbarr&quot;
+      },
+      {
+        &quot;stringValue&quot;: &quot;Jeff&quot;
+      },
+      {
+        &quot;stringValue&quot;: &quot;Barr&quot;
+      }
+    ]
+  }
+</code></pre> 
+</div> 
+<p>If I specify <code>--include-result-metadata</code>, the query also returns data that describes the columns of the result (I’ll show only the first one in the interest of frugality):</p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-json">... | jq .columnMetadata[0]
+{
+  &quot;type&quot;: 12,
+  &quot;name&quot;: &quot;userid&quot;,
+  &quot;label&quot;: &quot;userid&quot;,
+  &quot;nullable&quot;: 1,
+  &quot;isSigned&quot;: false,
+  &quot;arrayBaseColumnType&quot;: 0,
+  &quot;scale&quot;: 0,
+  &quot;schemaName&quot;: &quot;&quot;,
+  &quot;tableName&quot;: &quot;users&quot;,
+  &quot;isCaseSensitive&quot;: false,
+  &quot;isCurrency&quot;: false,
+  &quot;isAutoIncrement&quot;: false,
+  &quot;precision&quot;: 15,
+  &quot;typeName&quot;: &quot;VARCHAR&quot;
+}
+</code></pre> 
+</div> 
+<p>The Data API also allows me to wrap a series of statements in a transaction, and then either commit or rollback. Here’s how I do that (I’m omitting <code>--secret-arn</code> and <code>--resource-arn</code> for clarity):</p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-bash">$ $ID=`aws rds-data begin-transaction --database users --output json | jq .transactionId`
+$ echo $ID
+&quot;ATP6Gz88GYNHdwNKaCt/vGhhKxZs2QWjynHCzGSdRi9yiQRbnrvfwF/oa+iTQnSXdGUoNoC9MxLBwyp2XbO4jBEtczBZ1aVWERTym9v1WVO/ZQvyhWwrThLveCdeXCufy/nauKFJdl79aZ8aDD4pF4nOewB1aLbpsQ==&quot;
+
+$ aws rds-data execute-statement --transaction-id $ID --database users --sql &quot;...&quot;
+$ ...
+$ aws rds-data execute-statement --transaction-id $ID --database users --sql &quot;...&quot;
+$ aws rds-data commit-transaction $ID</code></pre> 
+</div> 
+<p>If I decide not to commit, I invoke <code>rollback-transaction</code> instead.</p> 
+<p><span style="text-decoration: underline"><strong>Using the Data API with Python and Boto</strong></span><br /> Since this is an API, programmatic access is easy. Here’s some very simple Python / Boto code:</p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-python">import boto3
+
+client = boto3.client('rds-data')
+
+response = client.execute_statement(
+    secretArn   = 'arn:aws:secretsmanager:us-east-1:123456789012:secret:aurora-serverless-data-api-sl-admin-2Ir1oL',
+    database    = 'users',
+    resourceArn = 'arn:aws:rds:us-east-1:123456789012:cluster:aurora-sl-1',
+    sql         = 'select * from users'
+)
+
+for user in response['records']:
+  userid     = user[0]['stringValue']
+  first_name = user[1]['stringValue']
+  last_name  = user[2]['stringValue']
+  print(userid + ' ' + first_name + ' ' + last_name)
+</code></pre> 
+</div> 
+<p>And the output:</p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-bash">$ python data_api.py
+jeffbarr Jeff Barr
+carmenbarr Carmen Barr
+</code></pre> 
+</div> 
+<p>Genuine, production-quality code would reference the table columns symbolically using the metadata that is returned as part of the response.</p> 
+<p>By the way, my Amazon Aurora Serverless cluster was configured to scale capacity all the way down to zero when not active. Here’s what the scaling activity looked like while I was writing this post and running the queries:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/rds_scaled_down_2.png" width="700" height="491" /></p> 
+<p><span style="text-decoration: underline"><strong>Now Available</strong></span><br /> You can make use of the Data API today in the <span title="">US East (N. Virginia)</span>, <span title="">US East (Ohio)</span>, <span title="">US West (Oregon)</span>, <span title="">Asia Pacific (Tokyo)</span>, and <span title="">Europe (Ireland)</span> Regions. There is no charge for the API, but you will pay the usual price for data transfer out of AWS.</p> 
+<p>— <a href="https://twitter.com/jeffbarr">Jeff</a>;</p><div class="feedflare">
+<a href="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?a=q5o4VlSLi78:INOXh4gbxRU:yIl2AUoC8zA"><img src="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?d=yIl2AUoC8zA" border="0"></img></a> <a href="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?a=q5o4VlSLi78:INOXh4gbxRU:dnMXMwOfBR0"><img src="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?d=dnMXMwOfBR0" border="0"></img></a> <a href="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?a=q5o4VlSLi78:INOXh4gbxRU:7Q72WNTAKBA"><img src="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?d=7Q72WNTAKBA" border="0"></img></a>
+</div><img src="http://feeds.feedburner.com/~r/AmazonWebServicesBlog/~4/q5o4VlSLi78" height="1" width="1" alt=""/>

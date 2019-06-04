@@ -1,0 +1,1 @@
+<p><a href="/rds/aurora/serverless/">Amazon Aurora Serverless</a> MySQL 5.6 can now be accessed using the built-in Data API enabling you to access Aurora Serverless with web services-based applications, including <a href="/appsync/">AWS Lambda</a>, <a href="/appsync/">AWS AppSync</a>, and <a href="/cloud9/">AWS Cloud9</a>&nbsp;</p>

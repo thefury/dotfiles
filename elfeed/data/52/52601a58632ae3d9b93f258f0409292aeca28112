@@ -1,0 +1,126 @@
+
+
+  
+  
+    
+      
+  <h4 id="TOC_1.">Introduction</h4>
+  
+  
+  <p>
+    Last July, we <a href="https://blog.golang.org/go-cloud" target="_blank">introduced</a> the <a href="https://gocloud.dev" target="_blank">Go Cloud Development Kit</a> (previously referred to as simply &#34;Go Cloud&#34;), an open source project building libraries and tools to improve the experience of developing for the cloud with Go. We&#39;ve made a lot of progress since then -- thank you to early contributors! We look forward to growing the Go CDK community of users and contributors, and are excited to work closely with early adopters.
+  </p>
+  
+
+
+    
+      
+  <h4 id="TOC_2.">Portable APIs</h4>
+  
+  
+  <p>
+    Our first initiative is a set of portable APIs for common cloud services. You write your application using these APIs, and then deploy it on any combination of providers, including AWS, GCP, Azure, on-premise, or on a single developer machine for testing. Additional providers can be added by implementing an interface.
+  </p>
+  
+
+  
+  <p>
+    These portable APIs are a great fit if any of the following are true:
+  </p>
+  
+
+  <ul>
+  
+    <li>You develop cloud applications locally.</li>
+  
+    <li>You have on-premise applications that you want to run in the cloud (permanently, or as part of a migration).</li>
+  
+    <li>You want portability across multiple clouds.</li>
+  
+    <li>You are creating a new Go application that will use cloud services.</li>
+  
+  </ul>
+
+  
+  <p>
+    Unlike traditional approaches where you would need to write new application code for each cloud provider, with the Go CDK you write your application code once using our portable APIs to access the set of services listed below. Then, you can run your application on any supported cloud with minimal config changes.
+  </p>
+  
+
+  
+  <p>
+    Our current set of APIs includes:
+  </p>
+  
+
+  <ul>
+  
+    <li><a href="https://godoc.org/gocloud.dev/blob" target="_blank">blob</a>, for persistence of blob data. Supported providers include: AWS S3, Google Cloud Storage (GCS), Azure Storage, the filesystem, and in-memory.</li>
+  
+    <li><a href="https://godoc.org/gocloud.dev/pubsub" target="_blank">pubsub</a> for publishing/subscribing of messages to a topic. Supported providers include: Amazon SNS/SQS, Google Pub/Sub, Azure Service Bus, RabbitMQ, and in-memory.</li>
+  
+    <li><a href="https://godoc.org/gocloud.dev/runtimevar" target="_blank">runtimevar</a>, for watching external configuration variables. Supported providers include AWS Parameter Store, Google Runtime Configurator, etcd, and the filesystem.</li>
+  
+    <li><a href="https://godoc.org/gocloud.dev/secrets" target="_blank">secrets</a>, for encryption/decryption. Supported providers include AWS KMS, GCP KMS, Hashicorp Vault, and local symmetric keys.</li>
+  
+    <li>Helpers for connecting to cloud SQL providers. Supported providers include AWS RDS and Google Cloud SQL.</li>
+  
+    <li>We are also working on a document storage API (e.g. MongoDB, DynamoDB, Firestore).</li>
+  
+  </ul>
+
+
+    
+      
+  <h4 id="TOC_3.">Feedback</h4>
+  
+  
+  <p>
+    We hope you&#39;re as excited about the Go CDK as we are -- check out our <a href="https://godoc.org/gocloud.dev" target="_blank">godoc</a>, walk through our <a href="https://github.com/google/go-cloud/tree/master/samples/tutorial" target="_blank">tutorial</a>, and use the Go CDK in your application(s). We&#39;d love to hear your ideas for other APIs and API providers you&#39;d like to see.
+  </p>
+  
+
+  
+  <p>
+    If you&#39;re digging into Go CDK please share your experiences with us:
+  </p>
+  
+
+  <ul>
+  
+    <li>What went well?</li>
+  
+    <li>Were there any pain points using the APIs?</li>
+  
+    <li>Are there any features missing in the API you used?</li>
+  
+    <li>Suggestions for documentation improvements.</li>
+  
+  </ul>
+
+  
+  <p>
+    To send feedback, you can:
+  </p>
+  
+
+  <ul>
+  
+    <li>Submit issues to our public <a href="https://github.com/google/go-cloud/issues/new/choose" target="_blank">GitHub repository</a>.</li>
+  
+    <li>Email <a href="mailto:go-cdk-feedback@google.com" target="_blank">go-cdk-feedback@google.com</a>.</li>
+  
+    <li>Post to our <a href="https://groups.google.com/forum/#!forum/go-cloud" target="_blank">public Google group</a>.</li>
+  
+  </ul>
+
+  
+  <p>
+    Thanks!
+  </p>
+  
+
+
+    
+  
+

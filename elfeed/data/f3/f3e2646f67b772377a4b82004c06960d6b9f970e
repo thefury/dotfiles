@@ -1,0 +1,72 @@
+<p>As a fully managed service, Amazon Redshift is designed to be easy to set up and use. In this blog post, we demonstrate how to grant access to users in an operations group to perform only specific actions in the Amazon Redshift Management Console. If you implement a custom IAM policy, you can set it up so these users can monitor and terminate running queries. At the same time, you can prevent these users from performing other more privileged operations such as modifying, restarting, or deleting an Amazon Redshift cluster.</p> 
+<h2>An overview of Amazon Redshift access control</h2> 
+<p>Since its release in February 2013, <a href="https://aws.amazon.com/redshift/" target="_blank" rel="noopener">Amazon Redshift</a> has quickly become a popular cloud-based data warehousing platform for thousands of customers worldwide.</p> 
+<p>Access to Amazon Redshift requires credentials that AWS can use to authenticate your requests. Those credentials must have permissions to access Amazon Redshift resources, such as an Amazon Redshift cluster or a snapshot. For more details on these credentials, see <a href="https://docs.aws.amazon.com/redshift/latest/mgmt/redshift-iam-authentication-access-control.html" target="_blank" rel="noopener">Authentication and Access Control for Amazon Redshift</a> in the Amazon Redshift documentation.</p> 
+<p>Every AWS resource is owned by an AWS account, and permissions to create or access the resources are governed by <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/introduction_access-management.html" target="_blank" rel="noopener">AWS Identity and Access Management (IAM) policies</a>. An AWS account administrator can attach permissions policies to IAM identities (users, groups, and roles). In particular, an AWS account administrator can attach an IAM permissions policy to a specific user. Such a policy grants permissions for that user to manage an Amazon Redshift resource, such as a snapshot or an event subscription.<span id="more-6664"></span></p> 
+<p>When granting permissions, you can decide who gets the permissions and which Amazon Redshift resources they get permissions for. You can also decide on the specific actions that you want to allow on those resources. Policies attached to an IAM identity are referred to as&nbsp;<em>identity-based</em>&nbsp;IAM policies, and policies attached to a resource are referred to as&nbsp;<em>resource-based</em>&nbsp;policies. Amazon Redshift supports only identity-based IAM policies.</p> 
+<h2>Use case: Setting limited access for a user</h2> 
+<p>Consider the following use case. Suppose that an IAM user who is a member of a customer’s operations group needs to monitor and terminate queries running in an Amazon Redshift cluster. It’s best if they do so through the Amazon Redshift console. This user is not allowed to modify or delete any other Amazon Redshift resources.</p> 
+<p>To implement this use case, we need to implement a custom IAM policy that ensures this IAM user has read-only access to the Amazon Redshift console. Doing this means that the user can get descriptions of the available clusters and navigate to the <strong>Queries</strong> tab. Additionally, we want the IAM user to be able to cancel a running query through the Amazon Redshift console. To allow this, we use the redshift:CancelQuerySession IAM action. For descriptions of other allowed Amazon Redshift actions in an IAM policy and what each action means, see <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/list_amazonredshift.html#amazonredshift-actions-as-permissions" target="_blank" rel="noopener">Actions Defined by Amazon Redshift</a> in the Amazon Redshift documentation.</p> 
+<p>To create such a custom IAM policy, follow these instructions:</p> 
+<ol> 
+ <li>Sign in to the AWS Management Console and open the IAM console at <u><a href="https://console.aws.amazon.com/iam/" target="_blank" rel="noopener">https://console.aws.amazon.com/iam/</a></u>.</li> 
+ <li>In the navigation pane on the left, choose <strong>Policies</strong>.</li> 
+ <li>Choose <strong>Create policy</strong>.</li> 
+ <li>Choose the <strong>JSON</strong> tab and input the following policy:</li> 
+</ol> 
+<div class="hide-language"> 
+ <pre style="padding-left: 30px"><code class="lang-json">{
+    &quot;Version&quot;: &quot;2012-10-17&quot;,
+    &quot;Statement&quot;: [
+        {
+            &quot;Action&quot;: [
+                &quot;redshift:Describe*&quot;,
+                &quot;redshift:CancelQuerySession&quot;,
+                &quot;redshift:ViewQueriesInConsole&quot;,
+                &quot;ec2:DescribeAccountAttributes&quot;,
+                &quot;ec2:DescribeAddresses&quot;,
+                &quot;ec2:DescribeAvailabilityZones&quot;,
+                &quot;ec2:DescribeSecurityGroups&quot;,
+                &quot;ec2:DescribeSubnets&quot;,
+                &quot;ec2:DescribeVpcs&quot;,
+                &quot;ec2:DescribeInternetGateways&quot;,
+                &quot;sns:Get*&quot;,
+                &quot;sns:List*&quot;,
+                &quot;cloudwatch:Describe*&quot;,
+                &quot;cloudwatch:List*&quot;,
+                &quot;cloudwatch:Get*&quot;
+            ],
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Resource&quot;: &quot;*&quot;
+        }
+    ]
+}</code></pre> 
+</div> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6667" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/26/FineGrainedRedshift1_2.png" alt="" width="776" height="486" /></p> 
+<ol start="5"> 
+ <li>On the <strong>Review policy</strong> page, type a value for <strong>Name</strong> and optionally for <strong>Description</strong> for the policy that you are creating. Review the policy <strong>Summary</strong> to see the permissions that are granted by your policy. Then choose <strong>Create policy</strong> to save your work.</li> 
+ <li>Attach this policy to an existing or a new IAM user.</li> 
+</ol> 
+<p>With this permission policy, an IAM user can select an Amazon Redshift cluster, list all running queries in the <strong>Queries</strong> tab, and terminate a query if needed. All the permissions are read-only. Thus, the user can’t create a new Amazon Redshift cluster or modify or delete an existing cluster. However, the user can view available clusters, cluster snapshots, parameter groups, and cluster subnet groups, and view other properties of existing clusters.</p> 
+<h2>Validating the use case</h2> 
+<p>With the above IAM policy in place, after the IAM user logs into the Amazon Redshift Management Console, the user can select and view details about the Amazon Redshift cluster or clusters in the account. After navigating to the <strong>Queries</strong> tab, the user can see both the running and completed queries.</p> 
+<p><img class="alignnone size-full wp-image-6668" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/26/FineGrainedRedshift2.png" alt="" width="800" height="166" /></p> 
+<p>To cancel or terminate a long running query, the user can select the query from the list and choose <strong>Terminate Query</strong>. However, this user can’t modify or delete anything else in the Amazon Redshift console. As an example, if the user tries to modify an Amazon Redshift cluster (to change its endpoint), that user encounters the following error.</p> 
+<p><img class="alignnone size-full wp-image-6669" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/26/FineGrainedRedshift3.png" alt="" width="541" height="571" /></p> 
+<h2>Conclusion</h2> 
+<p>In this post, we have walked through a detailed customer use case of providing fine-grained access to the Amazon Redshift console. Using a set of carefully tailored IAM policies, a customer’s operations personnel can have read-only access to the Amazon Redshift console. These personnel can cancel or terminate running queries without the ability to modify, add, or delete any other Amazon Redshift resources.</p> 
+<p>We want to acknowledge our fellow AWS co-workers Ryan Mich, Sulay Shah and Hunter Grider for their many useful comments and suggestions.</p> 
+<p>If you have any questions or suggestions, leave your feedback in the comment section. If you need any further assistance to optimize your Amazon Redshift implementation, contact your AWS account team or a trusted AWS partner.</p> 
+<p>&nbsp;</p> 
+<hr /> 
+<h3>About the authors</h3> 
+<p><strong><img class="size-full wp-image-6670 alignleft" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/26/rajaya.png" alt="" width="113" height="161" />Raj Jayaraman is a cloud support engineer with AWS Support at Amazon Web Services.</strong></p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p> 
+<p><strong><img class="size-full wp-image-6671 alignleft" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/26/pohong.png" alt="" width="113" height="152" />Po Hong, Ph.D. is a senior data architect within the Global Data &amp; Analytics Specialty Practice at AWS Professional Services.</strong></p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p>

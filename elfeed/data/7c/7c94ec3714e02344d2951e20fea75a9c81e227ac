@@ -1,0 +1,177 @@
+<p>We are pleased to announce the public availability of <a href="https://www.nomadproject.io/downloads.html">HashiCorp Nomad 0.9</a>.</p>
+
+<p>Nomad is a flexible workload orchestrator that can be used to easily deploy both containerized and legacy applications across multiple regions or cloud providers. Nomad is easy to operate and scale, and integrates seamlessly with <a href="https://www.hashicorp.com/products/consul">HashiCorp Consul</a> for service discovery and <a href="https://www.hashicorp.com/products/vault/">HashiCorp Vault</a> for secrets management.  </p>
+
+<p>Nomad 0.9 adds new scheduling features that enable greater control over how Nomad places applications across the available infrastructure. It also lays the groundwork for a plugin-based feature strategy that will enable users to more easily integrate Nomad with a wide range of ecosystem tools and technologies. The major new features in Nomad 0.9 include:  </p>
+
+<ul>
+<li><p><strong>Spread</strong>: Enable job authors to distribute workloads based on specific attributes or client metadata.</p></li>
+<li><p><strong>Affinities</strong>: Enable job authors to express preferred placement for a workload.</p></li>
+<li><p><strong>Preemption for System Jobs</strong>: Enable system jobs to displace low priority workloads.</p></li>
+<li><p><strong>Task Driver Plugins</strong>: Enable community members to easily contribute and maintain new task drivers to support specific runtimes.</p></li>
+<li><p><strong>Device Plugins</strong>: Enable Nomad to support provisioning workloads that require specialized hardware like GPUs.</p></li>
+<li><p><strong>Web UI</strong>: Support job submission and improve resource visualizations.</p></li>
+</ul>
+
+<p>This release also includes a number of additional improvements to the Web UI, the CLI, the Docker driver, and other Nomad components. The <a href="https://github.com/hashicorp/nomad/blob/master/CHANGELOG.md#090-unreleased">CHANGELOG</a> provides a full list of Nomad 0.9 features, enhancements, and bug fixes.</p>
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/FvNBztvk3Fw" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+<h2>Spread</h2>
+
+<p>Nomad uses bin packing by default when making job placement decisions. Bin packing seeks to fully utilize the resources on a subset of the available client nodes before moving on to utilize additional nodes. While this behavior generally leads to smaller fleet sizes and cost savings, it often makes sense for the instances of a given workload to be spread out across the available infrastructure to optimize for high availability or performance.</p>
+
+<p>A new <a href="https://www.nomadproject.io/docs/job-specification/spread.html">spread</a> stanza has been added in Nomad 0.9 that will allow a job author to specify a distribution of allocations for their jobs based on a specific attribute, usually a failure domain like datacenter or rack:
+<code>hcl
+spread {
+    attribute = “${node.dc}”
+    weight = 20
+    target “us-east1” {
+        percent = 50
+    }
+    target “us-east2” {
+        percent = 30
+    }
+    target “us-west1” {
+        percent = 20
+    }
+}
+</code>
+The spread stanza includes a target parameter that allows a user to specify the distribution ratio across a set of target values for the specified attribute. A weight parameter can also be used to assign relative priority across a series of spread and affinity stanzas.</p>
+
+<p>See the <a href="https://www.nomadproject.io/guides/advanced-scheduling/spread.html">Increasing Failure Tolerance with Spread</a> guide for more details.</p>
+
+<h2>Affinities and Anti-affinities</h2>
+
+<p>Nomad 0.9 adds scheduler support for affinity and anti-affinity. Affinity refers to the ability for a user to express preferred placement for a given workload based on the current state of the runtime environment. This is in contrast to a hard requirement as currently imposed by a <a href="https://www.nomadproject.io/docs/job-specification/constraint.html">constraint</a> in Nomad.</p>
+
+<p>A new <a href="https://www.nomadproject.io/docs/job-specification/affinity.html">affinity</a> stanza has been added that enables a job author to express a preference for placement based on any node property that Nomad clients are aware of:</p>
+
+<p><code>hcl
+affinity {
+    attribute = “${meta.node_class}”
+    operator = “=”
+    value = “m5”
+    weight = 10
+}
+</code></p>
+
+<p>As with spread, the weight parameter can be used to assign relative priority if multiple stanzas have been defined for a single task group. A negative weight can be used to preferentially avoid placement with respect to a given node property (anti-affinity):</p>
+
+<p><code>hcl
+affinity {
+    attribute = “${meta.node_class}”
+    operator = “=”
+    value = “m5”
+    weight = -10
+}
+</code></p>
+
+<p>See the  <a href="https://www.nomadproject.io/guides/advanced-scheduling/affinity.html">Expressing Job Placement Preferences with Affinities</a> guide or the <a href="https://www.hashicorp.com/blog/spreads-and-affinites-in-nomad">Spread and Affinities blog post</a> for more details.</p>
+
+<h2>Preemption for System Jobs</h2>
+
+<p>Preemption refers to the ability for a scheduler to evict lower priority work in favor of higher priority work when the targeted nodes lack sufficient capacity for placement. While Nomad currently enables a job author to specify a priority for a given job, the impact is limited to scheduling order at the evaluation and planning stages which is achieved by sorting the respective queues accordingly (highest priority to lowest):</p>
+
+<p>```hcl
+job &quot;myjob&quot; {</p>
+
+<pre><code>region = &quot;north-america&quot;
+datacenters = [&quot;us-east-1&quot;]
+priority = 80
+
+group &quot;mygroup&quot; {
+    task &quot;mytask&quot; {
+    # ...
+    }
+}
+</code></pre>
+
+<p>}
+```</p>
+
+<p>When a targeted set of nodes is fully utilized, any allocations that result from a newly scheduled job will remain in the pending state until sufficient resources become available - regardless of the defined priority. This can lead to priority inversion, where low priority workloads that are currently running can prevent high priority workloads from being scheduled.</p>
+
+<p><a href="https://www.nomadproject.io/docs/internals/scheduling/preemption.html">Preemption</a> support in Nomad 0.9 will initially enable Nomad to evict lower priority allocations as necessary to ensure that <a href="https://www.nomadproject.io/docs/schedulers.html#system">system jobs</a> can run on every node in the cluster. Preemption for <a href="https://www.nomadproject.io/docs/schedulers.html#service">service</a> and <a href="https://www.nomadproject.io/docs/schedulers.html#batch">batch</a> jobs will be included in the Enterprise version of Nomad in a subsequent 0.9.x point release.</p>
+
+<h2>Plugins</h2>
+
+<p>The Nomad client was refactored in Nomad 0.9 to enable plugin-based support for a range of features. Plugins lower the barrier for ecosystem technology integrations by enabling community members to develop and maintain third-party integrations outside of the standard code review and release process that Nomad core requires. The 0.9 release adds support for Task Driver Plugins and Device Plugins (see below). Upcoming releases will add plugin-based features for networking and storage that are compatible with the CNI and CSI specifications, respectively.</p>
+
+<h2>Task Driver Plugins</h2>
+
+<p>Nomad’s <a href="https://www.nomadproject.io/docs/drivers/index.html">task driver subsystem</a> allows it to support a wide range of workload types. Operators can leverage Nomad’s <a href="https://www.nomadproject.io/docs/drivers/exec.html">native task drivers</a> to bring benefits like deployment automation, self-service, high resource utilization, and automatic secret injection to non-containerized, legacy, or Windows workloads - in addition to their Docker based workloads. The task driver subsystem has been refactored in Nomad 0.9 to support <a href="https://www.nomadproject.io/guides/external/index.html">external plugins</a>. This will enable the community to easily contribute new task drivers or create modified versions of existing task drivers. The <a href="https://github.com/hashicorp/nomad-driver-lxc">LXC task driver</a> has been externalized in Nomad 0.9 and provides a <a href="https://www.nomadproject.io/guides/external/lxc.html">good illustration</a> of how the new task driver plugin system works.</p>
+
+<p>```hcl
+plugin &quot;nomad-driver-lxc&quot; {</p>
+
+<pre><code>config {
+    volumes_enabled = true
+    lxc_path = &quot;/var/lib/lxc&quot;
+}
+</code></pre>
+
+<p>}
+```</p>
+
+<h2>Device Plugins</h2>
+
+<p>Nomad 0.9 introduces a <a href="https://www.nomadproject.io/docs/devices/index.html">device plugin system</a> in addition to the new task driver plugin system. Device plugins will enable Nomad to support specialized hardware devices like GPUs, TPUs, and FPGAs. GPUs (graphical processing units) have become a standard means to accelerate computational workloads including machine learning, image processing, and financial modeling. To support these and other use cases out of the box, Nomad 0.9 includes a native <a href="https://www.nomadproject.io/docs/devices/nvidia.html">Nvidia GPU device plugin</a>.</p>
+
+<p>The device plugin system will enable the Nomad client to detect a device, fingerprint its capabilities, and make it available to the scheduler for reservation by job authors:</p>
+
+<p>```hcl
+resources {
+    device &quot;nvidia/gpu&quot; {</p>
+
+<pre><code>    count = 2
+    #Require a GPU with at least 4 GiB of memory
+
+    constraint {
+        attribute = &quot;${device.attr.memory}&quot;
+        operator = &quot;&gt;=&quot;
+        value = &quot;4 GiB&quot;
+    }
+    #Prefer a GPU from the Tesla model family
+    affinity {
+        attribute = &quot;${device.model}&quot;
+        operator = &quot;regexp&quot;
+        value = &quot;Tesla&quot;
+    }
+}
+</code></pre>
+
+<p>}
+```</p>
+
+<h2>Web UI</h2>
+
+<p>Nomad 0.9 enhances the <a href="https://www.nomadproject.io/guides/ui.html">Web UI</a> to support job submission and modification. While a CI/CD and version control based deployment approach is still recommended, Web UI support for job submission will enable easy experimentation for new users, easy iteration during dev/test cycles, and a mechanism for operators to quickly make minor changes to resolve production-level service outages. Job submission through the Web UI will require authorization through the Nomad ACL subsystem (via the coarse grained <a href="https://www.nomadproject.io/guides/security/acl.html#write">write</a> policy or the <a href="https://www.nomadproject.io/guides/security/acl.html#submit-job">submit-job</a> capability).</p>
+
+<p><img src="https://www.datocms-assets.com/2885/1554766053-screen-shot-2019-04-05-at-3-39-02-pm.png" alt=""></p>
+
+<p>The 0.9 release also adds improved CPU and memory usage charts to the Web UI. CPU and memory metrics are now plotted over time during a session in line charts on the node detail, allocation detail, and task detail pages:
+<img src="https://www.datocms-assets.com/2885/1554765975-screen-shot-2019-04-05-at-3-46-46-pm.png" alt=""></p>
+
+<h2>Additional Features in Nomad 0.9</h2>
+
+<p>Web UI
+-   Support region switching<br>
+-   Support canary promotion
+-   Support restart of stopped jobs</p>
+
+<p>ACLs<br>
+-   Support the use of globs in namespace definitions</p>
+
+<p>Logs<br>
+-   Support JSON log output
+-   Support logs when using Docker for Mac</p>
+
+<p>Docker Task Driver<br>
+-   Support specification of storage_opt
+-   Support specification of bind and tmpfs mounts
+-   Support stats collection on Windows</p>
+
+<h2>Conclusion</h2>
+
+<p>We are excited to share this release with our users. Visit the <a href="https://www.hashicorp.com/products/nomad">nomad website</a> to learn more.</p>

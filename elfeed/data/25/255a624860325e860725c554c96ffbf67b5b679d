@@ -1,0 +1,140 @@
+<p>Notebooks are increasingly becoming the standard tool for interactively developing big data applications. It’s easy to see why. Their flexible architecture allows you to experiment with data in multiple languages, test code interactively, and visualize large datasets. To help scientists and developers easily access notebook tools, we launched <a href="http://aws.amazon.com/emr" target="_blank" rel="noopener">Amazon EMR</a> Notebooks, a managed notebook environment that is based on the popular open-source Jupyter notebook application. EMR Notebooks support Spark Magic kernels, which allows you to submit jobs remotely on your EMR cluster using languages like PySpark, Spark SQL, Spark R, and Scala. The kernels submit your Spark code through Apache Livy, which is a REST server for Spark running on your cluster.</p> 
+<p>EMR Notebooks is designed to make it easy for you to experiment and build applications with Apache Spark. In this blog post, I first cover some of the benefits that EMR Notebooks offers. Then I introduce you to some of its capabilities such as detaching and attaching a notebook to different EMR clusters, monitoring Spark activity from within the notebook, using tags to control user permissions, and setting up user-impersonation to track notebook users and their actions. To learn about creating and using EMR Notebooks, you can visit <a href="https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-managed-notebooks.html" target="_blank" rel="noopener">Using Amazon EMR Notebooks</a> or follow along with the AWS Online Tech Talks <a href="https://pages.awscloud.com/Increase-Your-Data-Engineering-Productivity-Using-Amazon-EMR-Notebooks_2019_0106-ABD_OD.html" target="_blank" rel="noopener">webinar</a>.</p> 
+<h2><strong>Benefits of EMR Notebooks</strong></h2> 
+<p>One of the useful features of EMR Notebooks is the separation of the notebook environment from your underlying cluster infrastructure. The separation makes it easy for you to execute notebook code against transient clusters without worrying about deploying or configuring your notebook infrastructure every time you bring up a new cluster. You can create multiple serverless notebooks from the AWS Management Console for EMR and access the notebook UI without spending time setting up SSH access or configuring your browser for port-forwarding. Each notebook you create is launched instantly with its own Spark context. This capability enables you to attach multiple notebooks to a single shared cluster and submit parallel jobs without fear of job conflicts in a multi-tenant environment. This way you make efficient use of your clusters.</p> 
+<p>You can also connect EMR Notebooks to an EMR cluster as small as a one node. This gives you a budget-friendly sandbox environment to develop your Spark application.</p> 
+<p>Finally, with EMR Notebooks, you don’t have to spend time to manually configure your notebook to store files persistently. Your notebook files are saved automatically to a chosen <a href="http://aws.amazon.com/s3" target="_blank" rel="noopener">Amazon S3</a> bucket periodically so you don’t have to worry about losing your work if your cluster is shut down. You can retrieve your saved notebooks from the console or download it locally from your S3 bucket in Jupyter “ipynb” format.</p> 
+<h2><strong>Detaching and attaching EMR Notebooks to different clusters</strong></h2> 
+<p>With EMR Notebooks, you can detach an active notebook from a cluster and attach it to a different cluster and promptly resume your work. This capability can be useful in scenarios where you want to move your notebook from a sandbox development cluster to a production environment or attach to a different cluster with appropriate CPU or memory resources and library packages required to execute your notebook against large datasets. To detach an active notebook:</p> 
+<p>First select the notebook name and then choose <strong>Stop</strong>.</p> 
+<p><img class="alignnone size-full wp-image-6941" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/05/21/EMRJupyter1.jpg" alt="" width="736" height="595" /></p> 
+<p>Wait for the notebook status shown next to the notebook name to change from <strong>Ready</strong> to <strong>Stopped </strong>and then choose <strong>Change Cluster</strong>.</p> 
+<p><img class="alignnone size-full wp-image-6942" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/05/21/EMRJupyter2.jpg" alt="" width="626" height="576" /></p> 
+<p>After you stop the notebook, you can choose to attach it to a different cluster in the same VPC or create a new cluster. EMR Notebooks automatically attaches the notebook to the cluster and re-starts the notebook.</p> 
+<p><img class="alignnone size-full wp-image-6943" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/05/21/EMRJupyter3.jpg" alt="" width="800" height="347" /></p> 
+<h2><strong>Monitoring and debugging Spark jobs</strong></h2> 
+<p>EMR Notebooks supports a built-in Jupyter notebook widget called SparkMonitor that allows you to monitor the status of all your Spark jobs launched from the notebook without connecting to the Spark web UI server.</p> 
+<p>A widget appears and automatically integrates within the cell structure of your notebook and displays detailed status about the job submitted from each cell of your notebook, providing you with real-time progress of the different stages of the job. For any failed jobs, this widget also offers embedded links to the container logs in Amazon S3, allowing you to get to the relevant logs and debug your jobs.</p> 
+<p><img class="alignnone size-full wp-image-6944" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/05/21/EMRJupyter4.jpg" alt="" width="800" height="409" /></p> 
+<p><img class="alignnone size-full wp-image-6945" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/05/21/EMRJupyter5.jpg" alt="" width="800" height="238" /></p> 
+<p>Additionally, if you have <a href="https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-connect-master-node-ssh.html" target="_blank" rel="noopener">configured your cluster to accept SSH connections</a>, then you can access the Spark application web UI and Hadoop jobs history server from within the notebook. This allows you to view the event timelines, visualize Directed Acyclic Graphs (DAG) of each job, and view the detailed system and runtime information to inspect and debug your code. These web UIs are available automatically the first time you start to run your Spark code from a notebook.</p> 
+<p><img class="alignnone size-full wp-image-6946" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/05/21/EMRJupyter6.jpg" alt="" width="800" height="90" /></p> 
+<h2><strong>Writing tag-based policies to control user permissions for notebooks and users</strong></h2> 
+<p>EMR Notebooks are by default shared resources that anyone from your organization with access to your AWS account can open, edit, or even delete. If you want more control over your notebook, you can use tags to label your notebook and write IAM policies that control access for other users. To get you started, when you create a notebook, a default tag with a key string, <strong>creatorUserId</strong>, is set to the value of the IAM User ID of the user who created the notebook.</p> 
+<p><img class="alignnone size-full wp-image-6947" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/05/21/EMRJupyter7.jpg" alt="" width="575" height="168" /></p> 
+<p>You can use this tag to limit allowed actions on the notebook to only the creator of the notebook. For example, the permissions policy statement below, when attached to a role or user, enables the IAM user to view, start, stop, edit, or delete only those notebooks that they have created. This policy statement uses the default tag that is applied by EMR Notebooks when you create the notebook.</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-json">{
+    &quot;Version&quot;: &quot;2012-10-17&quot;,
+    &quot;Statement&quot;: [
+        {
+            &quot;Action&quot;: [
+                &quot;elasticmapreduce:DescribeEditor&quot;,
+                &quot;elasticmapreduce:StartEditor&quot;,
+                &quot;elasticmapreduce:StopEditor&quot;,
+                &quot;elasticmapreduce:DeleteEditor&quot;,
+                &quot;elasticmapreduce:OpenEditorInConsole&quot;
+            ],
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Resource&quot;: &quot;*&quot;,
+            &quot;Condition&quot;: {
+                &quot;StringEquals&quot;: {
+                    &quot;elasticmapreduce:ResourceTag/creatorUserId&quot;: &quot;${aws:userId}&quot;
+                }
+            }
+        }
+    ]</code></pre> 
+</div> 
+<p>You can write policies that enforce the creation of tags before starting a notebook. For example, the policy below requires that the user not change or delete the&nbsp;creatorUserID&nbsp;tag that is added by default. The variable ${aws:userId}, specifies the currently active user’s User ID, which is the default value of the tag.</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-json">{
+    &quot;Version&quot;: &quot;2012-10-17&quot;,
+    &quot;Statement&quot;: [
+        {
+            &quot;Action&quot;: [
+                &quot;elasticmapreduce:CreateEditor&quot;
+            ],
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Resource&quot;: &quot;*&quot;,
+            &quot;Condition&quot;: {
+                &quot;StringEquals&quot;: {
+                    &quot;elasticmapreduce:RequestTag/creatorUserId&quot;: &quot;${aws:userid}&quot;
+                }
+            }
+        }
+    ]
+}</code></pre> 
+</div> 
+<p>You can use the notebook tags along with EMR cluster tags to control notebook user access to your cluster. Tagging your notebook and clusters, in addition to securing your resources, also allows you to categorize, track, and allocate your EMR cluster costs across your different line of businesses. For example, the policy below allows a user to create a notebook only if the notebook has a tag with a key string “department” with its value set to “Analytics” and only if the notebook is attached to the EMR cluster that has a tag with the key string “cost-center” and value set to “12345.”</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-json">{
+    &quot;Version&quot;: &quot;2012-10-17&quot;,
+    &quot;Statement&quot;: [
+        {
+            &quot;Action&quot;: [
+                &quot;elasticmapreduce:StartEditor&quot;
+            ],
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Resource&quot;: &quot;arn:aws:elasticmapreduce:*:123456789012:editor/*&quot;,
+            &quot;Condition&quot;: {
+                &quot;StringEquals&quot;: {
+                    &quot;elasticmapreduce:ResourceTag/department&quot;: [
+                        &quot;Analytics&quot;
+                    ]
+                }
+            }
+        },
+        {
+            &quot;Action&quot;: [
+                &quot;elasticmapreduce:StartEditor&quot;
+            ],
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Resource&quot;: &quot;arn:aws:elasticmapreduce:*:123456789012:cluster/*&quot;,
+            &quot;Condition&quot;: {
+                &quot;StringEquals&quot;: {
+                    &quot;elasticmapreduce:ResourceTag/cost-center&quot;: [
+                        &quot;12345&quot;
+                    ]
+                }
+            }
+        }
+    ]
+}</code></pre> 
+</div> 
+<p>You can learn more about notebook and cluster tags by visiting <a href="https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-managed-notebooks-tags.html" target="_blank" rel="noopener">Using Tags to Control User Permissions</a> and <a href="https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-plan-tags.html" target="_blank" rel="noopener">Tag Clusters</a>. Also, visit <a href="https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html" target="_blank" rel="noopener">Using Cost Allocation Tags </a>to learn more using tags to generate cost allocation report in the AWS Billing and Cost Management Console.</p> 
+<h2><strong>Tracking notebook users by enforcing user-impersonation</strong></h2> 
+<p>EMR Notebooks enables multiple users to execute their notebooks’ code concurrently in a shared EMR cluster, improving cluster utilization. By default, all Spark jobs spawned by these different users from their notebook run as the same user (the livy user) on your EMR cluster. If your corporate policy requires you to set up an audit trail and track individual notebook user actions on shared clusters, you can use the user-impersonation feature of EMR Notebooks. This capability allows you to discriminate and audit all notebook users by associating the jobs they executed from their notebook with the user’s IAM identity. To use this feature, you should enable Livy user-impersonation by configuring the&nbsp;<em>core-site</em>&nbsp;and&nbsp;<em>livy-conf</em>&nbsp;configuration classifications when you create and launch an EMR cluster as follows:</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-json">[
+    {
+        &quot;Classification&quot;: &quot;core-site&quot;,
+        &quot;Properties&quot;: {
+          &quot;hadoop.proxyuser.livy.groups&quot;: &quot;*&quot;,
+          &quot;hadoop.proxyuser.livy.hosts&quot;: &quot;*&quot;
+        }
+    },
+    {
+        &quot;Classification&quot;: &quot;livy-conf&quot;,
+        &quot;Properties&quot;: {
+          &quot;livy.impersonation.enabled&quot;: &quot;true&quot;
+        }
+    }
+]</code></pre> 
+</div> 
+<p>Visit <a href="https://docs.aws.amazon.com/emr/latest/ReleaseGuide/emr-configure-apps.html" target="_blank" rel="noopener">Configuring Applications</a> to learn more about configuring application. After this feature is enabled, EMR Notebooks creates HDFS user directories on the master node for each user identity. This means all the Spark jobs from the notebook run as the IAM user instead of the indistinct user <em>livy</em>. For example, if user&nbsp;NB_User1&nbsp;runs code from the notebook editor, then a user directory named user_NB_User1 is created on the master node and all Spark jobs run as user_NB_User1. You can then use a service like <a href="http://aws.amazon.com/cloudtrail" target="_blank" rel="noopener">AWS CloudTrail</a> to audit the record of actions by the user NbUser1 by creating a trail. To learn more about setting up audit trails, see <a href="https://docs.aws.amazon.com/emr/latest/ManagementGuide/logging_emr_api_calls.html" target="_blank" rel="noopener">logging Amazon EMR API calls in AWS CloudTrail</a>.</p> 
+<h2><strong>Conclusion</strong></h2> 
+<p>In this post, I highlighted some of the capabilities of EMR Notebooks such as the ability to change clusters, monitor Spark jobs from each notebook cell, control user permission, and categorize resource costs. You can do this by using notebook and cluster tags and setting up user-impersonation to track notebook user actions.</p> 
+<p>Oh by the way, there is no additional charge for using EMR Notebooks and you only pay for the use of the EMR cluster as-usual!</p> 
+<p>If you have questions or suggestions, feel free to leave a comment.</p> 
+<p>&nbsp;</p> 
+<hr /> 
+<h3>About the Authors</h3> 
+<p><strong><img class="size-full wp-image-6948 alignleft" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/05/21/rajamv2.png" alt="" width="113" height="153" />Vignesh Rajamani is a senior product manager for EMR at AWS.</strong></p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p> 
+<p><img class="size-full wp-image-6200 alignleft" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2018/12/20/nrouda1.png" alt="" width="113" height="147" /><strong>Nikki Rouda is the principal product marketing manager for data lakes and big data at AWS</strong>. Nikki has spent 20+ years helping enterprises in 40+ countries develop and implement solutions to their analytics and IT infrastructure challenges. Nikki holds an MBA from the University of Cambridge and an ScB in geophysics and math from Brown University.</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p>

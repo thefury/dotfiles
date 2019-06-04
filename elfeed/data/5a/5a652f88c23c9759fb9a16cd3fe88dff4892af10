@@ -1,0 +1,72 @@
+<p>Today, we’re <a href="https://blog.getambassador.io/ambassador-0-60-consul-service-mesh-timeouts-and-more-2938dbbd1e93">announcing</a> native support in the <a href="https://www.getambassador.io">Ambassador API Gateway</a> for the <a href="https://www.consul.io/">Consul</a> service mesh. With this support, engineers can use Ambassador’s <a href="https://www.getambassador.io/concepts/developers/">declarative configuration</a> to expose any Consul service to the internet. Together, Ambassador and Consul provide a complete solution for traffic management in <a href="https://www.hashicorp.com/cloud-adoption">today’s hybrid cloud</a>, spanning Kubernetes, virtual machines (VMs), and bare metal infrastructure. </p>
+
+<h2>Why this matters</h2>
+
+<p>Organizations today are increasingly focused on modernizing their applications to take advantage of technology innovations such as machine learning and big data. In addition, application modernization initiatives—such as containerization, declarative configuration, and defining <a href="https://docs.hashicorp.com/sentinel/concepts/policy-as-code">policy as code</a>—decouple application and infrastructure, and provide organizations the ability to incrementally migrate to cloud platforms as needed. </p>
+
+<p>The first step in application modernization is decoupling applications from the heterogeneous runtime infrastructure: VMs, bare metal, containers. By enabling applications to run anywhere—while remaining connected to both external and internal users—this decoupling sets the stage for an incremental application modernization effort. This decoupling requires two major technologies:</p>
+
+<ul>
+<li><strong>API Gateways</strong> decouple application composition and location from external consumers. An API gateway dynamically routes external requests to different applications, regardless of where it is deployed.</li>
+<li><strong>Service meshes</strong> decouple applications from internal consumers. A service mesh dynamically routes internal requests to different applications, regardless of where it is deployed.</li>
+</ul>
+
+<p>Together, Ambassador and Consul provide a powerful architecture for application modernization. With this architecture, application workloads deployed share a common set of security and routing policies. Applications can be moved anywhere in the data center, without impacting security or end users. </p>
+
+<h2>How it works</h2>
+
+<p>In this architecture, Consul is the source of truth for your entire data center, tracking available endpoints, service configuration, and keeping secrets for TLS encryption. Consul also routes service-to-service traffic, ensuring end-to-end traffic is <a href="https://www.consul.io/docs/connect/index.html">fully secured with TLS</a>. </p>
+
+<p>Using Consul for <a href="https://www.consul.io/discovery.html">service discovery</a>, Ambassador is able to route to any Consul service using TLS. 
+ Ambassador serves as a common point of ingress to your applications and services, providing common cross-cutting functionality such as user <a href="https://www.getambassador.io/user-guide/auth-tutorial">authentication</a>, API management, and <a href="https://www.getambassador.io/user-guide/tls-termination">TLS termination</a>. 
+<img src="https://www.datocms-assets.com/2885/1555956386-consulambassadorgatewaydiagramv1-01-1.png" alt="">
+We’ve worked closely with the HashiCorp team to create a simple configuration experience. Ambassador uses a declarative configuration format built on Kubernetes annotations. So to use Consul for service discovery, we first register Consul as a resolver:</p>
+
+<h2>```</h2>
+
+<p>apiVersion: ambassador/v1
+kind: ConsulResolver
+name: consul
+address: consul:8500
+datacenter: dc3
+```</p>
+
+<p>Now that we’ve registered Consul, we can tell Ambassador to route to any service using Ambassador’s standard declarative configuration format. All Ambassador features such as gRPC, timeouts, and configurable load balancing are fully supported. In the example below, we’re creating a mapping between <code>/foo/</code> and the <code>foo</code> service registered in Consul:</p>
+
+<h2>```</h2>
+
+<p>apiVersion: ambassador/v1
+kind: Mapping
+prefix: /foo/
+service: foo
+timeout<em>ms: 5000
+resolver: consul
+tls: consul-tls-cert
+load</em>balancer:
+  policy: round_robin 
+```</p>
+
+<p>As soon as this route is registered, Ambassador will start routing traffic to that service. Behind the scenes, Ambassador will:</p>
+
+<ul>
+<li>Obtain a list of available endpoints for the <code>foo</code> service from Consul</li>
+<li>Obtain the appropriate TLS certificate from Consul to originate encrypted TLS to the endpoints</li>
+<li>Apply any additional configuration to the route such as load balancing rules, protocol, timeouts, and so forth.</li>
+</ul>
+
+<h2>Architecture</h2>
+
+<p>Ambassador pulls service and mapping data from Kubernetes. Ambassador also pulls endpoint data and security certificates (for TLS encryption) from Consul. Ambassador will typically detect any configuration changes in milliseconds. Using this data, Ambassador assembles a complete configuration snapshot of your environment: the routing table, available endpoints, and route configuration (e.g., protocol, timeouts, prefix rewrites, and such). To prevent a cascade of configuration changes from triggering configuration churn, Ambassador will coalesce all configuration changes that occur within a 250ms interval. Note that <a href="https://www.getambassador.io/concepts/architecture/">Ambassador’s architecture</a> is stateless by design -- it relies on Consul and Kubernetes as the single source of truth, enabling simple horizontal scale-out of Ambassador instances.</p>
+
+<p>Both Ambassador and Consul rely on <a href="https://www.envoyproxy.io">Envoy Proxy</a> for the data plane. In Ambassador’s case, the configuration snapshot is rendered into Envoy configuration, and passed to Envoy over Envoy’s Aggregated Discovery Services API. Incoming traffic is directly routed by the configured Envoy Proxy instance. Traffic from the Ambassador Envoy is routed to <a href="https://www.consul.io/docs/connect/proxies.html">Connect-aware proxies over TLS</a>.</p>
+
+<h2>Learn more</h2>
+
+<p>Both Consul team at HashiCorp and the Ambassador team at Datawire are excited for this collaboration, and we look forward to continuing to deepen the integration between Ambassador and Consul as both products move forward. To learn more about the Ambassador and Consul integration, see the following:</p>
+
+<ul>
+<li><a href="https://www.hashicorp.com/webinars/secure-routing-traffic-management-ambassador-consul">Join our webinar</a> to watch a live demo.</li>
+<li><a href="https://www.getambassador.io/user-guide/consul">Getting started with Ambassador and Consul</a>. This is a quick start guide to installing Ambassador and configuring it to use Consul for service discovery and end-to-end TLS.</li>
+<li><a href="https://www.getambassador.io/reference/core/resolvers">Service discovery configuration</a>. This reference guide for Ambassador discusses how to configure service discovery in Ambassador with Consul.</li>
+<li>Attending <a href="https://events.linuxfoundation.org/events/kubecon-cloudnativecon-europe-2019/">KubeCon Europe 2019</a>? Daniel Bryant from Datawire and Nic Jackson from HashiCorp will be presenting on <a href="https://events.linuxfoundation.org/events/kubecon-cloudnativecon-europe-2019/schedule/?gclid=EAIaIQobChMIprGNtpfd4QIVQ57ACh2k3gRkEAAYASABEgJqe_D_BwE">Securing Cloud Native Communications with Ambassador and Consul</a>. </li>
+</ul>

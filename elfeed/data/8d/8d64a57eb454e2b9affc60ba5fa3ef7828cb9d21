@@ -1,0 +1,345 @@
+<p>We are very proud to announce the release of Terraform 0.12.</p>
+
+<p>Terraform 0.12 is a major update that includes dozens of improvements and features spanning the breadth and depth of Terraform&#39;s functionality.</p>
+
+<p>Some highlights of this release include:
+* <strong>First-class expression syntax</strong>: express references and expressions directly rather than using string interpolation syntax.
+* <strong>Generalized type system</strong>: use lists and maps more freely, and use resources as object values.
+* <strong>Iteration constructs</strong>: transform and filter one collection into another collection, and generate nested configuration blocks from collections.
+* <strong>Structural rendering of plans</strong>: plan output now looks more like configuration making it easier to understand.
+* <strong>Context-rich error messages</strong>: error messages now include a highlighted snippet of configuration and often suggest exactly what needs to be changed to resolve them.</p>
+
+<p>The full release changelog can be found <a href="https://github.com/hashicorp/terraform/blob/v0.12.0/CHANGELOG.md">here</a>.</p>
+
+<p>Here is an example of a Terraform configuration showing some new language features:</p>
+
+<p>```hcl
+data &quot;consul<em>key</em>prefix&quot; &quot;environment&quot; {
+  path = &quot;apps/example/env&quot;
+}</p>
+
+<p>resource &quot;aws<em>elastic</em>beanstalk<em>environment&quot; &quot;example&quot; {
+  name        = &quot;test</em>environment&quot;
+  application = &quot;testing&quot;</p>
+
+<p>setting {
+    namespace = &quot;aws:autoscaling:asg&quot;
+    name      = &quot;MinSize&quot;
+    value     = &quot;1&quot;
+  }</p>
+
+<p>dynamic &quot;setting&quot; {
+    for<em>each = data.consul</em>key_prefix.environment.var
+    content {
+      namespace = &quot;aws:elasticbeanstalk:application:environment&quot;
+      name      = setting.key
+      value     = setting.value
+    }
+  }
+}</p>
+
+<p>output &quot;environment&quot; {
+  value = {
+    id           = aws<em>elastic</em>beanstalk<em>environment.example.id
+    vpc</em>settings = {
+      for s in aws<em>elastic</em>beanstalk<em>environment.example.all</em>settings :
+      s.name =&gt; s.value
+      if s.namespace == &quot;aws:ec2:vpc&quot;
+    }
+  }
+}
+```</p>
+
+<h2>Getting Started</h2>
+
+<p>We have many resources available for 0.12 for new and existing users. To learn more about the new functionality of 0.12 you can:</p>
+
+<ul>
+<li>Review the <a href="https://www.terraform.io/docs/configuration/">updated documentation</a>.</li>
+<li>Visit the HashiCorp <a href="https://learn.hashicorp.com/terraform/">Learn Center</a>.</li>
+</ul>
+
+<p>To get started using 0.12:</p>
+
+<ul>
+<li><a href="https://www.terraform.io/downloads.html">Download</a> the Terraform 0.12 release.</li>
+<li>If you are upgrading from a previous release, read the <a href="https://www.terraform.io/upgrade-guides/0-12.html">upgrade guide</a> to learn about the required upgrade steps.</li>
+</ul>
+
+<h2>First-class Expression Syntax</h2>
+
+<p>Terraform uses expressions to propagate results from one resource into the configuration of another resource, and references within expressions create the dependency graph that Terraform uses to determine the order of operations during the <code>apply</code> step.</p>
+
+<p>Prior versions of Terraform required all non-literal expressions to be included as interpolation sequences inside strings, such as <code>&quot;${azurerm_shared_image.image_definition_ubuntu.location}&quot;</code>. Terraform 0.12 allows expressions to be used directly in any situation where a value is expected.</p>
+
+<p>The following example shows syntax from prior Terraform versions:</p>
+
+<p>```hcl
+variable &quot;base<em>network</em>cidr&quot; {
+  default = &quot;10.0.0.0/8&quot;
+}</p>
+
+<p>resource &quot;google<em>compute</em>network&quot; &quot;example&quot; {
+  name                    = &quot;test-network&quot;
+  auto<em>create</em>subnetworks = false
+}</p>
+
+<p>resource &quot;google<em>compute</em>subnetwork&quot; &quot;example&quot; {
+  count = 4</p>
+
+<p>name          = &quot;test-subnetwork&quot;
+  ip<em>cidr</em>range = &quot;${cidrsubnet(var.base<em>network</em>cidr, 4, count.index)}&quot;
+  region        = &quot;us-central1&quot;
+  network       = &quot;${google<em>compute</em>network.custom-test.self_link}&quot;
+}
+```</p>
+
+<p>In Terraform 0.12, the expressions can be given directly:</p>
+
+<p>```hcl
+variable &quot;base<em>network</em>cidr&quot; {
+  default = &quot;10.0.0.0/8&quot;
+}</p>
+
+<p>resource &quot;google<em>compute</em>network&quot; &quot;example&quot; {
+  name                    = &quot;test-network&quot;
+  auto<em>create</em>subnetworks = false
+}</p>
+
+<p>resource &quot;google<em>compute</em>subnetwork&quot; &quot;example&quot; {
+  count = 4</p>
+
+<p>name          = &quot;test-subnetwork&quot;
+  ip<em>cidr</em>range = cidrsubnet(var.base<em>network</em>cidr, 4, count.index)
+  region        = &quot;us-central1&quot;
+  network       = google<em>compute</em>network.custom-test.self_link
+}
+```</p>
+
+<p>The difference is subtle in this simple example, but as expressions and configurations get more complex, this cleaner syntax will improve readability by focusing on what is important.</p>
+
+<p>For more information on the Terraform 0.12 expression syntax, see <a href="https://www.terraform.io/docs/configuration/expressions.html">Expressions</a>.</p>
+
+<h2>Generalized Type System</h2>
+
+<p>Terraform was originally focused on working just with strings. Although better support for data structures such as lists and maps was introduced in subsequent versions, many of the initial language features did not work well with them, making data structures frustrating to use.</p>
+
+<p>One case where this was particularly pronounced was when using <a href="https://www.terraform.io/docs/modules/composition.html">module composition patterns</a>, where objects created by one module would need to be passed to another module. If one module creates an AWS VPC and some subnets, and another module depends on those resources, we would previously need to pass all of the necessary attributes as separate output values and input variables:</p>
+
+<p>```hcl
+module &quot;network&quot; {
+  source = &quot;./modules/network&quot;</p>
+
+<p>base<em>network</em>cidr = &quot;10.0.0.0/8&quot;
+}</p>
+
+<p>module &quot;consul_cluster&quot; {
+  source = &quot;./modules/aws-consul-cluster&quot;</p>
+
+<p>vpc<em>id         = module.network.vpc</em>id
+  vpc<em>cidr</em>block = module.network.vpc<em>cidr</em>block
+  subnet<em>ids     = module.network.subnet</em>ids
+}
+```</p>
+
+<p>Terraform 0.12&#39;s generalized type system makes composition more convenient by giving more options for passing objects and other values between modules. For example, the &quot;network&quot; module could instead be written to return the whole VPC object and a list of subnet objects, allowing them to be passed as a whole:</p>
+
+<p>```hcl
+module &quot;network&quot; {
+  source = &quot;./modules/network&quot;</p>
+
+<p>base<em>network</em>cidr = &quot;10.0.0.0/8&quot;
+}</p>
+
+<p>module &quot;consul_cluster&quot; {
+  source = &quot;./modules/aws-consul-cluster&quot;</p>
+
+<p>vpc     = module.network.vpc
+  subnets = module.network.subnets
+}
+```</p>
+
+<p>Alternatively, if two modules are more tightly coupled to one another, you might choose to just pass the whole source module itself:</p>
+
+<p>```hcl
+module &quot;network&quot; {
+  source = &quot;./modules/network&quot;</p>
+
+<p>base<em>network</em>cidr = &quot;10.0.0.0/8&quot;
+}</p>
+
+<p>module &quot;consul_cluster&quot; {
+  source = &quot;./modules/aws-consul-cluster&quot;</p>
+
+<p>network = module.network
+}
+```</p>
+
+<p>This capability relies on the ability to specify complex types for input variables in modules. For example, the &quot;network&quot; variable in the aws-consul-cluster module might be declared like this:</p>
+
+<p><code>hcl
+variable &quot;network&quot; {
+  type = object({
+    vpc = object({
+      id         = string
+      cidr_block = string
+    })
+    subnets = set(object({
+      id         = string
+      cidr_block = string
+    }))
+  })
+}
+</code></p>
+
+<p>For more information on the different types that can be used when passing values between modules and between resources, see <a href="https://www.terraform.io/docs/configuration/types.html">Type Constraints</a>.</p>
+
+<h2>Iteration Constructs</h2>
+
+<p>Another way in which data structures were inconvenient in prior versions was the lack of any general iteration constructs that could perform transformations on lists and maps.</p>
+
+<p>Terraform 0.12 introduces a new <code>for</code> operator that allows building one collection from another by mapping and filtering input elements to output elements:</p>
+
+<p><code>hcl
+locals {
+  public_instances_by_az = {
+    for i in aws_instance.example : i.availability_zone =&gt; i...
+    if i.associate_public_ip_address
+  }
+}
+</code></p>
+
+<p>This feature allows us to adapt collection data returned in one format into another format that is more convenient to use elsewhere, such as turning a list into a map as in the example above. The output elements can be the result of any arbitrary Terraform expression, including another nested <code>for</code> expression!</p>
+
+<p>Terraform 0.12 also introduces a mechanism for dynamically generating nested configuration blocks for resources. The <code>dynamic &quot;setting&quot;</code> block in the first example above illustrates that feature. Here is another example using an input variable to distribute Azure shared images over a specific set of regions:</p>
+
+<p>```hcl
+variable &quot;source<em>image</em>region&quot; {
+  type = string
+}</p>
+
+<p>variable &quot;target<em>image</em>regions&quot; {
+  type = list(string)
+}</p>
+
+<p>resource &quot;azurerm<em>shared</em>image<em>version&quot; &quot;ubuntu&quot; {
+  name                = &quot;1.0.1&quot;
+  gallery</em>name        = azurerm<em>shared</em>image<em>gallery.image</em>gallery.name
+  image<em>name          = azurerm</em>shared<em>image.image</em>definition.name
+  resource<em>group</em>name = azurerm<em>resource</em>group.image<em>gallery.name
+  location            = var.source</em>image<em>location
+  managed</em>image<em>id    = data.azurerm</em>image.ubuntu.id[count.index]</p>
+
+<p>dynamic &quot;target<em>region&quot; {
+    for</em>each = var.target<em>image</em>regions
+    content {
+      name                   = target<em>region.value
+      regional</em>replica_count = 1
+    }
+  }
+}
+```</p>
+
+<p>For more information on these features, see <a href="https://www.terraform.io/docs/configuration/expressions.html#for-expressions"><code>for</code> expressions</a> and <a href="https://www.terraform.io/docs/configuration/expressions.html#dynamic-blocks">&#39;dynamic` blocks</a>.</p>
+
+<h2>Structural Rendering of Plans</h2>
+
+<p>Prior versions of Terraform reduced plan output to a flat list of key, value pairs, even when using resource types with deeply-nested configuration blocks. This would tend to become difficult to read, particularly when making changes to nested blocks where it was hard to understand exactly what changed.</p>
+
+<p>Terraform 0.12 has an entirely new plan renderer which integrates with Terraform&#39;s new type system to show changes in a form that resembles the configuration language, and which indicates nested structures by indentation:</p>
+
+<p>```
+Terraform will perform the following actions:</p>
+
+<p># kubernetes<em>pod.example will be updated in-place
+  ~ resource &quot;kubernetes</em>pod&quot; &quot;example&quot; {
+        id = &quot;default/terraform-example&quot;</p>
+
+<pre><code>    metadata {
+        generation       = 0
+        labels           = {
+            &quot;app&quot; = &quot;MyApp&quot;
+        }
+        name             = &quot;terraform-example&quot;
+        namespace        = &quot;default&quot;
+        resource_version = &quot;650&quot;
+        self_link        = &quot;/api/v1/namespaces/default/pods/terraform-example&quot;
+        uid              = &quot;5130ef35-7c09-11e9-be7c-080027f59de6&quot;
+    }
+
+  ~ spec {
+        active_deadline_seconds          = 0
+        dns_policy                       = &quot;ClusterFirst&quot;
+        host_ipc                         = false
+        host_network                     = false
+        host_pid                         = false
+        node_name                        = &quot;minikube&quot;
+        restart_policy                   = &quot;Always&quot;
+        service_account_name             = &quot;default&quot;
+        termination_grace_period_seconds = 30
+
+      ~ container {
+          ~ image                    = &quot;nginx:1.7.9&quot; -&gt; &quot;nginx:1.7.10&quot;
+            image_pull_policy        = &quot;IfNotPresent&quot;
+            name                     = &quot;example&quot;
+            stdin                    = false
+            stdin_once               = false
+            termination_message_path = &quot;/dev/termination-log&quot;
+            tty                      = false
+
+            resources {
+            }
+        }
+    }
+}
+</code></pre>
+
+<p>```</p>
+
+<p>Along with reflecting the natural configuration hierarchy in the plan output, Terraform will also show line-oriented diffs for multiline strings and will parse and show structural diffs for JSON strings, both of which have been big pain points for plan readability in prior versions.</p>
+
+<h2>Context-Rich Error Messages</h2>
+
+<p>Terraform 0.12 includes much improved error messages for configuration errors and for many other potential problems.</p>
+
+<p>The error messages in prior versions were of varying quality, sometimes giving basic context about a problem but often lacking much context at all, and being generally inconsistent in terminology.</p>
+
+<p>The new Terraform 0.12 error messages follow a predictable structure:</p>
+
+<p>```
+Error: Unsupported Attribute</p>
+
+<p>on example.tf line 12, in resource &quot;aws<em>security</em>group&quot; &quot;example&quot;:
+  12:   description = local.example.foo
+    |-----------------
+    | local.example is &quot;foo&quot;</p>
+
+<p>This value does not have any attributes.
+```</p>
+
+<p>Not every error message will include all of these components, but the general makeup of a new-style error message is:</p>
+
+<ul>
+<li>A short description of the problem type, to allow quick recognition of familiar problems.</li>
+<li>A reference to a specific configuration construct that the problem relates to, along with a snippet of the relevant configuration.</li>
+<li>The values of any references that appear in the expression being evaluated.</li>
+<li>A more detailed description of the problem and, where possible, potential solutions to the problem.</li>
+</ul>
+
+<h2>Provider Compatibility</h2>
+
+<p>There are still providers that do not yet have 0.12-ready releases. We have made the decision to move forward with Terraform Core release in spite of that, in the interest of making this new release available as soon as possible for as many users as possible. We have published a <a href="https://www.terraform.io/docs/extend/terraform-0.12-compatibility.html">0.12 readiness guide for provider developers</a> with details on how to make a provider 0.12-ready.</p>
+
+<p>Providers that are not yet compatible will report that no compatible versions are available during terraform init, with the following error message:</p>
+
+<p><code>
+Error: no available version is compatible with this version of Terraform
+</code></p>
+
+<p>Our provider teams are still hard at work making these releases and we expect to have compatible releases for all HashiCorp-hosted providers shortly after the final Core 0.12 release.</p>
+
+<h2>Conclusion</h2>
+
+<p>The changes described above are just a few of the highlights of Terraform 0.12. For more details, please see <a href="https://github.com/hashicorp/terraform/blob/v0.12.0/CHANGELOG.md">the full changelog</a>. This release also includes a number of code contributions from the community, and wouldn&#39;t have been possible without all of the great community feedback we&#39;ve received over the years via GitHub issues and elsewhere. Thank you!</p>
+
+<p>We&#39;re very excited to share Terraform 0.12 with the community and we will continue building out features and functionality. In addition, HashiCorp recently released Terraform Cloud Remote State Storage and have plans for adding more functionality to make using Terraform a great experience for teams. You can download Terraform 0.12 <a href="https://www.terraform.io/downloads.html">here</a> and sign up for a Terraform Cloud account <a href="https://app.terraform.io/signup?utm_source=blog_0.12&utm_campaign=intro_tf_cloud_remote">here</a>.    </p>

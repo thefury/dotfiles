@@ -1,0 +1,93 @@
+<p>This post provides a high-level framework for how to implement GitFlow using <a href="https://aws.amazon.com/codepipeline/">AWS CodePipeline</a>, <a href="https://aws.amazon.com/codecommit/">AWS CodeCommit</a>, <a href="https://aws.amazon.com/codebuild/">AWS CodeBuild</a>, and <a href="https://aws.amazon.com/codedeploy/">AWS CodeDeploy</a>. We also provide <a href="https://aws.amazon.com/cloudformation/">AWS CloudFormation</a> templates and <a href="https://aws.amazon.com/cli/">AWS CLI</a> commands to help you get going.</p> 
+<p>Before we begin, we want to point out that we strongly encourage Amazon teams to practice <a href="https://aws.amazon.com/devops/continuous-integration/">continuous integration</a> (CI) via “trunk-based development” where developers regularly merge their code changes into a central repository, ideally several times a day. When teams are able to regularly merge small changes they minimize the complexity of the merge and thereby the effort. Combining trunk-based continuous integration with <a href="https://aws.amazon.com/devops/continuous-delivery/">continuous delivery</a> (CI/CD) reduces the lead-time of getting a change into production.</p> 
+<p>As we’ll explain later, GitFlow involves creating multiple levels of branching off of master where changes to feature branches are only periodically merged all the way back to master to trigger a release. “Branch-based development” typically leads to fewer merges to master, higher levels of “merge debt,” and therefore longer lead time for getting a change to production.</p> 
+<p>Of course, not every team has achieved CI/CD nirvana. Many teams are still on their CI/CD journey or have situations that might make branching models like GitFlow attractive (or even mandatory). For this reason, we want to provide information that helps them use our tools to automate merge and release tasks. With that out of the way, let’s dive in!</p> 
+<p>When Linus Torvalds introduced <a href="https://aws.amazon.com/devops/source-control/git/">Git</a> version control in 2005, it really changed the way developers thought about branching and merging. Before Git, these tasks were scary and mostly avoided. As the tools became more mature, branching and merging became both cheap and simple. They are now part of the daily development workflow. In 2010, Vincent Driessen introduced <a href="https://nvie.com/posts/a-successful-git-branching-model/">GitFlow</a>, which became an extremely popular branch and release management model. It introduced the concept of a develop branch as the mainline integration and the well-known master branch, which is always kept in a production-ready state. Both master and develop are <em>permanent</em> branches, but GitFlow also recommends <em>short-lived</em> feature, hotfix, and release branches, like so:</p> 
+<p><img class="alignnone wp-image-2994 size-full" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2019/02/12/gitflow-Page-1-3.png" alt="" width="758" height="486" /></p> 
+<p>GitFlow guidelines:</p> 
+<ul> 
+ <li>Use development as a continuous integration branch.</li> 
+ <li>Use feature branches to work on multiple features.</li> 
+ <li>Use release branches to work on a particular release (multiple features).</li> 
+ <li>Use hotfix branches off of master to push a hotfix.</li> 
+ <li>Merge to master after every release.</li> 
+ <li>Master contains production-ready code.</li> 
+</ul> 
+<p>Now that you have some background, let’s take a look at how we can implement this model using services that are part of AWS Developer Tools: AWS CodePipeline, AWS CodeCommit, AWS CodeBuild, and AWS CodeDeploy. In this post, we assume you are familiar with these AWS services. If you aren’t, see the links in the Reference section before you begin. We also assume that you have installed and configured the AWS CLI.</p> 
+<p>Throughout the post, we use the popular GitFlow tool. It’s written on top of Git and automates the process of branch creation and merging. The tool follows the GitFlow branching model guidelines. You don’t have to use this tool. You can use Git commands instead.</p> 
+<p>For simplicity, production-like pipelines that have approval or testing stages have been omitted, but they can easily fit into this model. Also, in an ideal production scenario, you would keep Dev and Prod accounts separate.</p> 
+<h2>AWS Developer Tools and GitFlow</h2> 
+<p>Let’s take a look at how can we model AWS CodePipeline with GitFlow. <em>The idea is to create a pipeline per branch.</em> Each pipeline has a lifecycle that is tied to the branch. When a new, short-lived branch is created, we create the pipeline and required resources. After the short-lived branch is merged into develop, we clean up the pipeline and resources to avoid recurring costs.</p> 
+<p>The following would be permanent and would have same lifetime as the master and develop branches:</p> 
+<ul> 
+ <li>AWS CodeCommit master/develop branch</li> 
+ <li>AWS CodeBuild project across all branches</li> 
+ <li>AWS CodeDeploy application across all branches</li> 
+ <li>AWS Cloudformation stack (EC2 instance) for master (prod) and develop (stage)</li> 
+</ul> 
+<p>The following would be temporary and would have the same lifetime as the short-lived branches:</p> 
+<ul> 
+ <li>AWS CodeCommit feature/hotfix/release branch</li> 
+ <li>AWS CodePipeline per branch</li> 
+ <li>AWS CodeDeploy deployment group per branch</li> 
+ <li>AWS Cloudformation stack (EC2 instance) per branch</li> 
+</ul> 
+<p>Here’s how it would look:</p> 
+<p><img class="alignnone wp-image-2993 size-full" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2019/02/12/gitflow-Copy-of-Page-1-1.png" alt="" width="794" height="733" /></p> 
+<p><img class="alignnone wp-image-2992 size-full" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2019/02/12/gitflow-Page-3.png" alt="" width="746" height="446" />Basic guidelines (assuming EC2/on-premises):</p> 
+<ul> 
+ <li>Each branch has an AWS CodePipeline.</li> 
+ <li>AWS CodePipeline is configured with AWS CodeCommit as the source provider, AWS CodeBuild as the build provider, and AWS CodeDeploy as the deployment provider.</li> 
+ <li>AWS CodeBuild is configured with AWS CodePipeline as the source.</li> 
+ <li>Each AWS CodePipeline has an AWS CodeDeploy deployment group that uses the Name tag to deploy.</li> 
+ <li>A single Amazon S3 bucket is used as the artifact store, but you can choose to keep separate buckets based on repo.</li> 
+</ul> 
+<p>&nbsp;</p> 
+<p>Step 1: Use the following AWS CloudFormation templates to set up the required roles and environment for master and develop, including the commit repo, VPC, EC2 instance, CodeBuild, CodeDeploy, and CodePipeline.</p> 
+<pre><code class="lang-bash">$ aws cloudformation create-stack --stack-name GitFlowEnv \
+--template-body https://s3.amazonaws.com/devops-workshop-0526-2051/git-flow/aws-devops-workshop-environment-setup.template \
+--capabilities CAPABILITY_IAM 
+
+</code></pre> 
+<pre><code class="lang-bash">$ aws cloudformation create-stack --stack-name GitFlowCiCd \
+--template-body https://s3.amazonaws.com/devops-workshop-0526-2051/git-flow/aws-pipeline-commit-build-deploy.template \
+--capabilities CAPABILITY_IAM \
+--parameters ParameterKey=MainBranchName,ParameterValue=master ParameterKey=DevBranchName,ParameterValue=develop </code></pre> 
+<p>Here is how the pipelines should appear in the CodePipeline console:</p> 
+<p><img class="alignleft wp-image-2936 size-full" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2019/02/01/Picture1.png" alt="" width="974" height="214" />Step 2: Push the contents to the AWS CodeCommit repo.</p> 
+<p>Download <a href="https://s3.amazonaws.com/gitflowawsdevopsblogpost/WebAppRepo.zip">https://s3.amazonaws.com/gitflowawsdevopsblogpost/WebAppRepo.zip</a>. Unzip the file, clone the repo, and then commit and push the contents to CodeCommit – WebAppRepo.</p> 
+<p>Step 3: Run git flow init in the repo to initialize the branches.</p> 
+<pre><code class="lang-bash">$ git flow init</code></pre> 
+<p>Assume you need to start working on a new feature and create a branch.</p> 
+<pre><code class="lang-bash">$ git flow feature start &lt;branch&gt;</code></pre> 
+<p>Step 4: Update the stack to create another pipeline for feature-x branch.</p> 
+<pre><code class="lang-bash">$ aws cloudformation update-stack --stack-name GitFlowCiCd \
+--template-body https://s3.amazonaws.com/devops-workshop-0526-2051/git-flow/aws-pipeline-commit-build-deploy-update.template \
+--capabilities CAPABILITY_IAM \
+--parameters ParameterKey=MainBranchName,ParameterValue=master ParameterKey=DevBranchName,ParameterValue=develop ParameterKey=FeatureBranchName,ParameterValue=feature-x</code></pre> 
+<p>When you’re done, you should see the feature-x branch in the CodePipeline console. It’s ready to build and deploy. To test, make a change to the branch and view the pipeline in action.</p> 
+<p><img class="alignleft wp-image-2940 size-full" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2019/02/01/Picture2.png" alt="" width="974" height="249" /></p> 
+<p>After you have confirmed the branch works as expected, use the finish command to merge changes into the develop branch.</p> 
+<pre><code class="lang-bash">$ git flow feature finish &lt;feature&gt;</code></pre> 
+<p>After the changes are merged, update the AWS CloudFormation stack to remove the branch. This will help you avoid charges for resources you no longer need.</p> 
+<pre><code class="lang-bash">$ aws cloudformation update-stack --stack-name GitFlowCiCd \
+--template-body https://s3.amazonaws.com/devops-workshop-0526-2051/git-flow/aws-pipeline-commit-build-deploy.template \
+--capabilities CAPABILITY_IAM \
+--parameters ParameterKey=MainBranchName,ParameterValue=master ParameterKey=DevBranchName,ParameterValue=develop</code></pre> 
+<p>The steps for the release and hotfix branches are the same.</p> 
+<h2>End result: Pipelines and deployment groups</h2> 
+<p>You should end up with pipelines that look like this.</p> 
+<p><img class="alignnone wp-image-2941 size-full" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2019/02/01/Picture3.png" alt="" width="639" height="337" /></p> 
+<p><img class="alignnone wp-image-2942 size-full" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2019/02/01/Picture4.png" alt="" width="650" height="379" /></p> 
+<h2>Next steps</h2> 
+<p>If you take the CLI commands and wrap them in your own custom bash script, you can use GitFlow and the script to quickly set up and tear down pipelines and resources for short-lived branches. This helps you avoid being charged for resources you no longer need. Alternatively, you can write a scheduled Lambda function that, based on creation date, deletes the short-lived pipelines on a regular basis.</p> 
+<h2>Summary</h2> 
+<p>In this blog post, we showed how AWS CodePipeline, AWS CodeCommit, AWS CodeBuild, and AWS CodeDeploy can be used to model GitFlow. We hope you can use the information in this post to improve your CI/CD strategy, specifically to get your developers working in feature/release/hotfixes branches and to provide them with an environment where they can collaborate, test, and deploy changes quickly.</p> 
+<h2>References</h2> 
+<ul> 
+ <li>AWS CodePipeline User Guide<a href="https://docs.aws.amazon.com/codepipeline/latest/userguide/welcome.html"> https://docs.aws.amazon.com/codepipeline/latest/userguide/welcome.html</a></li> 
+ <li>AWS CodeCommit User Guide <a href="https://docs.aws.amazon.com/codecommit/latest/userguide/welcome.html">https://docs.aws.amazon.com/codecommit/latest/userguide/welcome.html</a></li> 
+ <li>AWS CodeBuild User Guide <a href="https://docs.aws.amazon.com/codebuild/latest/userguide/welcome.html">https://docs.aws.amazon.com/codebuild/latest/userguide/welcome.html</a></li> 
+ <li>AWS CodeDeploy User Guide <a href="https://docs.aws.amazon.com/codedeploy/latest/userguide/welcome.html">https://docs.aws.amazon.com/codedeploy/latest/userguide/welcome.html</a></li> 
+ <li>AWS DevOps Essentials <a href="https://github.com/awslabs/aws-devops-essential">https://github.com/awslabs/aws-devops-essential</a></li> 
+</ul>

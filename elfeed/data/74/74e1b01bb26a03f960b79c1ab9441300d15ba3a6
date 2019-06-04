@@ -1,0 +1,19 @@
+<p>You can now use version 2 of the AWS SDK for Ruby to verify the signatures of Amazon SNS messages. To help prevent spoofing attacks, <strong>you should verify messages are sent by Amazon SNS</strong>.</p> 
+<p>The new verifier follows the <a href="http://docs.aws.amazon.com/sns/latest/dg/SendMessageToHttp.verify.signature.html">documented best practices for verification</a>, including:</p> 
+<ul> 
+ <li>Always use HTTPS when getting the certificate from Amazon SNS.</li> 
+ <li>Validate the authenticity of the certificate.</li> 
+ <li>Verify the certificate was received from Amazon SNS.</li> 
+</ul> 
+<h2>Basic Usage</h2> 
+<p>Usage is straightforward. Construct a message verifier and call one of two methods. The given message body should be the JSON document string of the message.</p> 
+<pre class="brush: ruby">verifier = Aws::SNS::MessageVerifier.new
+
+verifier.authentic?(message_body)
+#=&gt; returns true or false
+
+verifier.authenticate!(message_body)
+#=&gt; returns true or raises a VerificationError</pre> 
+<p>You can use one instance of <code>Aws::SNS::MessageVerifier.new</code> to verify multiple messages. </p> 
+<h2>Feedback</h2> 
+<p>As always, we love to hear your feedback. It helps us prioritize our development efforts. In fact, this feature was added by customer request. Feel free to join our <a>Gitter channel</a> or open a <a href="https://github.com/aws/aws-sdk-ruby/issues">GitHub issue</a>.</p>

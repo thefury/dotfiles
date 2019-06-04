@@ -1,0 +1,151 @@
+<p>Today, we’re pleased to announce the GA release of version <code>1.0.0</code> of the <code>aws-record</code> gem.</p> 
+<h2>What Is aws-record?</h2> 
+<p>In version 1 of the AWS SDK for Ruby, the <code>AWS::Record</code> class provided a data mapping abstraction over <a href="https://aws.amazon.com/dynamodb/">Amazon DynamoDB</a> operations. Earlier this year, we released the <code>aws-record</code> developer preview as a separately packaged library to provide a similar data mapping abstraction for DynamoDB, built on top of the AWS SDK for Ruby version 2. After customer feedback and some more development work, we’re pleased to move the library out of developer preview to general availability.</p> 
+<h2>How to Include the aws-record Gem in Your Project</h2> 
+<p>The <code>aws-record</code> gem is available now from RubyGems:</p> 
+<p>&nbsp;</p> 
+<pre class="brush: bash">gem install aws-record
+</pre> 
+<p>&nbsp;</p> 
+<p>You can also include it in your project’s Gemfile:</p> 
+<p>&nbsp;</p> 
+<pre class="brush: ruby"># Gemfile
+gem 'aws-record', '~&gt; 1.0'
+</pre> 
+<p>&nbsp;</p> 
+<p>This automatically includes a dependency on the <code>aws-sdk-resources</code> gem, major version 2. Be sure to include the <code>aws-sdk</code> or <code>aws-sdk-resources</code> gem in your Gemfile if you need to lock to a specific version, like so:</p> 
+<p>&nbsp;</p> 
+<pre class="brush: ruby"> # Gemfile
+gem 'aws-record', '~&gt; 1.0'
+gem 'aws-sdk-resources', '~&gt; 2.5'
+</pre> 
+<p>&nbsp;</p> 
+<h2>Working with DynamoDB Tables Using the aws-record Gem</h2> 
+<h3>Defining an Aws::Record Model</h3> 
+<p>The <code>aws-record</code> gem provides the <code>Aws::Record</code> module, which you can include in a class definition. This decorates your class with a variety of helper methods that can simplify interactions with Amazon DynamoDB. For example, the following model uses a variety of preset attribute definition helper methods and attribute options:</p> 
+<p>&nbsp;</p> 
+<pre class="brush: ruby">require 'aws-record'
+
+class Forum
+  include Aws::Record  
+
+  string_attr     :forum_uuid, hash_key: true
+  integer_attr    :post_id,    range_key: true
+  string_attr     :author_username
+  string_attr     :post_title
+  string_attr     :post_body
+  string_set_attr :tags,       default_value: Set.new 
+  datetime_attr   :created_at, database_attribute_name: &quot;PostCreatedAtTime&quot;
+  boolean_attr    :moderation, default_value: false
+end
+</pre> 
+<p>&nbsp;</p> 
+<h4>Using Validation Libraries with an Aws::Record Model</h4> 
+<p>The <code>aws-record</code> gem does not come with a built-in validation process. Rather, it is designed to be a persistence layer, and to allow you to bring your own validation library. For example, the following model includes the popular <code>ActiveModel::Validations</code> module, and has defined a set of validations that will be run when we attempt to save an item:</p> 
+<p>&nbsp;</p> 
+<pre class="brush: ruby">require 'aws-record'
+require 'active_model'
+
+class Forum
+  include Aws::Record
+  include ActiveModel::Validations
+
+  string_attr     :forum_uuid, hash_key: true
+  integer_attr    :post_id,    range_key: true
+  string_attr     :author_username
+  string_attr     :post_title
+  string_attr     :post_body
+  string_set_attr :tags,       default_value: Set.new 
+  datetime_attr   :created_at, database_attribute_name: &quot;PostCreatedAtTime&quot;
+  boolean_attr    :moderation, default_value: false 
+
+
+  validates_presence_of :forum_uuid, :post_id, :author_username
+  validates_length_of :post_title, within: 4..30
+  validates_length_of :post_body,  within: 2..5000
+end
+</pre> 
+<p>&nbsp;</p> 
+<h3>Creating a DynamoDB Table for a Model with Aws::Record::TableMigration</h3> 
+<p>The <code>aws-record</code> gem provides a helper class for table operations, such as migrations. If we wanted to create a table for our <code>Forum</code> model in DynamoDB, we would run the following migration:</p> 
+<p>&nbsp;</p> 
+<pre class="brush: ruby">migration = Aws::Record::TableMigration.new(Forum)
+migration.create!(
+  provisioned_throughput: {
+    read_capacity_units: 5,
+    write_capacity_units: 2
+  }
+)
+migration.wait_until_available
+</pre> 
+<p>&nbsp;</p> 
+<p>You can write these migrations in your <code>Rakefile</code> or as standalone helper scripts for your application. Because you don’t need to update your table definition for additions of non-key attributes, you may find that you’re not running migrations as often for your <code>Aws::Record</code> models.</p> 
+<h2>Working with DynamoDB Items Using the aws-record Gem</h2> 
+<h3>Creating and Persisting a New Item</h3> 
+<p>Using the example model above, once it has been created in the DynamoDB remote end using <code>Aws::Record::TableMigration</code> (or if it already existed in the remote end), it is simple to create and save a new item:</p> 
+<p>&nbsp;</p> 
+<pre class="brush: ruby">post = Forum.new(
+  forum_uuid: FORUM_UUID,
+  post_id: 1,
+  author_username: &quot;Author One&quot;,
+  post_title: &quot;Hello!&quot;,
+  post_body: &quot;Hello, world!&quot;
+)
+post.created_at = Time.now
+post.save # Performs a put_item call.
+</pre> 
+<p>&nbsp;</p> 
+<p>You can set attributes when you initialize a new item and with setter methods that are defined for you automatically.</p> 
+<h3>Finding and Modifying an Item</h3> 
+<p>A class-level method <code>#find</code> is provided to look up items from DynamoDB using your model’s key attributes. After setting a few new attribute values, calling <code>#save</code> will make an update call to DynamoDB, reflecting only the item changes you’ve made. This is important for users who are fetching items with projections (which may not include all attributes), or using single-table inheritance patterns (who may not have modeled all attributes present in a remote item), to avoid clobbering unmodeled or non-included attribute values.</p> 
+<p>&nbsp;</p> 
+<pre class="brush: ruby">post = Forum.find(forum_uuid: FORUM_UUID, post_id: 1)
+post.post_title = &quot;(Removed)&quot;
+post.post_body = &quot;(Removed)&quot;
+post.moderation = true
+post.save # Performs an update_item call on dirty attributes only.
+</pre> 
+<p>&nbsp;</p> 
+<p>There is also a class-level method to directly build and make an update call to DynamoDB, using key attributes to identify the item and non-key attributes to form the update expression:</p> 
+<p>&nbsp;</p> 
+<pre class="brush: ruby">Forum.update(
+  forum_uuid: FORUM_UUID,
+  post_id: 1,
+  post_title: &quot;(Removed)&quot;,
+  post_body: &quot;(Removed)&quot;,
+  moderation: true
+)
+</pre> 
+<p>&nbsp;</p> 
+<p>The preceding two code examples are functionally equivalent. You’ll have the same database state after running either snippet.</p> 
+<h4>A Note on Dirty Tracking</h4> 
+<p>In our last example, we talked about how item updates only reflect changes to modified attributes. Users of <code>ActiveRecord</code> or similar libraries will be familiar with the concept of tracking dirty attribute values, but <code>aws-record</code> is a bit different. That is because DynamoDB supports collection attribute types, and in Ruby, collection types are often modified through object mutation. To properly track changes to an item when objects can be changed through mutable state, <code>Aws::Record</code> items will, by default, keep deep copies of your attribute values when loading from DynamoDB. Attribute changes through mutation, like this example, will work the way you expect:</p> 
+<p>&nbsp;</p> 
+<pre class="brush: ruby">post = Forum.find(forum_uuid: FORUM_UUID, post_id: 1)
+post.tags.add(&quot;First&quot;)
+post.dirty? # =&gt; true
+post.save # Will call update_item with the new tags collection.
+</pre> 
+<p>&nbsp;</p> 
+<p>Tracking deep copies of attribute values has implications for performance and memory. You can turn off mutation tracking at the model level. If you do so, dirty tracking will still work for new object references, but will not work for mutated objects:</p> 
+<p>&nbsp;</p> 
+<pre class="brush: ruby">class NoMTModel
+  include Aws::Record
+  disable_mutation_tracking
+  string_attr :key, hash_key: true
+  string_attr :body
+  map_attr    :map
+end
+
+item = NoMTModel.new(key: &quot;key&quot;, body: &quot;body&quot;, map: {})
+item.save # Will call put_item
+item.map[:key] = &quot;value&quot;
+item.dirty? # =&gt; false, because we won't track mutations to objects
+item.body = &quot;New Body&quot;
+item.dirty? # =&gt; true, because we will still notice reassignment
+# Will call update_item, but only update :body unless we mark map as dirty explicitly.
+item.save
+</pre> 
+<p>&nbsp;</p> 
+<h2>Try the aws-record Gem Today!</h2> 
+<p>We’re excited to hear about what you’re building with <code>aws-record</code>. Feel free to leave your feedback in the comments, or open an issue in our <a href="https://github.com/aws/aws-sdk-ruby-record">GitHub</a> repo. Read through the <a href="http://docs.aws.amazon.com/awssdkrubyrecord/api/index.html">documentation</a> and get started!</p>

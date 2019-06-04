@@ -1,0 +1,91 @@
+<p>As a security best practice, <a href="https://aws.amazon.com/iam/" rel="noopener noreferrer" target="_blank">AWS Identity and Access Management</a> (IAM) recommends that you use temporary security credentials from <a href="https://docs.aws.amazon.com/STS/latest/APIReference/Welcome.html" rel="noopener noreferrer" target="_blank">AWS Security Token Service</a> (STS) when you access your AWS resources. Temporary credentials are short-term credentials generated dynamically and provided to the user upon request. Today, one of the most widely used mechanisms for requesting temporary credentials in AWS is an <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html" rel="noopener noreferrer" target="_blank">IAM role</a>. The advantage of using an IAM role is that multiple users in your organization can assume the same IAM role. By default, all users assuming the same role get the same permissions for their role session. To create distinctive role session permissions or to further restrict session permissions, users or systems can set a <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#policies_session" rel="noopener noreferrer" target="_blank">session policy</a> when assuming a role. A session policy is an <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_managed-vs-inline.html" rel="noopener noreferrer" target="_blank">inline permissions policy</a> which users pass in the session when they assume the role. You can pass the policy yourself, or you can configure your broker to insert the policy when your <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_common-scenarios_federated-users.html" rel="noopener noreferrer" target="_blank">identities federate in to AWS</a> (if you have an identity broker configured in your environment). This allows your administrators to reduce the number of roles they need to create, since multiple users can assume the same role yet have unique session permissions. If users don’t require all the permissions associated to the role to perform a specific action in a given session, your administrator can configure the identity broker to pass a session policy to reduce the scope of session permissions when users assume the role. This helps administrators set permissions for users to perform only those specific actions for that session.</p> 
+<p>With today’s launch, AWS now enables you to specify multiple IAM managed policies as session policies when users assume a role. This means you can use multiple IAM managed policies to create fine-grained session permissions for your user’s sessions. Additionally, you can centrally manage session permissions using IAM managed policies.<br /> In this post, I review session policies and their current capabilities, introduce the concept of using IAM managed policies as session policies to control session permissions, and show you how to use managed policies to create fine-grained session permissions in AWS. </p> 
+<h2>How do session policies work?</h2> 
+<p>Before I walk through an example, I’ll review session policies.</p> 
+<p>A session policy is an inline policy that you can create on the fly and pass in the session during role assumption to further scope the permissions of the role session. The effective permissions of the session are the intersection of the role’s identity-based policies and the session policy. The maximum permissions that a session can have are the permissions that are allowed by the role’s identity-based policies. You can pass a single inline session policy programmatically by using the <span style="font-family: courier">policy</span> parameter with the <span style="font-family: courier"><a href="https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html" rel="noopener noreferrer" target="_blank">AssumeRole</a></span>, <span style="font-family: courier"><a href="https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html" rel="noopener noreferrer" target="_blank">AssumeRoleWithSAML</a></span>, <span style="font-family: courier"><a href="https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRoleWithWebIdentity.html" rel="noopener noreferrer" target="_blank">AssumeRoleWithWebIdentity</a></span>, and <span style="font-family: courier"><a href="https://docs.aws.amazon.com/STS/latest/APIReference/API_GetFederationToken.html" rel="noopener noreferrer" target="_blank">GetFederationToken</a></span> API operations. </p> 
+<p>Next, I’ll provide an example with an inline session policy to demonstrate how you can restrict session permissions. </p> 
+<h3>Example: Passing a session policy with AssumeRole API to restrict session permissions</h3> 
+<p>Consider a scenario where security administrator John has administrative privileges when he assumes the role <span style="font-family: courier">SecurityAdminAccess</span> in the organization’s AWS account. When John assumes this role, he knows the specific actions he’ll perform using this role. John is cautious of the role permissions and follows the practice of restricting his own permissions by using a session policy when assuming the role. This way, John ensures that at any given point in time, his role session can only perform the specific action for which he assumed the <span style="font-family: courier">SecurityAdminAccess</span> role. </p> 
+<p>In my example, John only needs permissions to access an <a href="https://aws.amazon.com/s3/" rel="noopener noreferrer" target="_blank">Amazon Simple Storage Service</a> (S3) bucket called <span style="font-family: courier">NewHireOrientation</span> in the same account. He passes a session policy using the policy.json file below to reduce his session permissions when assuming the role <span style="font-family: courier">SecurityAdminAccess</span>.</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-text">
+{
+&quot;Version&quot;:&quot;2012-10-17&quot;,
+&quot;Statement&quot;:[{
+    &quot;Sid&quot;:&quot;Statement1&quot;,
+    &quot;Effect&quot;:&quot;Allow&quot;,
+    &quot;Action&quot;:[&quot;s3:GetBucket&quot;, &quot;s3:GetObject&quot;],
+    &quot;Resource&quot;: [&quot;arn:aws:s3:::NewHireOrientation&quot;, &quot;arn:aws:s3:::NewHireOrientation/*&quot;]
+    }]
+}  
+</code></pre> 
+</div> 
+<p>In this example, the action and resources elements of the policy statement allow access only to the <span style="font-family: courier">NewHireOrientation</span> bucket and all the objects inside this bucket. </p> 
+<p>Using the AWS Command Line Interface (AWS CLI), John can pass the session policy’s file path (that is, <span style="font-family: courier">file://policy.json</span>) while calling the <span style="font-family: courier">AssumeRole</span> API with the following commands:</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-text">
+aws sts assume-role 
+--role-arn &quot;arn:aws:iam::<span style="color: #ff0000"><i>111122223333</i></span>:role/SecurityAdminAccess&quot; 
+--role-session-name &quot;s3-session&quot; 
+--policy file://policy.json 
+</code></pre> 
+</div> 
+<p>When John assumes the <span style="font-family: courier">SecurityAdminAccess</span> role using the above command, his effective session permissions are the intersection of the permissions on the role and the session policy. This means that although the <span style="font-family: courier">SecurityAdminAccess</span> role had administrative privileges, John’s resulting session permissions are <span style="font-family: courier">s3:GetBucket</span> and <span style="font-family: courier">s3:GetObject</span> on the <span style="font-family: courier">NewHireOrientation</span> bucket. This way, John can ensure he only has access to the <span style="font-family: courier">NewHireOrientation</span> bucket for this session.</p> 
+<h2>Using IAM managed policies as session policies</h2> 
+<p>You can now pass up to 10 IAM managed policies as session policies. This gives you the ability to further restrict session permissions. The managed policy you pass can be AWS managed or customer managed. To pass managed policies as session policies, you need to specify the <a href="https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html" rel="noopener noreferrer" target="_blank">Amazon Resource Name</a> (ARN) of the IAM policies using the new <span style="font-family: courier">policy-arns</span> parameter in the <span style="font-family: courier">AssumeRole</span>, <span style="font-family: courier">AssumeRoleWithSAML</span>, <span style="font-family: courier">AssumeRoleWithWebIdentity</span>, or <span style="font-family: courier">GetFederationToken</span> API operations. You can use existing managed policies or create new policies in your account and pass them as session policies with any of the aforementioned APIs. The managed policies passed in the role session must be in the same account as that of the role. Additionally, you can pass an inline session policy and ARNs of managed policies in the same role session. To learn more about the sizing guidelines for session policies, please review the <a href="https://docs.aws.amazon.com/STS/latest/APIReference/Welcome.html" rel="noopener noreferrer" target="_blank">STS documentation</a>. </p> 
+<p>Next, I’ll provide an example using IAM managed policies as session policies to help you understand how you can use multiple managed policies to create fine-grained session permissions. </p> 
+<h3>Example: Passing IAM managed policies in a role session</h3> 
+<p>Consider an example where Mary has a software development team in California (<span style="font-family: courier">us-west-1</span>) working on a project using <a href="https://aws.amazon.com/ec2/" rel="noopener noreferrer" target="_blank">Amazon Elastic Compute Cloud</a> (EC2). This team needs permissions to spin up new EC2 instances to meet the project’s scalability requirements. Mary’s organization has a security policy that requires developers to create and manage AWS resources in their respective geographic locations only. This means a developer from California should have permissions to launch new EC2 instances only in California. Now, Mary’s organization has an identity and authentication system such as Active Directory, for which all employees already have identities created. Additionally, there is a custom identity broker application which verifies that employees are signed into the existing identity and authentication system. This broker application is configured to obtain temporary security credentials for the employees using the <span style="font-family: courier">AssumeRole</span> API. (To learn more about using identity provider and identity broker with AWS, please see <a href="https://aws.amazon.com/blogs/security/aws-federated-authentication-with-active-directory-federation-services-ad-fs/" rel="noopener noreferrer" target="_blank">AWS Federated Authentication with Active Directory Federation Services.</a>.)</p> 
+<p>Mary creates a managed policy called <span style="font-family: courier">DevCalifornia</span> and adds a region restriction for California using the <span style="font-family: courier">aws:RequestedRegion</span> condition key. Following the best practice of granting least privilege, Mary lists out the specific actions the developers would need for spinning up EC2 instances: </p> 
+<div class="hide-language"> 
+ <pre><code class="lang-text">
+{
+    &quot;Version&quot;: &quot;2012-10-17&quot;,
+    &quot;Statement&quot;: [
+        {
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Action&quot;: [
+                &quot;ec2:DescribeAccountAttributes&quot;,
+                &quot;ec2:DescribeAvailabilityZones&quot;,
+                &quot;ec2:DescribeInternetGateways&quot;,
+                &quot;ec2:DescribeSecurityGroups&quot;,
+                &quot;ec2:DescribeSubnets&quot;,
+                &quot;ec2:DescribeVpcAttribute&quot;,
+                &quot;ec2:DescribeVpcs&quot;,
+                &quot;ec2:DescribeInstances&quot;,
+                &quot;ec2:DescribeImages&quot;,
+                &quot;ec2:DescribeKeyPairs&quot;,
+                &quot;ec2:RunInstances&quot;                               
+            ],
+            &quot;Resource&quot;: &quot;*&quot;,
+                    &quot;Condition&quot;: {
+                &quot;StringEquals&quot;: {
+                    &quot;aws:RequestedRegion&quot;: &quot;us-west-1&quot;
+                }
+            }
+        }
+        
+    ]
+}    
+</code></pre> 
+</div> 
+<p>The above policy grants specific permissions to launch EC2 instances. The condition element of the policy sets a restriction on the Region where these actions can be performed. The condition key <span style="font-family: courier">aws:RequestedRegion</span> ensures that these service-specific actions can only be performed in California.</p> 
+<p>For Mary’s team’s use case, instead of creating a new role Mary uses an existing role in her account called <span style="font-family: courier">EC2Admin</span>, which has the <span style="font-family: courier">AmazonEC2FullAccess</span> AWS managed policy attached to it, granting full access to Amazon EC2. Next, Mary configures the identity broker in such a way that the developers from the team in California can assume the <span style="font-family: courier">EC2Admin</span> role but with reduced session permissions. The broker passes the <span style="font-family: courier">DevCalifornia</span> managed policy as a session policy to reduce the scope of the session permissions when a developer from Mary’s team assumes the role. This way, Mary can ensure the team remains compliant with her organization’s security policy.</p> 
+<p>If performed using the AWS CLI, the command would look like this:</p> 
+<p><span style="font-family: courier">aws sts assume-role --role-arn “arn:aws:iam::<span style="color: #ff0000"><i>444455556666</i></span>:role/AppDev” --role-session-name “teamCalifornia-session” --policy-arns arn=”arn:aws:iam::<span style="color: #ff0000"><i>444455556666</i></span>:policy/DevCalifornia”</span></p> 
+<p>If you want to pass multiple managed policies as session policies, then the command would look like this:</p> 
+<p><span style="font-family: courier">aws sts assume-role --role-arn “arn:aws:iam::&lt;<span style="color: #ff0000"><i>accountID</i></span>&gt;:role/&lt;<span style="color: #ff0000"><i>RoleName</i></span>&gt;” --role-session-name “&lt;<span style="color: #ff0000"><i>example-session</i></span>&gt;” --policy-arns arn=”arn:aws:iam::&lt;<span style="color: #ff0000"><i><span style="color: #ff0000"><i>accountID</i></span></i></span>&gt;:policy/&lt;<span style="color: #ff0000"><i>PolicyName1</i></span>&gt;” arn=”arn:aws:iam::&lt;<span style="color: #ff0000"><i>accountID</i></span>&gt;:policy/&lt;<span style="color: #ff0000"><i>PolicyName2</i></span>&gt;”</span></p> 
+<p>In the above example, <span style="font-family: courier"><span style="color: #ff0000"><i>PolicyName1</i></span></span> and <span style="font-family: courier"><span style="color: #ff0000"><i>PolicyName2</i></span></span> can be AWS managed or customer managed policies. You can also use them in conjunction, where <span style="font-family: courier"><span style="color: #ff0000"><i>PolicyName1</i></span></span> is an AWS managed policy and <span style="font-family: courier"><span style="color: #ff0000"><i>PolicyName2</i></span></span> a customer managed policy.</p> 
+<h2>Conclusion</h2> 
+<p>You can now use IAM managed policies as session policies in role sessions and federated sessions to create fine-grained session permissions. You can use this functionality today by creating IAM managed policies using your existing inline session policies and referencing their policy ARNs in your role sessions. You can also keep using your existing session policy and pass the ARNs of IAM managed policies using the new <span style="font-family: courier">policy-arn</span> parameter to further scope your session permissions.</p> 
+<p>If you have comments about this post, submit them in the Comments section below. If you have questions about or suggestions for this solution, start a new thread on the <a href="https://forums.aws.amazon.com/forum.jspa?forumID=76" rel="noopener noreferrer" target="_blank">IAM forum</a>. </p> 
+<footer> 
+ <div class="blog-author-box"> 
+  <div class="blog-author-image"> 
+   <img src="https://d2908q01vomqb2.cloudfront.net/22d200f8670dbdb3e253a90eee5098477c95c23d/2019/04/25/shah-bio.jpeg" alt="" width="119" height="160" class="alignnone size-full wp-image-10481" /> 
+  </div> 
+  <h3 class="lb-h4">Sulay Shah</h3> 
+  <p>Sulay is the product manager for Identity and Access Management service at AWS. He strongly believes in the customer first approach and is always looking for new opportunities to assist customers. Outside of work, Sulay enjoys playing soccer and watching movies. Sulay holds a master’s degree in computer science from the North Carolina State University.</p> 
+  <p></p>
+ </div> 
+</footer>

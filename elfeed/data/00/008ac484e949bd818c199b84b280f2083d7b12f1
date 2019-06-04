@@ -1,0 +1,109 @@
+<p>Leading technology companies, such as <u><a href="https://aws.amazon.com/solutions/case-studies/netflix-kinesis-streams/" target="_blank" rel="noopener">Netflix</a></u> and <u><a href="https://aws.amazon.com/solutions/case-studies/airbnb/" target="_blank" rel="noopener">Airbnb</a>,</u> are building on AWS to solve problems on the edge of the data ecosystem. While these companies show us what data and analytics <u><a href="https://medium.com/airbnb-engineering/tagged/data-science" target="_blank" rel="noopener">make</a></u> <u><a href="https://medium.com/netflix-techblog/tagged/data-science" target="_blank" rel="noopener">possible</a></u>, the complexity and scale of their problems aren’t typical. Most of our challenges aren’t figuring out how to process billions of records to provide real-time recommendations to millions of customers. Instead, we struggle with wrangling the data that we have, finding and sharing insights from that data, and then acting on them. This leads even the most savvy data teams that have adopted tools, such as Jupyter notebooks, to either be bottlenecked by slow data pipelines, or resort to a manual process to democratize insights for their stakeholders.</p> 
+<p>This blog post walks you through the following:</p> 
+<ol> 
+ <li>The stages of BI modernization that illustrate what problems arise when organizations adopt modern BI tools without truly modernizing the analytics platform.</li> 
+ <li>What a cloud-first data science platform, with dashboarding and notebooking solutions integrated together with efficient data pipelines, could look like.</li> 
+ <li>How to replicate such a platform in a few steps. This combines a collaborative analytics solution, such as <u><a href="https://modeanalytics.com/" target="_blank" rel="noopener">Mode </a></u>(an<u><a href="https://aws.amazon.com/redshift" target="_blank" rel="noopener"> Amazon Redshift</a></u> partner), with a strong analytics foundation built with AWS data warehousing, ETL, and data exploration services.</li> 
+</ol> 
+<p><span id="more-6493"></span></p> 
+<h2>The stages of BI modernization</h2> 
+<p>There are two primary stages in the evolution of BI – the use of Microsoft Excel for creating reports and the use of dashboarding tools for sharing insights in a consumable format.</p> 
+<h3>Stage 1: The Excel workflow</h3> 
+<p>At AWS and Mode, we talk to thousands of companies who are looking to get more value out of their data. When we ask them how they use data today, the most common answer we get is shown in the following example:</p> 
+<p><img class="alignnone size-full wp-image-6494" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/02/18/ModernAnalyticsStackRedshift1.png" alt="" width="492" height="367" /></p> 
+<p>Most companies recognize this workflow as broken. The data pipelines are impossible to manage, and the analysis requires manual effort to reproduce. And in the end, we don’t know if “budget_analysis_v3_final_revised_FINAL.xls” is indeed final.</p> 
+<h3>Stage 2: The dash to the dashboards</h3> 
+<p>When looking for a more effective solution, companies often turn to BI products like Tableau,<a href="https://aws.amazon.com/quicksight/?nc2=h_m1" target="_blank" rel="noopener"> Amazon QuickSight</a>, PowerBI, and Looker. These products, which were either born in the cloud or are heavily invested in it now, make it efficient to create and share reports and dashboards. KPIs can be delivered through up-to-date URLs rather than emailed files. This helps ensure that everyone has the same view of what’s happening across the business. The BI process is shown in the following example:</p> 
+<p><img class="alignnone size-full wp-image-6495" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/02/18/ModernAnalyticsStackRedshift2.png" alt="" width="493" height="378" /></p> 
+<p>While modern BI is a significant step forward, it’s an incomplete solution. Dashboards reveal what’s happening, but businesses that want to use that data for action must understand why things are happening. Before a company can respond to falling sales in one region of the country, for example, it must understand what’s driving the drop. Because dashboards can’t be easily modified, extended, or reused for further analysis, they are often the wrong tool for analysts and data scientists who are charged with answering open-ended exploratory questions. As a result, data infrastructures remain fragmented, and analytics and data science workflows are still built on manual processes.</p> 
+<h2>A cloud-first data science platform</h2> 
+<p>The ideal technology stack for modern data science teams unifies these two stages described in the previous section. Dashboards should serve as the start for exploratory questions for analysts, analysts’ work should be <a href="https://blog.modeanalytics.com/deliver-analysis-not-charts/" target="_blank" rel="noopener">as accessible as company dashboards</a>, and the platform should facilitate a close collaboration between data scientists and business stakeholders.</p> 
+<p>Pioneering data teams at leading tech companies have developed internal solutions to do exactly this. Uber built a <u><a href="https://eng.uber.com/dsw/" target="_blank" rel="noopener">data science workbench</a></u> for data exploration, data preparation, adhoc analyses, model exploration, workflow scheduling, dashboarding, and collaboration. Netflix recently unveiled the <u><a href="https://medium.com/netflix-techblog/notebook-innovation-591ee3221233" target="_blank" rel="noopener">Netflix Data Platform</a></u>, which automates the execution and distribution of Jupyter notebooks. Instacart built <u><a href="https://github.com/ankane/blazer" target="_blank" rel="noopener">Blazer</a></u> for exploring and sharing data.</p> 
+<p>All of these platforms have three things in common:</p> 
+<ul> 
+ <li>They combine visualization tools and interactive analysis tools, such as R and Python notebooks, and a collaboration platform.</li> 
+ <li>They are powered by a modern data warehouse that can scale to accommodate any size of data and any number of analysts.</li> 
+ <li>They have reliable ETL pipelines that provide analysts and data scientists access to the data they need, when they need it.</li> 
+</ul> 
+<h2>Building a cloud-first data science platform</h2> 
+<p>Fortunately, AWS and its partners offer solutions that check all these boxes and provide the same power to data science teams that aren’t able to build it themselves. Data warehousing services like <a href="https://aws.amazon.com/redshift/?nc2=h_m1" target="_blank" rel="noopener">Amazon Redshift</a> and <a href="https://aws.amazon.com/athena/?nc2=h_m1" target="_blank" rel="noopener">Athena</a> are fast, scalable, and accessible to anyone who can write standard SQL. <u><a href="https://aws.amazon.com/redshift/partners/" target="_blank" rel="noopener">ETL partners</a></u> like Fivetran, Segment, and Matillion provide reliable, push-button ETL services from hundreds of applications into Amazon Redshift and <a href="https://aws.amazon.com/s3/?nc2=h_m1" target="_blank" rel="noopener">Amazon S3</a>. Finally, a cloud-based analytics platform such as <u><a href="https://modeanalytics.com/" target="_blank" rel="noopener">Mode </a></u>combines visualizations tools, fully hosted R and Python notebooks, and a distribution platform.</p> 
+<p><img class="alignnone size-full wp-image-6496" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/02/18/ModernAnalyticsStackRedshift3.png" alt="" width="681" height="355" /></p> 
+<p>This modern stack, which is as powerful as the tooling inside Netflix or Airbnb, provides fully automated BI and data science tooling. It can be deployed in a matter of days and at a fraction of the cost of legacy data science tools.</p> 
+<h3>Three steps to building the platform</h3> 
+<p>Implement this data science infrastructure by using the following three steps:</p> 
+<ol> 
+ <li>Set up a data warehouse.</li> 
+ <li>Populate your warehouse with data from around your company.</li> 
+ <li>Add a data science solution on top of your warehouse.</li> 
+</ol> 
+<p>These steps do not require a large investment into engineering teams and custom-built software.</p> 
+<p>There are many ways to customize this stack to fit your company’s needs. However, this section shows how to set up using Amazon Redshift for a warehouse, Fivetran for ETL, and Mode for data science.</p> 
+<h4>Step 1: Setting up Amazon Redshift</h4> 
+<p>For information about setting up an Amazon Redshift warehouse, see <a href="https://docs.aws.amazon.com/redshift/latest/gsg/getting-started.html" target="_blank" rel="noopener">Getting Started with Amazon Redshift</a>. While you need an AWS account to set it up, the process requires no code and only takes a few minutes.</p> 
+<p>Most configuration options, including the size of the cluster, can be adjusted after the initial setup. Therefore, it’s not necessary to get everything exact at first. If a different configuration is more appropriate later, you can go back and change most of the Amazon Redshift settings.</p> 
+<h4>Step 2: Populating Amazon Redshift with data</h4> 
+<p>Your warehouse is only as good as the data in it. Fortunately, a number of ETL tools make it more efficient to continuously stream data from around your business and the applications you use. Application databases, third party apps like Salesforce and Zendesk, even CSV files – all of these can be easily fed into Amazon Redshift without any engineering effort.</p> 
+<p><u><a href="https://fivetran.com/" target="_blank" rel="noopener">Fivetran</a></u>, an <u><a href="https://aws.amazon.com/redshift/partners-detail/Fivetran/" target="_blank" rel="noopener">Amazon Redshift partner</a></u>, is one such ETL tool (it’s a tool that we’re happy with at Mode). To connect Fivetran to your Amazon Redshift database, first configure your database to allow Fivetran to connect. Fivetran supports a variety of options for connecting, including connecting directly or by using an SSH tunnel. For more information about the steps, see the <u><a href="https://fivetran.com/docs/warehouses/redshift/setup-guide" target="_blank" rel="noopener">connection options</a></u>.</p> 
+<p>As a final step, create an Amazon Redshift user for Fivetran. We recommend that you use another user than the master user. To create this user, log into <u><a href="https://docs.aws.amazon.com/redshift/latest/mgmt/query-editor.html" target="_blank" rel="noopener">the Amazon Redshift query editor</a></u> (or a SQL client of your choice) and run the following commands:</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-sql">CREATE USER fivetran PASSWORD &lt;password&gt;;
+GRANT CREATE ON DATABASE &lt;database&gt; TO fivetran;</code></pre> 
+</div> 
+<p>After Amazon Redshift is configured:</p> 
+<ol> 
+ <li><u><a href="https://fivetran.com/signup" target="_blank" rel="noopener">Create a new Fivetran account</a></u>.</li> 
+ <li>Select <strong>I already have an existing warehouse</strong>, then choose <strong>Redshift</strong>.</li> 
+ <li>Fill out the form with your Amazon Redshift credentials, as shown in the following example, then choose <strong>Save</strong>.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6497" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/02/18/ModernAnalyticsStackRedshift4.png" alt="" width="800" height="621" /></p> 
+<ol start="4"> 
+ <li>After Fivetran is connected to Amazon Redshift, connect it with the data sources that you want to pull into Amazon Redshift. This process is now more efficient.</li> 
+ <li>In Fivetran, choose <strong>Connectors</strong>.</li> 
+ <li>Choose <strong>Add connector</strong>, then choose the data source that you want to integrate. Though the specifics vary by source, most of them follow the same pattern.</li> 
+ <li>Choose a schema in Amazon Redshift that you want to write your data to, and then follow the authorization flow that Fivetran automatically steps you through.</li> 
+</ol> 
+<p>The following are examples of connection flows:</p> 
+<div id="attachment_6498" style="width: 810px" class="wp-caption alignnone">
+ <img class="size-full wp-image-6498" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/02/18/ModernAnalyticsStackRedshift5.png" alt="" width="800" height="377" />
+ <p class="wp-caption-text">Connection flow for Salesforce</p>
+</div> 
+<p>&nbsp;</p> 
+<div id="attachment_6503" style="width: 752px" class="wp-caption alignnone">
+ <img class="size-full wp-image-6503" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/02/18/ModernAnalyticsStackRedshift6_1.png" alt="" width="742" height="380" />
+ <p class="wp-caption-text">Connection flow for Google Analytics</p>
+</div> 
+<p>&nbsp;</p> 
+<p>By using similar flows, you can also connect other databases, such as <a href="https://aws.amazon.com/rds/?nc2=h_m1" target="_blank" rel="noopener">Amazon RDS</a> Postgres or the MySQL database, and directly upload CSVs.</p> 
+<p>When these connections are set up, data automatically syncs between your data sources and Amazon Redshift. If you want more control, Fivetran lets you choose which data to sync, and how often it’s updated.</p> 
+<p>Can’t find the data source you’re looking for? Other ETL tools, including <u><a href="https://www.stitchdata.com/" target="_blank" rel="noopener">Stitch Data</a></u>, <u><a href="https://segment.com/" target="_blank" rel="noopener">Segment</a></u>, and <u><a href="https://etleap.com/" target="_blank" rel="noopener">ETLeap</a></u>, provide similar services that are just as easy to set up. We recommend <u><a href="https://blog.modeanalytics.com/etl-tools-analytics-stack/" target="_blank" rel="noopener">this guide</a></u> when making a decision about which tool is right for you.</p> 
+<h4>Step 3: Connecting Amazon Redshift to Mode</h4> 
+<p>Finally, by connecting Mode to your Amazon Redshift, you can provide your entire company access to your data in a collaborative analytics environment.</p> 
+<p>To connect Mode, <u><a href="https://help.modeanalytics.com/articles/database-specific-connection-information/#amazon-redshift" target="_blank" rel="noopener">configure your security groups</a></u> so that Mode can access Amazon Redshift. If you’re connecting Mode directly to your cluster, follow the security groups documentation linked above to grant access to the following IP addresses:</p> 
+<p><tt>54.68.30.98/32</tt></p> 
+<p><tt>54.68.45.3/32</tt></p> 
+<p><tt>54.164.204.122/32</tt></p> 
+<p><tt>54.172.100.146/32</tt></p> 
+<p>Mode also offers <u><a href="https://help.modeanalytics.com/articles/how-mode-connects/#bridge" target="_blank" rel="noopener">alternative ways of connecting</a></u> if you’re unable to modify your firewall.</p> 
+<p>After you’ve completed these steps, you need only enter your credentials on Mode’s <u><a href="https://modeanalytics.com/modeanalytics/data_sources/amazon/redshift/new" target="_blank" rel="noopener">data source connection page</a>,</u> as shown in the following example:</p> 
+<p><img class="alignnone size-full wp-image-6500" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/02/18/ModernAnalyticsStackRedshift7.png" alt="" width="800" height="613" /></p> 
+<p>After the connection is made, choose who in your organization can access that connection. Then you can immediately query your data and build the analysis for your team from the <u><a href="https://modeanalytics.com/editor/modeanalytics/reports/new" target="_blank" rel="noopener">Mode Editor</a>,</u> as shown in the following example:</p> 
+<p><img class="alignnone size-full wp-image-6501" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/02/18/ModernAnalyticsStackRedshift8.png" alt="" width="800" height="455" /></p> 
+<p>In addition to a SQL environment and visualization builder, Mode also offers integrated Python and R notebooks. Choose <strong>New Notebook</strong> in the left navigation bar to start a new Python or R instance that’s automatically populated with your query results as DataFrames. This enables data scientists to seamlessly create and share analysis directly with everyone around the company. Ultimately, this approach lets you build the most flexible platform for your analytical needs. Your business analysts and data scientists can now work in the same environment. They can collaborate seamlessly, and access the same data at all times.</p> 
+<p><img class="alignnone size-full wp-image-6502" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/02/18/ModernAnalyticsStackRedshift9.png" alt="" width="800" height="636" /></p> 
+<h2>Conclusion</h2> 
+<p><u><a href="https://blog.modeanalytics.com/designing-analytics-stacks-like-software/" target="_blank" rel="noopener">This new architecture lets organizations to do more with their data, faster</a></u>. Data teams that use Python and R can go beyond sharing static dashboards and reports; instead, they can also use popular forecasting and machine learning libraries like <u><a href="https://facebook.github.io/prophet/" target="_blank" rel="noopener">Prophet</a></u> and <u><a href="https://www.tensorflow.org/" target="_blank" rel="noopener">TensorFlow</a></u>. These libraries help teams find insights that they couldn’t have found otherwise. This lets teams deliver regular updates that keep everyone informed, and also answer strategic and high-value questions that drive key decisions. Moreover, Mode makes these analyses accessible to everyone around the business. Because the notebooks are fully managed, data scientists can share their work directly with stakeholders without any extra work from IT departments.</p> 
+<p>By combining Mode with Amazon Redshift, data teams also remove common bottlenecks in data integration, cleansing, or ETL processes that loads data into Amazon Redshift. With Amazon Redshift Spectrum, they can query data directly in their Amazon S3 data lake from a Mode dashboard or notebook. Moreover, they can combine these queries with data already loaded into the data warehouse.</p> 
+<h2>Try it yourself</h2> 
+<p><a href="https://modeanalytics.com/mode_redshift_demo/reports/1e9d4b64f0a4?secret_key=2e5d13346ca7dad2dcbfd74e" target="_blank" rel="noopener">We’ve built an experience for you to get a feel for this stack</a>. If you think it could work for your case, you can get started using Mode with Amazon Redshift in a matter of minutes. If you’re not already using Amazon Redshift, you can <a href="https://aws.amazon.com/redshift/getting-started/" target="_blank" rel="noopener">get started with a 2-month free trial</a> and deploy the solution, as suggested. With Mode connected to Amazon Redshift, you can start exploring your data right away or try using <u><a href="https://blog.modeanalytics.com/more-cool-public-datasets/" target="_blank" rel="noopener">one of the publicly available datasets</a></u>.</p> 
+<p>&nbsp;</p> 
+<hr /> 
+<h3>About the Authors</h3> 
+<p><img class="size-full wp-image-6509 alignleft" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/02/20/Benn.png" alt="" width="113" height="157" /><strong>Benn Stancil is a co&shy;founder and Chief Analyst at Mode, a company building collaborative tools for data scientists and analysts</strong>. Benn is responsible for overseeing Mode’s internal analytics efforts, and is also an active contributor to the data science community. In addition, Benn provides strategic guidance to Mode’s product direction as a member of the product leadership team.</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p> 
+<p><img class="alignleft size-full wp-image-5951" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2018/11/01/ayush-jain-100.jpg" alt="" width="100" height="134" /><strong>Ayush Jain is a Product Marketer at Amazon Web Services</strong>. He loves growing cloud services and helping customers get more value from the cloud deployments. He has several years of experience in Software Development, Product Management and Product Marketing in developer and data services.</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p> 
+<p><img class="size-full wp-image-6102 alignleft" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2018/11/21/himaraja.jpg" alt="" width="113" height="150" /><strong>Himanshu Raja is a Senior Product Manager for Amazon Redshift</strong>. Himanshu loves solving hard problems with data and cherishes moments when data goes against intuition. In his spare time, Himanshu enjoys cooking Indian food and watching action movies.</p>

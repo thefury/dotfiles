@@ -1,0 +1,62 @@
+<p>We&#39;re almost there! <a href="https://releases.hashicorp.com/terraform/0.12.0-rc1/">Release candidate 1</a> of Terraform 0.12.0 is now available for testing. Unless testing identifies a significant blocker, we expect to publish the final 0.12.0 release a few weeks from now.</p>
+
+<p>Thank you to everyone who has tested the beta1 and beta2 releases. Your feedback and bug reports have been invaluable for identifying some rough edges that our automated and manual tests weren&#39;t previously covering. As a result, we are optimistically confident that this release candidate should function well for most users.</p>
+
+<p>With that said, it <em>is</em> still only a release candidate, so we recommend caution when testing against existing infrastructure. Please refer to <a href="https://www.terraform.io/upgrade-guides/0-12.html">the upgrade guide</a> for information on the upgrade process. We would very much appreciate you testing this release candidate to find any remaining bugs and friction points so that we can address them before the final release.</p>
+
+<p>We recommend creating a separate copy of your infrastructure to test and testing individual parts in isolation if your infrastructure is modularized. It is also safe to use <code>terraform plan</code> to run a speculative plan against existing infrastructure without affecting it or its Terraform state.</p>
+
+<p><strong>Warning:</strong> If you run <code>terraform apply</code>, <code>terraform input</code>, or any of the <code>terraform state</code> subcommands with an existing state file, Terraform will update your persisted state to the new 0.12 storage format, making it incompatible with Terraform 0.11.</p>
+
+<p>Aside from responding to any further bug reports from this release candidate, we are planning to use the remaining time before the final release to finalize the upgrade guide and smooth some minor rough edges in the upgrade process.</p>
+
+<h2>Provider Compatibility</h2>
+
+<p>During the beta1 and beta2 periods, the various Terraform provider developers (within HashiCorp, within partner companies, and in the community) have been hard at work making as many providers as possible available for testing. As we write this, the top 15 providers by download count have 0.12-compatible releases
+available, along with various others updated by community maintainers. In particular, the AWS, Azure, DigitalOcean, Google Cloud Platform, and Kubernetes providers are already compatible, along with the various &quot;helper&quot; providers like <code>http</code>, <code>null</code>, <code>random</code>, <code>template</code>, etc.</p>
+
+<p>There are still several providers that do not yet have 0.12-ready releases. We have made the decision to move forward with Terraform Core release in spite of that, in the interests of making this new release available as soon as possible for as many users as possible. We have published a <a href="https://www.terraform.io/docs/extend/terraform-0.12-compatibility.html">0.12 readiness guide for provider developers</a> with details on how to make a provider 0.12-ready.</p>
+
+<p>Providers that are not yet compatible will report that no compatible versions are available during <code>terraform init</code>, with the following error message:</p>
+
+<p><code>
+Error: no available version is compatible with this version of Terraform
+</code></p>
+
+<p>Our provider teams are still hard at work making these releases and we expect to have compatible releases for all HashiCorp-hosted providers shortly after the final Core 0.12 release.</p>
+
+<h2>How We Got Here</h2>
+
+<p>Terraform 0.12.0 is a big release and has been a long time in the making. We&#39;re thankful to the community for their patience as we&#39;ve worked through the ups and downs of preparing this release.</p>
+
+<p>In some ways, the language improvements for Terraform 0.12.0 have been in the making for several releases now, going back as far as Terraform 0.7.0, where we started making incremental improvements to the language such as the first-class collection indexing syntax, list and map variables, and the boolean and conditional operators.</p>
+
+<p>During the 0.11 development cycle though, we realized that further progress would require some more fundamental changes. The type system for the Terraform language is a cross-cutting concern, affecting not only the language itself but the provider protocol, various file formats, etc. Further improvements to the Terraform language would therefore require some complex, coordinated changes across many subsystems, and that work has been the driver of Terraform 0.12.</p>
+
+<p>Although the 0.12 label applies only to the Terraform Core release, work to prepare for this release has involved changes across the whole Terraform product offering, including:</p>
+
+<ul>
+<li>An entirely revamped Terraform language engine.</li>
+<li>New internal models for state and plan that use the new language type system.</li>
+<li>New serialization formats for persisted state snapshots and saved plan files.</li>
+<li>A new provider plugin protocol.</li>
+<li>A compatibility layer to allow provider releases to work both across Terraform
+0.10, 0.11 and 0.12 for a transitional period, while minimizing changes to
+the many individual provider codebases.</li>
+<li>Adjustments to all of the major provider plugins to improve consistency,
+usability, and integration with Terraform 0.12 features, and to make releases
+supporting the new 0.12 plugin protocol.</li>
+<li>Changes to the module builder and compliance features of Terraform Enterprise
+to support the new language features and type system.</li>
+<li>Changes to <a href="https://registry.terraform.io/">Terraform Registry</a> to support
+modules using 0.12 syntax <em>and</em> to now be the primary index for provider
+auto-installation too.</li>
+<li>A total rewrite and re-organization of
+<a href="https://www.terraform.io/docs/configuration/">the Terraform language documentation</a>.</li>
+<li>Tools and documentation to smooth the upgrade path, particularly for those who
+had employed workarounds for the language limitations in prior releases.</li>
+</ul>
+
+<p>As we&#39;re sure you can imagine, each of these had its own specific challenges, some of which have caused delays. Due to the cross-cutting nature of these changes we were unable to take the more incremental approach we&#39;ve preferred with earlier releases.</p>
+
+<p>Thank you again to the community for patience while we&#39;ve completed all of the many changes required to make this release available. For more on the features coming in 0.12 see this <a href="https://www.hashicorp.com/blog/terraform-0-1-2-preview">blog post</a>. </p>

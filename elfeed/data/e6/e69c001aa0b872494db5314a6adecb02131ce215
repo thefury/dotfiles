@@ -1,0 +1,39 @@
+<p>I blogged previously about <a href="http://ruby.awsblog.com/post/Tx354Y6VTZ421PJ/-Downloading-Objects-from-Amazon-span-class-matches-S3-span-using-the-AWS-SDK-fo">downloading objects from Amazon S3</a> using the version 2 AWS SDK for Ruby. It was requested that I write about uploading objects as well.</p> 
+<h2>Managed File Uploads</h2> 
+<p>The simplest and most common task is upload a file from disk to a bucket in Amazon S3. This is very straightforward when using the resource interface for Amazon S3:</p> 
+<pre class="brush: ruby">s3 = Aws::S3::Resource.new
+
+s3.bucket('bucket-name').object('key').upload_file('/source/file/path')</pre> 
+<p>You can pass additional options to the <code>Resource</code> constructor and to <code>#upload_file</code>. This expanded example demonstrates configuring the resource client, uploading a public object and then generating a URL that can be used to download the object from a browser.</p> 
+<pre class="brush: ruby">s3 = Aws::S3::Resource.new(
+  credentials: Aws::Credentials.new('akid', 'secret'),
+  region: 'us-west-1'
+)
+
+obj = s3.bucket('bucket-name').object('key')
+obj.upload_file('/source/file/path', acl:'public-read')
+obj.public_url
+#=&gt; &quot;https://bucket-name.s3-us-west-1.amazonaws.com/key&quot;</pre> 
+<p>This is the recommended method of using the SDK to upload files to a bucket. Using this approach has the following benefits:</p> 
+<ul> 
+ <li>Manages multipart uploads for objects larger than 15MB.</li> 
+ <li>Correctly opens files in binary mode to avoid encoding issues.</li> 
+ <li>Uses multiple threads for uploading parts of large objects in parallel.</li> 
+</ul> 
+<h2>Other Methods</h2> 
+<p>In addition to <code>Aws::S3::Object#upload_file</code>, you can upload an object using <code>#put</code> or using the multipart upload APIs.</p> 
+<h3>PUT Object</h3> 
+<p>For smaller objects, you may choose to use <code>#put</code> instead. The <code>#put</code> method accepts an optional body, which can be a string or any IO object.</p> 
+<pre class="brush: ruby">obj = s3.bucket('bucket-name').object('key')
+
+# from a string
+obj.put(body:'Hello World!')
+
+# from an IO object
+File.open('/source/file', 'rb') do |file|
+  obj.put(body:file)
+end</pre> 
+<h3>Multipart APIs</h3> 
+<p>I recommend you use <code>#upload_file</code> whenever possible. If you need to manage large object copies, then you will need to use the multipart interfaces. There are restrictions on the minimum file, and part sizes you should be aware of. Typically these are reserved for advanced use cases.</p> 
+<h2>Feedback</h2> 
+<p>I’d love to hear feedback. If you find the AWS SDK for Ruby lacks a utility for working with Amazon S3, I’d love to hear about it. Please feel free to open a <a href="https://github.com/aws/aws-sdk-ruby/issues">GitHub issue</a> or drop into our <a>Gitter channel</a>.</p>

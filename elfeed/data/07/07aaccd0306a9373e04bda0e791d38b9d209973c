@@ -1,0 +1,160 @@
+<p>In February 2019, Amazon Web Services (AWS) announced a new feature in Amazon Kinesis Data Firehose called Custom Prefixes for Amazon S3 Objects. It lets customers specify a custom expression for the Amazon S3 prefix where data records are delivered.&nbsp;Previously,&nbsp;Kinesis Data Firehose allowed only specifying a literal&nbsp;prefix. This prefix was then combined with a&nbsp;static&nbsp;date-formatted&nbsp;prefix&nbsp;to create&nbsp;the output folder in a fixed format.&nbsp;Customers asked for flexibility, so AWS listened and delivered.</p> 
+<p>Kinesis Data Firehose is most commonly used to consume event data from streaming sources, such as applications or IoT devices.&nbsp; The data then is typically stored in a data lake, so it can be processed and eventually queried.&nbsp; When storing data on Amazon S3, it is a best practice to partition or group related data and store it together in the same folder.&nbsp;&nbsp;This provides the ability to filter the partitioned data and control the amount of data scanned by each query, thus improving performance and reducing cost.</p> 
+<p>A common way to group data is by date.&nbsp; Kinesis Data Firehose automatically groups data and stores it into the appropriate folders on Amazon S3 based on the date.&nbsp; However, the naming of folders in Amazon S3 is not compatible with Apache Hive naming conventions. This makes data more difficult to catalog using <a href="https://aws.amazon.com/glue/?hp=tile&amp;so-exp=below" target="_blank" rel="noopener">AWS Glue</a> crawlers and analyze using big data tools.</p> 
+<p>This post discusses a new capability that lets us customize how Kinesis Data Firehose names the output folders in Amazon S3. It covers how custom prefixes work, the intended use cases, and includes step-by-step instructions to try the feature in your own account.</p> 
+<h2><strong>The need for custom prefixes for Amazon S3 objects</strong></h2> 
+<p>Previously,&nbsp;Kinesis Data Firehose created a static Universal Coordinated Time (UTC) based folder structure in the format YYYY/MM/DD/HH. It then appended it to the provided prefix before writing objects to Amazon S3.&nbsp;For example, if you provided a prefix “mydatalake/”, the&nbsp;generated folder hierarchy would be “mydatalake/2019/02/09/13”.&nbsp; However, to be compatible with Hive naming conventions,&nbsp;the folder structure is expected to follow the format “/partitionkey=partitionvalue”. &nbsp;Using this naming convention, data can be easily cataloged with AWS Glue crawlers, resulting in proper partition names.</p> 
+<p>Other methods for managing partitions also become possible such as running&nbsp;<a href="https://docs.aws.amazon.com/athena/latest/ug/msck-repair-table.html" target="_blank" rel="noopener">MSCK REPAIR TABLE</a>&nbsp;in <a href="https://aws.amazon.com/athena/?nc2=h_m1" target="_blank" rel="noopener">Amazon Athena</a> or Apache Hive on <a href="https://aws.amazon.com/emr/" target="_blank" rel="noopener">Amazon EMR</a>, which can add all partitions through a single statement.&nbsp;Furthermore, you can use other date-based partitioning patterns like&nbsp;“/dt=2019-02-09-13/” instead of expanding the date out into folders.&nbsp; This is helpful in reducing the total number of partitions that need to be maintained as the table grows over time. It also simplifies range queries.&nbsp;Providing the ability to specify custom prefixes obviates the need for an additional ETL step to put the data in the right folder structure improving the time to insight.</p> 
+<h2><strong>How custom prefixes for Amazon S3 objects works</strong></h2> 
+<p>This new capability does not let you use any date or timestamp value from your event data, nor can you use any other arbitrary value in the event. Kinesis Data Firehose uses an internal timestamp field called ApproximateArrivalTimestamp.&nbsp;Each data record includes an ApproximateArrivalTimestamp (in UTC) that is set when a stream successfully receives and stores the record. This is commonly referred to as a server-side timestamp. Kinesis Data Firehose buffers incoming records according to the configured buffering hints and delivers them into Amazon S3 objects for the Amazon S3 destination. The resulting objects in Amazon S3 may contain&nbsp;multiple records, each&nbsp;with a different ApproximateArrivalTimestamp.&nbsp;When evaluating timestamps, Kinesis Data Firehose uses the ApproximateArrivalTimestamp of the oldest record that’s contained in the Amazon S3 object being written.</p> 
+<p>Kinesis Data Firehose also provides&nbsp;the ability to deliver records to a different error output location when there is a delivery, <a href="https://aws.amazon.com/lambda/?nc2=h_m1" target="_blank" rel="noopener">AWS Lambda</a> transformation or format conversion failure. Previously, the error output location could not be configured and was determined by the type of&nbsp;<a href="https://docs.aws.amazon.com/firehose/latest/dev/basic-deliver.html#retry" target="_blank" rel="noopener">delivery failure</a>. With this release, the error output location (ErrorOutputPrefix) can also be configured. One benefit of this new capability is that you can separate failed records into date partitioned folders for easy reprocessing.</p> 
+<p>So how do you specify the custom Prefix and the ErrorOutputPrefix? You use an expression of the form<strong>: !{namespace:value}</strong>, where the namespace can be either&nbsp;<strong>firehose</strong> or <strong>timestamp. </strong>The <strong>value </strong>can be either&nbsp;“<strong>random-string</strong>” or&nbsp;<strong>“error-output-type” </strong>for the <strong>firehose namespace </strong>or a date pattern for the <strong>timestamp </strong>namespace in the Java&nbsp;<strong><a href="https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html" target="_blank" rel="noopener">DateTimeFormatter</a></strong> format. In a single expression, you can use a combination of the two namespaces although the&nbsp;<strong>!{firehose: error-output-type}</strong>&nbsp;can be used only in the ErrorOutputPrefix. For more information and examples, see&nbsp;<a href="https://docs.aws.amazon.com/firehose/latest/dev/s3-prefixes.html" target="_blank" rel="noopener">Custom Prefixes for Amazon S3 Objects</a>.</p> 
+<h2><strong>Writing streaming data into Amazon S3 with Kinesis Data Firehose</strong></h2> 
+<p>This walkthrough describes how streaming data can be written into Amazon S3 with Kinesis Data Firehose using a Hive compatible folder structure.&nbsp; It then shows how AWS Glue crawlers can infer the schema and extract the proper partition names that we designated in Kinesis Data Firehose, and catalog them in AWS Glue Data Catalog.&nbsp; Finally, we run sample queries to show that partitions are indeed being recognized.</p> 
+<p>To demonstrate this, we use python code to generate sample data.&nbsp; We also use a Lambda transform on Kinesis Data Firehose to forcibly create failures. This demonstrates how data can be saved to the error output location. The code that you need for this walkthrough is included <a href="https://github.com/aws-samples/aws-blog-firehose-custom-prefixes-for-s3-objects" target="_blank" rel="noopener">here in GitHub</a>.</p> 
+<p>For this walkthrough, this is the architecture that we are building:</p> 
+<p><img class="alignnone size-full wp-image-6763" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/KinesisCustomPrefixes1.jpg" alt="" width="624" height="363" /></p> 
+<h3><strong>Step 1: Create an Amazon S3 bucket</strong></h3> 
+<p>Create an S3 bucket to be used by Kinesis Data Firehose to deliver event records. We use the <a href="https://aws.amazon.com/cli/?nc2=h_m1" target="_blank" rel="noopener">AWS Command Line Interface (AWS CLI)</a> to create the Amazon S3 bucket in the US East (N. Virginia) Region.&nbsp;Remember to substitute the bucket name in the example for your own.</p> 
+<p><code>aws s3 mb s3://kdfs3customprefixesexample --region us-east-1</code></p> 
+<h3><strong>Step 2: Lambda Transform (optional)</strong></h3> 
+<p>The incoming events have an&nbsp;ApproximateArrivalTimestamp field in the event payload.&nbsp; This is sufficient to create a proper folder structure on Amazon S3.&nbsp; However, when querying the data it may be beneficial to expose this timestamp value as a top level column for easy filtering and validation.&nbsp; To accomplish this, we create a Lambda function that adds the ApproximateArrivalTimestamp as a top level field in the data payload. The data payload is what Kinesis Data Firehose writes as an object in Amazon S3. Additionally, the Lambda code also artificially generates some processing errors that are delivered to the “ErrorOutputPrefix” location specified for the delivery destination to illustrate the use of expressions in the “ErrorOutputPrefix.”</p> 
+<h4><strong>Create an IAM role for the Lambda transform function</strong></h4> 
+<p>First, create a role for the Lambda function called&nbsp;<strong>LambdaBasicRole</strong>.&nbsp;The&nbsp;<strong>TrustPolicyForLambda.json </strong>file is included in the <a href="https://github.com/aws-samples/aws-blog-firehose-custom-prefixes-for-s3-objects" target="_blank" rel="noopener">GitHub</a> repository.</p> 
+<p><code>$ aws iam create-role --role-name KDFLambdaBasicRole --assume-role-policy-document file://TrustPolicyForLambda.json</code></p> 
+<p>After the role is created, attach the managed Lambda basic execution policy to it.</p> 
+<p><code>$ aws iam attach-role-policy --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole --role-name KDFLambdaBasicRole</code></p> 
+<h4><strong>Lambda function</strong></h4> 
+<p>To create the Lambda function, start with the Python Kinesis Data Firehose blueprint “General Firehose Processing” and then modify it. For more information about the structure of the records and what must be returned, see&nbsp;<a href="https://docs.aws.amazon.com/firehose/latest/dev/data-transformation.html" target="_blank" rel="noopener">Amazon Kinesis Data Firehose Data Transformation</a>.</p> 
+<p>Zip up the Python file, and then create the Lambda function using the AWS CLI. The&nbsp;<strong>CreateLambdaFunctionS3CustomPrefixes.json file </strong>is included in the <a href="https://github.com/aws-samples/aws-blog-firehose-custom-prefixes-for-s3-objects" target="_blank" rel="noopener">GitHub</a> repository.</p> 
+<p><code>aws lambda create-function --zip-file &quot;fileb://lambda_function.zip&quot; --cli-input-json file://CreateLambdaFunctionS3CustomPrefixes.json</code></p> 
+<h3><strong>Step3. Delivery Stream</strong></h3> 
+<p>Next, create the Kinesis Data Firehose delivery stream.&nbsp;The&nbsp;<strong>createdeliverystream.json file </strong>is included in the <a href="https://github.com/aws-samples/aws-blog-firehose-custom-prefixes-for-s3-objects" target="_blank" rel="noopener">GitHub</a> repository.</p> 
+<p><code>&nbsp;aws firehose create-delivery-stream --cli-input-json file://createdeliverystream.json </code></p> 
+<p>In the previous configuration, we defined a Prefix and an ErrorOutputPrefix under the “ExtendedS3DestinationConfiguration” element. We defined&nbsp;the same for the “S3BackupConfiguration” element. Note that when the&nbsp;“ProcessingConfiguration” element is set to “Disabled”, the ErrorOutputPrefix parameter of the&nbsp;“ExtendedS3DestinationConfiguration” element exists only for consistency. It otherwise has no significance.</p> 
+<p>We’ve chosen a prefix that will result in a folder structure compatible with hive-style partitioning. This is the prefix we used:</p> 
+<p>“fhbase/year=!{timestamp:YYYY}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/”</p> 
+<p>Kinesis Data Firehose first creates a base folder called “fhbase” directly under the Amazon S3 bucket. Second, it evaluates the expressions&nbsp;!{timestamp:YYYY}, !{timestamp:MM}, !{timestamp:dd}, and !{timestamp:HH}&nbsp;to year, month, day and hour using the Java&nbsp;<a href="https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html" target="_blank" rel="noopener">DateTimeFormatter</a> format. For example, an ApproximateArrivalTimestamp of 1549754078390 in UNIX epoch time, which is 2019-02-09T16:13:01.000000Z in UTC would evaluate to “year=2019”, “month=02”, “day=09” and “hour=16”.&nbsp; Therefore, the location in Amazon S3 where data records that are delivered evaluate to “fhbase/year=2019/month=02/day=09/hour=16/”.</p> 
+<p>Similarly, the ErrorOutputPrefix “fherroroutputbase/!{firehose:random-string}/!{firehose:error-output-type}/!{timestamp:yyyy/MM/dd}/” results in a base folder called “fherroroutputbase” directly under the S3 bucket. The expression !{firehose:random-string} evaluates to an 11 character random string like&nbsp;“ztWxkdg3Thg”.&nbsp; If you use this more than once in the same expression, every instance evaluates to a new random string. The expression !{firehose:error-output-type} evaluates to one of the following:</p> 
+<ol> 
+ <li>“processing-failed” for Lambda transformation delivery failures</li> 
+ <li>“elasticsearch-failed” for an Amazon ES destination delivery failures</li> 
+ <li>“splunk-failed” for Splunk destination delivery failures</li> 
+ <li>“format-conversion-failed” for data format conversion failures</li> 
+</ol> 
+<p>So, the location for an Amazon S3 object containing the delivery failed records for a Lambda transformation could evaluate to: fherroroutputbase/ztWxkdg3Thg/processing-failed/2019/02/09/.</p> 
+<p>You can run <code>aws firehose describe-delivery-stream --delivery-stream-name KDFS3customPrefixesExample</code> to describe the delivery stream created.</p> 
+<p>Next, enable encryption-at-rest for the delivery stream:</p> 
+<p><code>aws firehose start-delivery-stream-encryption --delivery-stream-name KDFS3customPrefixesExample</code></p> 
+<h4><strong>Or</strong> <strong>Create the delivery stream using the AWS Console</strong></h4> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6764" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/KinesisCustomPrefixes2.jpg" alt="" width="653" height="163" /></p> 
+<ol> 
+ <li>Choose the source. For this example, I use <strong>Direct PUT</strong>.</li> 
+ <li>Choose if you would like to&nbsp;<strong>transform</strong> the incoming records with a Lambda transformation. I chose <strong>Enabled</strong>, and chose the name of the Lambda function that I had created earlier.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6765" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/KinesisCustomPrefixes3.jpg" alt="" width="585" height="303" /></p> 
+<ol start="3"> 
+ <li>Choose the destination. I chose the Amazon S3 destination.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6766" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/KinesisCustomPrefixes4.jpg" alt="" width="695" height="140" /></p> 
+<ol start="4"> 
+ <li>Choose the Amazon S3 bucket. I chose the Amazon S3 bucket that I had created earlier in this exercise.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6767" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/KinesisCustomPrefixes5.jpg" alt="" width="675" height="143" /></p> 
+<ol start="5"> 
+ <li>Specify the Amazon S3 Prefix and the Amazon S3 error prefix. This corresponds to the “Prefix” and “ErrorOutputPrefix” explained earlier in the context of the AWS CLI input JSON.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6768" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/KinesisCustomPrefixes6.jpg" alt="" width="750" height="458" /></p> 
+<ol start="6"> 
+ <li>Choose whether you would like to back up&nbsp;the raw (before transformation) records to another Amazon S3 location. I chose <strong>Enabled</strong> and specified the same bucket (you could choose a different bucket). I also specified a different prefix from the transformed records – the base folder is different but the folder structure below that is the same. This would make it more efficient to crawl this location using an AWS Glue crawler or create external tables in Athena or Redshift Spectrum pointing to this location.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6769" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/KinesisCustomPrefixes7.jpg" alt="" width="785" height="327" /></p> 
+<ol start="7"> 
+ <li>Specify the&nbsp;<strong>buffering hints</strong> for the Amazon S3 destination. I chose 1 MB and 240 seconds.</li> 
+ <li>Choose the&nbsp;<strong>S3 Compression and encryption settings</strong>. I chose no compression for the transformed records’ location. I chose to encrypt the Amazon S3 location at rest by using the service-managed <a href="https://docs.aws.amazon.com/kms/index.html#lang/en_us" target="_blank" rel="noopener">AWS KMS</a> customer master key (CMK).</li> 
+ <li>Choose whether you want to enable <strong>Error Logging in Cloudwatch</strong>. I chose <strong>Enabled</strong>.</li> 
+ <li>Specify the IAM role that you want Kinesis Data Firehose to assume to access resources on your behalf. Choose either&nbsp;<strong>Create new </strong>or<strong> Choose</strong> to display a new screen. Choose <strong>Create a new IAM role</strong>, name the role, and then choose <strong>Allow</strong>.</li> 
+ <li>Choose&nbsp;<strong>Create Delivery Stream</strong>.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6770" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/KinesisCustomPrefixes8.jpg" alt="" width="688" height="137" /></p> 
+<p>The delivery stream is now created and active. You can send events to it.</p> 
+<h4>&nbsp;<strong>Test with sample data</strong></h4> 
+<p>I used Python code to generate sample data. The structure of the generated data is as follows:</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-python">{'sector': 'HEALTHCARE', 'price': 194.07, 'ticker_symbol': 'UFG', u'EventTime': '2019-02-12T07:10:52.649000Z', 'change': 20.56}
+{'sector': 'HEALTHCARE', 'price': 124.01, 'ticker_symbol': 'QXZ', u'EventTime': '2019-02-12T07:10:53.745000Z', 'change': 3.32}
+{'sector': 'MANUFACTURING', 'price': 26.95, 'ticker_symbol': 'QXZ', u'EventTime': '2019-02-12T07:10:54.864000Z', 'change': 24.53}</code></pre> 
+</div> 
+<p>Sample code to generate data and push it into Kinesis Data Firehose is included in the <a href="https://github.com/aws-samples/aws-blog-firehose-custom-prefixes-for-s3-objects" target="_blank" rel="noopener">GitHub</a> repository.</p> 
+<p>After you start sending events to the Kinesis Data Firehose delivery stream, objects should start appearing under the specified prefixes in Amazon S3.</p> 
+<p>I wanted to illustrate Lambda invoke errors and the appearance of files in the ErrorOutputPrefix location for Lambda transform errors. Therefore, I did not give permissions to the “firehose_delivery_role” to invoke my Lambda function. The following file showed up in the location specified by the ErrorOutputPrefix.</p> 
+<p><code>aws s3 ls s3://kdfs3customprefixesexample/fherroroutputbase/FxvO2Tf9MQP/processing-failed/2019/02/12/</code></p> 
+<p><code>2019-02-12 16:57:24&nbsp;&nbsp;&nbsp;&nbsp; 260166 KDFS3customPrefixesExample-1-2019-02-12-16-53-20-5262db81-0f3a-48bf-8fc6-2249124923ff</code></p> 
+<p>Here is a snippet of the contents of the error file that I previously mentioned.</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-code">{&quot;attemptsMade&quot;:4,&quot;arrivalTimestamp&quot;:1549990400391,&quot;errorCode&quot;:&quot;Lambda.InvokeAccessDenied&quot;,&quot;errorMessage&quot;:&quot;Access was denied. Ensure that the access policy allows access to the Lambda function.&quot;,&quot;attemptEndingTimestamp&quot;:1549990478018,&quot;rawData&quot;:&quot;eyJzZWN0b3IiOiAiSEVBTFRIQ0FSRSIsICJwcmljZSI6IDE4Ny45NCwgInRpY2tlcl9zeW1ib2wiOiAiVUZHIiwgIkV2ZW50VGltZSI6ICIyMDE5LTAyLTEyVDE2OjUzOjE5Ljk5MzAwMFoiLCAiY2hhbmdlIjogOS4yNn0=&quot;,&quot;lambdaArn&quot;:&quot;arn:aws:lambda:us-east-1:&lt;account-id&gt;:function:KDFS3CustomPrefixesTransform:$LATEST&quot;}</code></pre> 
+</div> 
+<p>After I gave the “firehose_delivery_role” the appropriate permissions, the data objects showed up in the “Prefix” location specified for the Amazon S3 destination.</p> 
+<p><code>aws s3 ls s3://kdfs3customprefixesexample/fhbase/year=2019/month=02/day=12/hour=17/</code></p> 
+<p><code>2019-02-12 17:17:26&nbsp;&nbsp;&nbsp; 1392167 KDFS3customPrefixesExample-1-2019-02-12-17-14-51-fc63e8f6-7421-491d-8417-c5002fca1722</code></p> 
+<p><code>2019-02-12 17:18:39&nbsp;&nbsp;&nbsp; 1391946 KDFS3customPrefixesExample-1-2019-02-12-17-16-43-e080a18a-3e1e-45ad-8f1a-98c7887f5430</code></p> 
+<p>Also, because the Lambda code in my Lambda transform set the status failed for 10 percent of the records, those showed up in the ErrorOutputPrefix location for Lambda transform errors.</p> 
+<p><code>aws s3 ls s3://kdfs3customprefixesexample/fherroroutputbase/ztWxkdg3Thg/processing-failed/2019/02/12/</code></p> 
+<p><code>2019-02-12 17:25:54&nbsp;&nbsp;&nbsp;&nbsp; 180092 KDFS3customPrefixesExample-1-2019-02-12-17-21-53-3bbfe7c0-f505-47d0-b880-797ce9035f73</code></p> 
+<p>Here is a snippet of the content of the error file:</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-code">{&quot;attemptsMade&quot;:1,&quot;arrivalTimestamp&quot;:1549992113419,&quot;errorCode&quot;:&quot;Lambda.ProcessingFailedStatus&quot;,&quot;errorMessage&quot;:&quot;ProcessingFailed status set for record&quot;,&quot;attemptEndingTimestamp&quot;:1549992138424,&quot;rawData&quot;:&quot;eyJ0aWNrZXJfc3ltYm9sIjogIlFYWiIsICJzZWN0b3IiOiAiSEVBTFRIQ0FSRSIsICJwcmljZSI6IDE3LjUyLCAiY2hhbmdlIjogMTcuNTUsICJFdmVudFRpbWUiOiAiMjAxOS0wMi0xMlQxNzoyMTo1My4zOTY2NDdaIn0=&quot;,&quot;lambdaArn&quot;:&quot;arn:aws:lambda:us-east-1:&lt;account-id&gt;:function:KDFS3CustomPrefixesTransform:$LATEST&quot;}</code></pre> 
+</div> 
+<p>You’re now ready to create an AWS Glue crawler. For more information about using the AWS Glue Data Catalog, see<strong> <a href="https://docs.aws.amazon.com/glue/latest/dg/populate-data-catalog.html" target="_blank" rel="noopener">Populating the AWS Glue Data Catalog</a></strong>.</p> 
+<ol> 
+ <li>In the AWS Glue console, go to <strong>Crawlers</strong>, and choose<strong> Add Crawler</strong>.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6771" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/KinesisCustomPrefixes9.jpg" alt="" width="826" height="121" /></p> 
+<ol start="2"> 
+ <li>Add information about your crawler, then choose <strong>Next</strong>.</li> 
+ <li>In the Include Path, specify the Amazon S3 bucket name that you entered under the Amazon S3 destination. Also include the static prefix used when you created the Kinesis Data Firehose delivery stream. Do not include the custom prefix expression.</li> 
+ <li>Choose&nbsp;<strong>Next</strong>.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6772" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/KinesisCustomPrefixes10.jpg" alt="" width="699" height="333" /></p> 
+<ol start="5"> 
+ <li>Choose&nbsp;<strong>Next, No, Next</strong>.</li> 
+ <li>Specify the IAM role that AWS Glue would use. I chose to create a new IAM Role. Choose <strong>Next</strong>.</li> 
+ <li>Specify a schedule to run the crawler. I chose to <strong>Run it on Demand</strong>. Choose <strong>Next</strong>.</li> 
+ <li>Specify where the crawler adds the crawled and discovered tables. I chose the <strong>default </strong>database. Choose&nbsp;<strong>Next</strong>.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6773" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/KinesisCustomPrefixes11.jpg" alt="" width="696" height="359" /></p> 
+<ol start="9"> 
+ <li>Choose <strong>Finish</strong>.</li> 
+</ol> 
+<ol start="10"> 
+ <li>The crawler has been created and is ready to be run. Choose <strong>Run crawler</strong>.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6774" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/KinesisCustomPrefixes12.jpg" alt="" width="713" height="120" /></p> 
+<ol start="11"> 
+ <li>In the AWS Glue console, go to<strong> Tables</strong>. You can see that a table has been created with the name of the base folder. Choose <strong>fhbase</strong>.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6775" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/KinesisCustomPrefixes13.jpg" alt="" width="714" height="96" /></p> 
+<p>The crawler has discovered and populated the table and its properties.</p> 
+<p><img class="alignnone size-full wp-image-6776" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/KinesisCustomPrefixes14.jpg" alt="" width="682" height="312" /></p> 
+<p>You can see the discovered schema. The crawler has identified and created the partitions based on the folder structure specified by the prefix expression.</p> 
+<p><img class="alignnone size-full wp-image-6777" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/KinesisCustomPrefixes15.jpg" alt="" width="701" height="299" /></p> 
+<p>Open the Amazon Athena console, and select the <strong>default</strong> database from the drop-down menu. Write the following query in the <strong>New query1</strong> window, then choose <strong>Run query</strong>.</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-sql">SELECT * FROM &quot;default&quot;.&quot;fhbase&quot;
+
+where year = '2019' and day = '12' and hour = '17'
+
+order by approxarrtimestamputcfh desc</code></pre> 
+</div> 
+<p><img class="alignnone size-full wp-image-6778" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/KinesisCustomPrefixes16.jpg" alt="" width="675" height="249" /></p> 
+<p>Notice that Amazon Athena recognizes the fhbase table as a partitioned table. The query can take advantage of the partitions in the query to filter the results.</p> 
+<h2>Conclusion</h2> 
+<p>As this post illustrates, Custom Prefixes for Amazon S3 objects provides much flexibility to customize the folder structure,&nbsp;where Kinesis Data Firehose delivers the data records and failure records in Amazon S3. Having control over the folder structure and naming in Amazon S3 simplifies data discovery, cataloging, and access. As a result, it helps get insight more expediently and helps you better manage the cost of your queries.</p> 
+<p>&nbsp;</p> 
+<hr /> 
+<h3>About the Author</h3> 
+<p><img class="size-full wp-image-6783 alignleft" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/16/Rajeev.png" alt="" width="113" height="150" /><strong>Rajeev Chakrabarti is a Kinesis specialist solutions architect</strong>.</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p>

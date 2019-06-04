@@ -1,0 +1,119 @@
+<p>We are excited to share Packer v.1.4.0 with the community.  This blog post will go into the new features coming with this release. </p>
+
+<h3>Docker for Windows</h3>
+
+<p>We&#39;ve added beta-level support for our Docker builder to be used in conjunction with Windows containers.</p>
+
+<p>If you are building a Windows container, you&#39;ll have to either click &quot;Switch to Windows containers&quot; in the Docker tray menu or run the following command in powershell:</p>
+
+<p><code>powershell
+&amp; $Env:ProgramFiles\Docker\Docker\DockerCli.exe -SwitchDaemon .
+</code></p>
+
+<p>You must also set the Packer template option <code>&quot;windows_container&quot;: true</code>.  Please note that docker cannot export Windows containers, so you must either commit or discard them.</p>
+
+<p>The following is a fully functional template for building a Windows container via the Docker builder.</p>
+
+<p><code>json
+{
+    &quot;builders&quot;: [
+    {
+      &quot;type&quot;: &quot;docker&quot;,
+      &quot;image&quot;: &quot;microsoft/windowsservercore:1709&quot;,
+      &quot;container_dir&quot;: &quot;c:/app&quot;,
+      &quot;windows_container&quot;: true,
+      &quot;commit&quot;: true
+    }
+  ]
+}
+</code></p>
+
+<h3>Recursive User Variable Interpolation</h3>
+
+<p>Another template-level improvement we&#39;ve made is that you can now reference user variables set in the variables section of the packer template, <em>within</em> that section. You can use this to define variables that depend on other variables. For example, the following fully-functional sample packer template demonstrates how you can set one variable via another.</p>
+
+<p><code>json
+{
+    &quot;variables&quot;: {
+        &quot;baz&quot;:  &quot;{{user `foo`}}baz&quot;,
+        &quot;foo&quot;: &quot;whee&quot;,
+        &quot;bang&quot;: &quot;bang{{user `baz`}}&quot;
+    },
+    &quot;builders&quot;: [{
+        &quot;type&quot;: &quot;null&quot;,
+        &quot;communicator&quot;: &quot;none&quot;
+    }],
+    &quot;provisioners&quot;: [{
+        &quot;type&quot;: &quot;shell-local&quot;,
+        &quot;environment_vars&quot;: [&quot;FOO={{ user `foo` }}&quot;,
+                             &quot;BAZ={{ user `baz` }}&quot;,
+                             &quot;BANG={{ user `bang` }}&quot;],
+        &quot;inline&quot;: [&quot;echo $FOO&quot;,
+                   &quot;echo $BAZ&quot;,
+                   &quot;echo $BANG&quot;]
+    }]
+}
+</code></p>
+
+<p>Expected output:</p>
+
+<p><code>
+    null: whee
+    null: wheebaz
+    null: bangwheebaz
+</code></p>
+
+<p>If you try to reference a user variable that has not been set or is an empty string, Packer will error.</p>
+
+<h3>Provisioner Timeout and Sleep Provisioner</h3>
+
+<p>The new sleep provisioner will sleep during the <code>duration</code> setting. All provisioner now get a <code>timeout</code> parameter that will cancel a privioner after a <code>timeout</code> duration. The following provisioner will timeout after sleeping for 1 second:
+``` json
+{
+    &quot;type&quot;: &quot;sleep&quot;,
+    &quot;duration&quot;: &quot;2m&quot;,</p>
+
+<pre><code>&quot;timeout&quot;: &quot;1s&quot;
+</code></pre>
+
+<p>}
+```</p>
+
+<h3>Other Miscellaneous Goodies</h3>
+
+<ul>
+<li>We&#39;ve added an option to the shell and windows-shell provisioner to allow users to specify &quot;passing&quot; non-zero exit codes</li>
+<li>We&#39;ve updated Packer to avoid VNC port collisions when running multiple builds in parallel which specify the same port range.</li>
+<li>For our windows + ansible users, you may be interested in a documentation update provided by one of our community members which may address issues you&#39;ve been facing with the WinRM ansible plugin. [GH-7461]</li>
+<li>Packer is now using <a href="https://github.com/hashicorp/go-getter">hashicorp/go-getter</a> to download files. The getter brings features, common wisdom and safety from other hashicorp projects.</li>
+<li>Shell communicator now forwards Stderr logs to the error output.</li>
+<li>Packer now uses a tty to receive user inputs.</li>
+</ul>
+
+<h3>Backwards Incompatibilities</h3>
+
+<p>There are a handful of backwards incompatible changes to naming within the template, most of which we&#39;ve done to improve coherence across or within builders. These can all be fixed by using a fixer. Call &quot;packer fix yourtemplate.json&quot; and we&#39;ll spit out a template that uses the appropriate option names.</p>
+
+<p>All backwards-incompatible changes for this release and their associated github issues can be found in our changelog.</p>
+
+<h2>Other Packer Highlights</h2>
+
+<p>In case you missed them, here are some release highlights from this year so far:</p>
+
+<h3>New Builders, Provisioners, and Post-processors</h3>
+
+<ul>
+<li><a href="https://www.packer.io/docs/builders/vagrant.html">Vagrant builder</a></li>
+<li><a href="https://www.packer.io/docs/builders/hyperone.html">hyperone builder</a></li>
+<li><a href="https://www.packer.io/docs/post-processors/digitalocean-import.html">digitialocean-import post-processor</a></li>
+<li><a href="https://www.packer.io/docs/provisioners/inspec.html">inspec provisioner</a></li>
+<li><a href="https://www.packer.io/docs/provisioners/breakpoint.html">breakpoint provisioner</a></li>
+</ul>
+
+<h3>Miscellaneous</h3>
+
+<ul>
+<li><a href="https://www.packer.io/docs/builders/amazon-ebs.html#vault_aws_engine">Vault + AWS integration in Packer Template</a></li>
+<li>Post-processors now respect the &quot;except&quot; command line flag.</li>
+<li>Builder, Provisioner, Hook &amp; PostProcessor type are now context cancelled, this change broke their API and plugins will need to be updated.</li>
+</ul>

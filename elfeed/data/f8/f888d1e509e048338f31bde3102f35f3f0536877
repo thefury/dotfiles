@@ -1,0 +1,36 @@
+<p>We’re excited to announce today’s stable release of version 3 of the&nbsp;<a title="AWS SDK for Ruby" href="https://aws.amazon.com/sdk-for-ruby/" target="null">AWS SDK for Ruby</a>. The SDK is now available with over 100 service-specific gems (starting with&nbsp;<code>aws-sdk-*</code>, such as&nbsp;<code>aws-sdk-s3</code>) on&nbsp;<a title="RubyGems aws-sdk" href="https://rubygems.org/gems/aws-sdk" target="null">RubyGems</a>. You can find a full list of available service gems can be found at our <a title="aws-sdk-ruby on GitHub" href="https://github.com/aws/aws-sdk-ruby#supported-services" target="null">GitHub&nbsp;landing page</a>.</p> 
+<h2>Features</h2> 
+<p>Version 3 of the AWS SDK for Ruby modularizes the monolithic SDK into service-specific gems, for example,&nbsp;<code>aws-sdk-s3</code>&nbsp;and&nbsp;<code>aws-sdk-dynamodb</code>. Now each service gem uses strict&nbsp;<a title="Semantic Versioning" href="http://semver.org/" target="null">semantic versioning</a>, along with the benefits of continuous delivery of AWS API updates. With modularization, you can pick and choose which service gems your application or library requires, and update service gems independently of each other.</p> 
+<p>These new service-specific gems use statically generated code, rather than runtime-generated clients and types. This provides human-readable stack traces and code for API clients. Additionally, version 3 eliminates many thread safety issues by removing Ruby&nbsp;<code>autoload</code>&nbsp;statements. When you require a service gem, such as&nbsp;<code>aws-sdk-ec2</code>, all of the code is loaded upfront, avoiding sync issues with&nbsp;<code>autoload</code>.</p> 
+<p>Furthermore, the SDK provides&nbsp;<a title="AWS Signature Version 4" href="http://docs.aws.amazon.com/general/latest/gr/signature-version-4.html" target="null">AWS Signature Version 4</a>&nbsp;signing functionality as a separate gem&nbsp;<code>aws-sigv4</code>. This gem provides flexible signing usage for both AWS requests and customized scenarios.</p> 
+<h2>Upgrading</h2> 
+<p>We’ve provided a detailed&nbsp;<a title="V3 Upgrading Guide" href="https://github.com/aws/aws-sdk-ruby/blob/master/V3_UPGRADING_GUIDE.md" target="null">upgrading guide</a>&nbsp;with this release, which covers different upgrade scenarios. In short, the public-facing APIs are compatible, and so changes you need to make are focused on your&nbsp;<code>Gemfile</code>&nbsp;and&nbsp;<code>require</code> statements.</p> 
+<p>Most users of the SDK have a setup similar to this:</p> 
+<pre><code class="lang-ruby"># Gemfile
+gem 'aws-sdk', '~&gt; 2'</code></pre> 
+<pre><code class="lang-ruby"># Code Files
+require 'aws-sdk'
+
+s3 = Aws::S3::Client.new
+
+ddb = Aws::DynamoDB::Client.new
+
+# etc.</code></pre> 
+<p>If that’s you, the quickest migration path is to simply change your&nbsp;<code>Gemfile</code>&nbsp;like so:</p> 
+<pre><code class="lang-ruby"># Gemfile
+gem 'aws-sdk', '~&gt; 3'</code></pre> 
+<p>However, this will pull in many new dependencies, as each service client has its own individual gem. As a direct user, you can also change to using only the service gems actually required by your project, which is the recommended path. This would involve a change to both your&nbsp;<code>Gemfile</code>&nbsp;and to the code files where your&nbsp;<code>require</code>&nbsp;statements live, like so:</p> 
+<pre><code class="lang-ruby"># Gemfile
+gem 'aws-sdk-s3', '~&gt; 1'
+gem 'aws-sdk-dynamodb', '~&gt; 1'</code></pre> 
+<pre><code class="lang-ruby"># Code Files
+require 'aws-sdk-s3'
+require 'aws-sdk-dynamodb'
+
+s3 = Aws::S3::Client.new
+ddb = Aws::DynamoDB::Client.new
+
+# etc.</code></pre> 
+<p>Other upgrade cases are covered in the&nbsp;guide.</p> 
+<h2>Feedback</h2> 
+<p>Please share your questions, comments, issues, etc. with us on&nbsp;<a title="GitHub Page: AWS SDK for Ruby" href="https://github.com/aws/aws-sdk-ruby" target="null">GitHub</a>. You can also catch us in our&nbsp;<a title="Gitter" href="https://gitter.im/aws/aws-sdk-ruby" target="null">Gitter</a> channel.</p>

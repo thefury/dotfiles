@@ -1,0 +1,169 @@
+<p>Amazon Kinesis <a href="https://aws.amazon.com/blogs/aws/kds-enhanced-fanout/">launched</a> two significant performance-improving features for Amazon Kinesis Data Streams: enhanced fan-out and an HTTP/2 data retrieval API (“SubscribeToShard”). This API allows data to be delivered from producers to consumers in 70 milliseconds or better. Today, we’re excited to announce the support for Kinesis <a href="https://docs.aws.amazon.com/kinesis/latest/APIReference/API_SubscribeToShard.html">SubscribeToShard</a> API in the AWS SDK for Ruby.</p> 
+<h3><strong>Before calling the #subscribe_to_shard API</strong></h3> 
+<p>The <code>#subscribe_to_shard</code> API is available in the <code>aws-sdk-kinesis</code> <a href="https://rubygems.org/gems/aws-sdk-kinesis/versions/1.10.0">gem version 1.10.0</a> and later for Ruby version 2.1 and later. This API is built on the HTTP/2 protocol for streaming back shard events, instead of the normal API call based on the HTTP1.1 protocol. You need to have <a href="https://rubygems.org/gems/http-2">http-2</a> gem available when using this API.</p> 
+<pre><code class="lang-ruby">
+gem 'http-2', '~&gt; 0.10'
+</code></pre> 
+<p>This API is available at <code>AsyncClient</code> instead of <code>Client</code>, and an <code>AsyncResponse</code> object would be available after making the call instead of waiting for a complete sync <code>Response</code>.</p> 
+<h4><strong><em>Introduction to AsyncClient</em></strong></h4> 
+<p>Due to the nature of the HTTP/2 protocol, the AWS SDK for Ruby introduced <code>AsyncClient</code> for streaming APIs over HTTP/2. This is different from the <code>Client</code> object, which you might already be familiar with, for APIs over HTTP1.1.</p> 
+<p>You can create an <code>AsyncClient</code> for Kinesis as follows.</p> 
+<pre><code class="lang-ruby">
+require 'aws-sdk-kinesis'
+
+async_client = Aws::Kinesis::AsyncClient.new(region: 'us-west-2')
+
+# list all available HTTP2/Async operations
+async_client.operation_names
+# =&gt; [:subscribe_to_shard]
+</code></pre> 
+<p>In the next section, we walk through the async unidirectional streaming API usage pattern.<br /> For general information about the SubscribeToShardAPI, see the Kinesis <a href="https://docs.aws.amazon.com/kinesis/latest/APIReference/API_SubscribeToShard.html">SubscribeToShard API documentation</a></p> 
+<h4><strong><em>#subscribe_to_shard API usage pattern</em></strong></h4> 
+<p>In this section, we will go through key parts for making a unidirectional async API call.</p> 
+<h5><em>Intro to :output_event_stream_handler</em></h5> 
+<p>Waiting for async responses to be synchronized takes minutes and misses all of the benefits of streaming the processing of events. We’ve introduced event stream objects that enable you to register callbacks for specific (or every) event that arrives.</p> 
+<p>Taking Kinesis as an example, all available <code>EventStreamobjects</code> would be under <code>Aws::Kinesis::EventStreams</code>. When looking at the <code>#subscribe_to_shard</code> API, we have <code>Aws::Kinesis::EventStreams::SubscribeToShardEventStream</code> available.</p> 
+<pre><code class="lang-ruby">
+output_stream = Aws::Kinesis::EventStreams::SubscribeToShardEventStream.new
+
+# callback for :on_subscribe_to_shard_event event
+output_stream.on_subscribe_to_shard_event_event do |event|
+	# =&gt; Aws::Kinesis::Types::SubscribeToShardEvent
+end
+
+# callback for :on_resource_in_use_exception event
+output_stream.on_resource_in_use_exception_event do |exception|
+	# =&gt; Aws::Kinesis::Types::ResourceInUseException
+end
+
+# Or if you want to see every event that arrives
+ouput_stream.on_event do |event|
+	puts event.event_type
+  # =&gt; Symbol
+end
+
+# For a full list of available methods for registering callbacks, see
+# Aws::Kinesis::EventStreams::SubscribeToShardEventStream
+</code></pre> 
+<p>To use those event streams, you just need to provide them in the <code>:output_event_stream_handler</code> option when making the request. The following sections provide a complete example.</p> 
+<h5><em>Prepare the consumer</em></h5> 
+<p>Before calling the API, you would need to have a <a href="https://docs.aws.amazon.com/streams/latest/dev/amazon-kinesis-consumers.html">consumer</a> using enhanced fan-out. If you already have this consumer living in Kinesis data streams, you may skip this section and jump to following section “Calling the API”.</p> 
+<p>To create a consumer using enhanced fan-out, you can simply call <code>#register_stream_consumer</code> available at <code>Aws::Kinesis::Client</code> like:</p> 
+<pre><code class="lang-ruby">
+client = Aws::Kinesis::Client.new
+resp = client.register_stream_consumer(
+	stream_arn: MY_KINESIS_STREAM_ARN,
+  consumer_name: 'foo'
+)
+# save consumer_arn used for later
+consumer_arn = resp.consumer.consumer_arn
+</code></pre> 
+<p>Make sure check until the consumer is active before using it for subscribing shard events:</p> 
+<pre><code class="lang-ruby">
+status = client.describe_stream_consumer(
+  stream_arn: MY_KINESIS_STREAM_ARN,
+  consumer_name: 'foo',
+).consumer_description.consumer_status
+# =&gt; 'ACTIVE'
+</code></pre> 
+<p>Then, let pick a shard that we will subscribe to, (you would need the shardId)</p> 
+<pre><code class="lang-ruby">
+shard_resp = client.list_shards(
+	stream_name: MY_STREAM_NAME
+)
+# say we want data living in the first shard of the stream
+shard_id = shard_resp.shards.first.shard_id
+</code></pre> 
+<p>If you already have some fresh data in the stream shard, you can skip the rest of this section and jump to “Calling the API”, else, you can use following code snippets to put some data for testing</p> 
+<pre><code class="lang-ruby">
+records = []
+10.times do |i|
+	records &lt;&lt; {
+	  data: &quot;test-data-#{i}&quot;,
+    partition_key: &quot;partition-key-#{i}&quot;
+  }
+end
+client.put_records(
+  records: records,
+  stream_name: MY_STREAM_NAME
+)
+</code></pre> 
+<h4><em>Calling the API</em></h4> 
+<p>Let’s bring all the pieces together and make the API call.</p> 
+<pre><code class="lang-ruby">
+require 'aws-sdk-kinesis'
+
+async_client = Aws::Kinesis::AsyncClient.new
+output_stream = Aws::Kinesis::EventStreams::SubscribeToShardEventStream.new
+output_stream.on_subscribe_to_shard_event_event do |event|
+	puts event.inspect
+end
+
+# Note: parameter values in the example are placeholders
+async_resp = async_client.subscribe_to_shard(
+  consumer_arn: &quot;arn:aws:kinesis:us-west-2:ACCOUNTID:stream/foo/consumer/bar:ID&quot;,
+  shard_id: &quot;shardId-SHARDID&quot;,
+  starting_position: {
+    type: 'AT_SEQUENCE_NUMBER',
+    sequence_number: &quot;SEQUENCE_NUMBER&quot;
+  },
+  output_event_stream_handler: output_stream
+)
+
+# Calling wait will wait for h2 stream ends
+# Alternatively, you can call #join! on the async response,
+# which immediately ends the stream and forces a sync response
+resp = async_resp.wait
+puts resp
+</code></pre> 
+<p>For full documentation of request parameters, see <a href="https://docs.aws.amazon.com/sdk-for-ruby/v3/api/Aws/Kinesis/AsyncClient.html#subscribe_to_shard-instance_method">here</a>. For more information about preparing those parameter values, see the Kinesis documentation <a href="https://docs.aws.amazon.com/kinesis/latest/APIReference/API_RegisterStreamConsumer.html">RegisterStreamConsumer</a>.</p> 
+<p>When you run the above code, you get output like the following.</p> 
+<pre><code class="lang-ruby">
+# struct Aws::Kinesis::Types::SubscribeToShardEvent records=[ ... ], continuation_sequence_number=&quot;...&quot;, millis_behind_latest=0, event_type=:subscribe_to_shard_event
+# struct Aws::Kinesis::Types::SubscribeToShardEvent records=[ ... ], continuation_sequence_number=&quot;...&quot;, millis_behind_latest=0, event_type=:subscribe_to_shard_event 
+...
+# struct Aws::Kinesis::Types::SubscribeToShardOutput ...
+</code></pre> 
+<h3><strong>Additional notes</strong></h3> 
+<p>In addition to providing an <code>Aws::Kinesis::EventStreams::SubscribeToShardEventStream</code> object with callbacks that are registered (the most recommended usage pattern), you can also simply provide a Ruby Proc object with those callbacks, such as the following.</p> 
+<pre><code class="lang-ruby">
+...
+output_stream = Proc.new do |stream|
+	stream.on_event do |event|
+    puts &quot;an event arrived!&quot;
+  end
+  ... # other callbacks
+end
+# still need to provide :output_event_stream_handler
+async_resp = async_client.subscribe_to_shard(..., output_event_stream_handler: output_stream)
+...
+</code></pre> 
+<p>You can also use a block when making the request to access the stream. In this pattern, you don’t have to provide <code>:output_event_stream_handler</code>.</p> 
+<pre><code class="lang-ruby">
+async_resp = async_client.subscribe_to_shard(...) do |stream|
+	stream.on_event do |event|
+    puts &quot;an event arrived!&quot;
+  end
+end
+</code></pre> 
+<p>A hybrid usage pattern is also supported.</p> 
+<pre><code class="lang-ruby">
+output_stream = Aws::Kinesis::EventStreams::SubscribeToShardEventStream.new
+output_stream.on_subscribe_to_shard_event_event do |event|
+	puts event.inspect
+end
+
+async_resp = async_client.subscribe_to_shard(
+  ..., output_event_stream_handler: output_stream) do |stream|
+	stream.on_error_event do |error|
+    # =&gt; Aws::Errors::EventError
+    error.event_type # =&gt; :error
+  end
+end
+...
+</code></pre> 
+<p>One more note for the hybrid usage pattern: When extra callbacks are registered from the block, they’re essentially tracked (appended) at <code>:output_stream_handler</code> still.</p> 
+<h3><strong>Final thoughts</strong></h3> 
+<p>We walked through a <code>#subscribe_to_shard</code> API usage example in Ruby to give you an introduction to <code>AsyncClient</code> and <code>AsyncResponse</code>. Feel free to try out the usage pattern to process events with callbacks, and let us know if you have any questions.</p> 
+<h3><strong>Feedback</strong></h3> 
+<p>Share your questions, comments, and issues with us on <a href="https://github.com/aws/aws-sdk-ruby">GitHub</a>. You can also catch us in our Gitter channel.</p>

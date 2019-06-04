@@ -1,0 +1,59 @@
+<p>There are multiple vulnerabilities in RubyGems bundled with Ruby.
+It is <a href="http://blog.rubygems.org/2019/03/05/security-advisories-2019-03.html">reported at the official blog of RubyGems</a>.</p>
+
+<h2>Details</h2>
+
+<p>The following vulnerabilities have been reported.</p>
+
+<ul>
+  <li>CVE-2019-8320: Delete directory using symlink when decompressing tar</li>
+  <li>CVE-2019-8321: Escape sequence injection vulnerability in <code>verbose</code></li>
+  <li>CVE-2019-8322: Escape sequence injection vulnerability in <code>gem owner</code></li>
+  <li>CVE-2019-8323: Escape sequence injection vulnerability in API response handling</li>
+  <li>CVE-2019-8324: Installing a malicious gem may lead to arbitrary code execution</li>
+  <li>CVE-2019-8325: Escape sequence injection vulnerability in errors</li>
+</ul>
+
+<p>It is strongly recommended for Ruby users to upgrade your Ruby installation or take one of the following workarounds as soon as possible.</p>
+
+<h2>Affected Versions</h2>
+
+<ul>
+  <li>Ruby 2.3 series: all</li>
+  <li>Ruby 2.4 series: 2.4.5 and earlier</li>
+  <li>Ruby 2.5 series: 2.5.3 and earlier</li>
+  <li>Ruby 2.6 series: 2.6.1 and earlier</li>
+  <li>prior to trunk revision 67168</li>
+</ul>
+
+<h2>Workarounds</h2>
+
+<p>In principle, you should upgrade your Ruby installation to the latest version.
+RubyGems 3.0.3 or later includes the fix for the vulnerabilities, so upgrade RubyGems to the latest version if you can’t upgrade Ruby itself.</p>
+
+<pre><code>gem update --system
+</code></pre>
+
+<p>If you can’t upgrade RubyGems, you can apply the following patches as a workaround.</p>
+
+<ul>
+  <li><a href="https://bugs.ruby-lang.org/attachments/7669">for Ruby 2.4.5</a></li>
+  <li><a href="https://bugs.ruby-lang.org/attachments/7670">for Ruby 2.5.3</a></li>
+  <li><a href="https://bugs.ruby-lang.org/attachments/7671">for Ruby 2.6.1</a></li>
+</ul>
+
+<p>Regarding Ruby trunk, update to the latest revision.</p>
+
+<h2>Credits</h2>
+
+<p>This report is based on <a href="http://blog.rubygems.org/2019/03/05/security-advisories-2019-03.html">the official blog of RubyGems</a>.</p>
+
+<h2>History</h2>
+
+<ul>
+  <li>Originally published at 2019-03-05 00:00:00 UTC</li>
+  <li>Link to updated patches at 2019-03-06 05:26:27 UTC</li>
+  <li>Mention about upgrading Ruby itself at 2019-04-01 06:00:00 UTC</li>
+</ul>
+
+<p>Posted by hsbt on 5 Mar 2019</p>

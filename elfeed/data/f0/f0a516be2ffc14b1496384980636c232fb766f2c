@@ -1,0 +1,240 @@
+<p><a href="https://aws.amazon.com/codedeploy/" target="_blank" rel="noopener">AWS CodeDeploy</a> is a powerful service for automating deployments to <a href="https://aws.amazon.com/ec2/" target="_blank" rel="noopener">Amazon EC2</a>, <a href="https://aws.amazon.com/lambda/" target="_blank" rel="noopener">AWS Lambda</a>, and on-premises servers. However, it can take some effort to get complex deployments up and running or to identify the error in your application when something goes wrong.</p> 
+<p>When I set up new deployments or debug existing ones, I like to test and debug locally for these reasons:</p> 
+<ul> 
+ <li>To speed up the iteration process.</li> 
+ <li>To isolate potential issues.</li> 
+ <li>To validate code.</li> 
+</ul> 
+<p>You can test application code packages on any machine that has the CodeDeploy agent installed before you deploy it through the service.&nbsp;Likewise, to debug locally, you just need to install the CodeDeploy agent on any machine, including your local server or EC2 instance.</p> 
+<p>In this blog post, I will walk you through the steps to validate and debug a sample application package using the <strong>codedeploy-local</strong> command. You can find the sample package in this <a href="https://github.com/aws-samples/aws-codedeploy-samples/tree/master/applications/SampleApp_Linux" target="_blank" rel="noopener">GitHub repository</a>.</p> 
+<p>&nbsp;</p> 
+<p><img class="size-full wp-image-2669 aligncenter" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/09/21/CodeDeploy-Local.jpeg" alt="" width="673" height="494" /></p> 
+<p>&nbsp;</p> 
+<p><strong>Prerequisites</strong></p> 
+<p>Install the CodeDeploy agent on any supported instance type. For information, see <a href="https://docs.aws.amazon.com/codedeploy/latest/userguide/deployments-local.html" target="_blank" rel="noopener">Use the AWS CodeDeploy Agent to Validate a Deployment Package on a Local Machine</a> in the AWS CodeDeploy User Guide.</p> 
+<p><strong>Step 1</strong></p> 
+<p>Verify the CodeDeploy agent is installed and ready for local testing. By default, <strong>codedeploy-local</strong> is installed in the following locations:</p> 
+<p><strong>On Amazon Linux, RHEL, or Ubuntu Server:</strong></p> 
+<div class="hide-language"> 
+ <div class="hide-language"> 
+  <pre class="unlimited-height-code"><code class="lang-bash">/opt/codedeploy-agent/bin/codedeploy-local</code></pre> 
+ </div> 
+</div> 
+<p><strong>On Windows Server:</strong></p> 
+<div class="hide-language"> 
+ <pre><code class="lang-bash">C:\ProgramData\Amazon\CodeDeploy\bin</code></pre> 
+</div> 
+<p>For simplicity, I am creating an alias for <strong>/opt/codedeploy-agent/bin/codedeploy-local </strong>as<strong> codedeploy-local</strong> so I can use the absolute path. This is optional.</p> 
+<pre><code class="lang-shell">alias codedeploy-local='sudo /opt/codedeploy-agent/bin/codedeploy-local'</code></pre> 
+<p>When I execute the <strong>codedeploy-local</strong> command on the Linux terminal, I get the following response from the agent, which indicates that the agent is installed:</p> 
+<div class="hide-language"> 
+ <div class="hide-language"> 
+  <pre><code class="lang-bash">[ec2-user@ip-172-31-60-187 ~]$ codedeploy-local 
+ERROR: Expecting appspec file at location /home/ec2-user/appspec.yml but it is not found there. Please either run the CLI from within a directory containing the appspec.yml file or specify a bundle location containing an appspec.yml file in its root directory</code></pre> 
+ </div> 
+</div> 
+<p>If you receive an error that the codedeploy-local command is not available or the package was not found, go back to the <a href="https://docs.aws.amazon.com/codedeploy/latest/userguide/deployments- local.html" target="_blank" rel="noopener">prerequisites</a> and install the agent.</p> 
+<p><strong>Step 2</strong><br /> To test the sample application package using the <strong>codedeploy-local</strong> command, I have to make sure that the application package is available on the local machine. The sample package I am testing here is an Apache (httpd)-based application.</p> 
+<p>Use wget to <a href="https://s3.amazonaws.com/aws-codedeploy-us-east-1/samples/latest/SampleApp_Linux.zip" target="_blank" rel="noopener">download the package</a> to the local machine.</p> 
+<pre><code class="lang-shell">wget <a href="https://s3.amazonaws.com/aws-codedeploy-us-east-1/samples/latest/SampleApp_Linux.zip" target="_blank" rel="noopener">https://s3.amazonaws.com/aws-codedeploy-us-east-1/samples/latest/SampleApp_Linux.zip</a></code></pre> 
+<p>Now that the sample package is available locally, I can either unzip the package or use the zip file for testing with the <strong>codedeploy-local</strong> command.</p> 
+<p>To test the zip file (archive) package (<a href="https://s3.amazonaws.com/aws-codedeploy-us-east-1/samples/latest/SampleApp_Linux.zip" target="_blank" rel="noopener">SampleApp_Linux.zip</a>) with the <strong>codedeploy-local</strong> command, use the <strong>-l</strong> or <strong>–bundle-location</strong> option along with the <strong>-t</strong> or <strong>–type</strong> option as shown:</p> 
+<p><strong>On Linux server:</strong></p> 
+<pre><code class="lang-shell">codedeploy-local --bundle-location /home/ec2-user/CodeDeployPackage/SampleApp_Linux.zip -t zip --deployment-group my-deployment-group</code></pre> 
+<p><strong>On Windows server:</strong></p> 
+<pre><code class="lang-shell">codedeploy-local --bundle-location C:/path/to/local/bundle.zip --type zip --deployment-group my-deployment-group</code></pre> 
+<p>To unarchive the zip file, either change the directory (cd) to the top-level directory or provide the absolute path to the application package.</p> 
+<p>The package can be executed by providing the absolute path to the content as shown here:</p> 
+<pre><code class="lang-shell">codedeploy-local --bundle-location /path/to/local/bundle/directory</code></pre> 
+<p>Or by changing the directory (cd) to the location of the unarchived package and executing the following command:</p> 
+<pre><code class="lang-shell">codedeploy-local</code></pre> 
+<p>Executing the <strong>codedeploy-local</strong> command in the directory where the sample package is unzipped shows whether the deployment was successful or failed.</p> 
+<p>Here is a successful deployment execution and result:</p> 
+<div class="hide-language"> 
+ <div class="hide-language"> 
+  <div class="hide-language"> 
+   <pre><code class="lang-bash">ec2-user@ip-172-31-60-187 CodeDeployPackage]$ ls -a
+.  ..  appspec.yml  index.html  LICENSE.txt  SampleApp_Linux.zip  scripts
+
+ec2-user@ip-172-31-60-187 CodeDeployPackage]$ codedeploy-local
+Starting to execute deployment from within folder /opt/codedeploy-agent/deployment-root/default-local-deployment-group/d-H3OZK261S-local
+See the deployment log at /opt/codedeploy-agent/deployment-root/default-local-deployment-group/d-H3OZK261S-local/logs/scripts.log for more details
+AppSpec file valid. Local deployment successful</code></pre> 
+  </div> 
+  <p><strong>Step 3</strong></p> 
+ </div> 
+</div> 
+<p>Check the <strong>codedeploy-local</strong> logs and the deployment archive.</p> 
+<p>In the previous step, I was able to see that the local deployment was successful. The output included:</p> 
+<ul> 
+ <li>The log location.</li> 
+ <li>The location where the deployment-archive was uploaded. It will be used as a staging directory for that deployment.</li> 
+</ul> 
+<p>Because the <strong>–deployment-group, -g</strong> option was not provided, a local deployment group folder was created in the following location:</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-bash">/opt/codedeploy-agent/deployment-root/default-local-deployment-group/d-H3OZK261S-local</code></pre> 
+</div> 
+<p>The following shows the listing of the files in the <strong>codedeploy-local</strong> deployment directory for a deployment:</p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-bash">ec2-user@ip-172-31-60-187 ~]$ ls /opt/codedeploy-agent/deployment-root/default-local-deployment-group/d-H3OZK261S-local
+deployment-archive  logs
+
+[ec2-user@ip-172-31-60-187 deployment-archive]$ ls -a /opt/codedeploy-agent/deployment-root/default-local-deployment-group/d-H3OZK261S-local/deployment-archive/
+.  ..  appspec.yml  index.html  LICENSE.txt  SampleApp_Linux.zip  scripts
+
+[ec2-user@ip-172-31-60-187 deployment-archive]$ ls -a /opt/codedeploy-agent/deployment-root/default-local-deployment-group/d-H3OZK261S-local/logs
+.  ..  scripts.log</code></pre> 
+</div> 
+<p>In the directory path generated for each deployment, <em>default-local-deployment-group</em> &nbsp;is the name of the deployment group and d-H3OZK261S-local is the deployment ID.</p> 
+<p>The scripts.log shows the execution logs for the <strong>codedeploy-local</strong> command for a deployment group and deployment ID. Here is an example of a scripts.log that shows the execution of each lifecycle event defined in the appspec.yml:</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-bash">[ec2-user@ip-172-31-60-187 deployment-archive]$ cat /opt/codedeploy-agent/deployment-root/default-local-deployment-group/d-H3OZK261S-local/logs/scripts.log
+2018-03-13 23:02:37 LifecycleEvent - ApplicationStop
+2018-03-13 23:02:37 Script - scripts/stop_server
+2018-03-13 23:02:37 [stdout]Stopping httpd: [ &nbsp;OK &nbsp;]
+2018-03-13 23:02:37 LifecycleEvent - BeforeInstall
+2018-03-13 23:02:37 Script - scripts/install_dependencies
+2018-03-13 23:02:37 [stdout]Loaded plugins: priorities, update-motd, upgrade-helper
+2018-03-13 23:02:37 [stdout]Package httpd-2.2.34-1.16.amzn1.x86_64 already installed and latest version
+2018-03-13 23:02:37 [stdout]Nothing to do
+2018-03-13 23:02:37 Script - scripts/start_server
+2018-03-13 23:02:37 [stdout]Starting httpd: [ &nbsp;OK &nbsp;]</code></pre> 
+</div> 
+<p>There is another log file in this location that comes in handy when deploying the code on the local machine:</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-bash">/var/log/aws/codedeploy-agent/codedeploy-local.log</code></pre> 
+</div> 
+<p>You can enable verbose logging in the <a href="https://docs.aws.amazon.com/codedeploy/latest/userguide/reference-agent-configuration.html" target="_blank" rel="noopener">codedeploy-agent configuration</a> file by setting the parameter <strong>:verbose:</strong> to <strong>true</strong>.</p> 
+<p>By default, the location of the configuration file is:</p> 
+<p><strong>Amazon Linux, RHEL, or Ubuntu Server instances</strong></p> 
+<div class="hide-language"> 
+ <div class="hide-language"> 
+  <pre class="unlimited-height-code"><code class="lang-bash">/etc/codedeploy-agent/conf/codedeployagent.yml</code></pre> 
+ </div> 
+</div> 
+<p><strong>Windows Server</strong></p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-bash">C:/ProgramData/Amazon/CodeDeploy/conf.yml</code></pre> 
+</div> 
+<p><strong>Other features for debugging issues locally with codedeploy-local</strong></p> 
+<p>The <strong>codedeploy-local</strong> command has other features that you can use to debug and troubleshoot issues.</p> 
+<p><strong>Override the lifecycle hooks mentioned in the appspec.yml file</strong></p> 
+<p>You can use <strong>codedeploy-local</strong> to override the lifecycle hooks provided in the appspec.yml. In this example, only the ApplicationStop lifecycle hook defined in the appspec.yml file will be executed. All other hooks will be ignored.</p> 
+<p><code class="lang-bash">codedeploy-local -e ApplicationStop</code></p> 
+<p>In the same way, you can override the order in which the CodeDeploy agent executes multiple lifecycle hooks. This feature can help you determine and change the sequence before the deployment is performed on the server. For information, see <a href="https://docs.aws.amazon.com/codedeploy/latest/userguide/reference-appspec-file-structure-hooks.html" target="_blank" rel="noopener">AppSpec ‘hooks’ Section</a> in the AWS CodeDeploy User Guide.</p> 
+<p>For example, this command executes the BeforeInstall lifecycle hook first and then executes the ApplicationStop lifecycle hook.</p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-bash">codedeploy-local -e&nbsp;BeforeInstall,ApplicationStop</code></pre> 
+</div> 
+<p><strong>Execute scripts specifically for codedeploy-local</strong></p> 
+<p>If there are scripts that are used for local testing only and not required for the CodeDeploy deployment, then you can use the&nbsp;<strong>$DEPLOYMENT_GROUP_NAME</strong> variable, which has a value equal to&nbsp;<strong>LocalFleet</strong>.</p> 
+<p>Here are other environment variables and their values:</p> 
+<p><strong>$APPLICATION_NAME</strong>: The location of the deployment package (for example,&nbsp;<strong>/home/ec2-user/CodeDeployPackage</strong>)</p> 
+<p><strong>$DEPLOYMENT_ID</strong>: Unique per deployment (for example,&nbsp;<strong>d-LTVP5L6YY-local</strong>)</p> 
+<p><strong>$DEPLOYMENT_GROUP_ID</strong>: The name of the deployment group. When the <strong>-g</strong> option is used for the command, this value will be passed. For example, in <strong>codedeploy-local -g testing</strong>, this value is <strong>testing</strong>. If this option is not set, the value of this environment variable is&nbsp;<strong>default-local-deployment-group</strong></p> 
+<p><strong>$LIFECYCLE_EVENT</strong>: The lifecycle hook that echoed this environment variable (for example,&nbsp;<strong>ApplicationStop</strong>)</p> 
+<p><strong>Override the CodeDeploy agent configuration</strong></p> 
+<p>You can override the CodeDeploy agent configuration and use your own configuration file from a custom location. This functionality makes it possible to test multiple configurations with the local deployments using the option&nbsp;<strong>-c, –agent-configuration-file</strong> while executing the <strong>codedeploy-local</strong> command. For the options to use, see&nbsp;<a href="https://docs.aws.amazon.com/codedeploy/latest/userguide/reference-agent-configuration.html" target="_blank" rel="noopener">AWS CodeDeploy Agent Configuration Reference</a> in the AWS CodeDeploy User Guide.</p> 
+<p>By default, configuration files are stored in&nbsp;the following locations:</p> 
+<p><strong>On Amazon Linux, RHEL, or Ubuntu Server:</strong></p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-bash">/etc/codedeploy-agent/conf/codedeployagent.yml</code></pre> 
+</div> 
+<p><strong>On Windows Server:</strong></p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-bash">C:/ProgramData/Amazon/CodeDeploy/conf.yml</code></pre> 
+</div> 
+<p>Using custom configuration helps when verbose logging is required for package testing. You can do this just by using the <strong>-c</strong> or <strong>–agent-configuration-file</strong> option and without changing the default configuration file. Here is an example that shows the use of this option:</p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-bash">codedeploy-local -e BeforeInstall,ApplicationStop -c /&lt;;-local-path-&gt;;/</code></pre> 
+</div> 
+<p>For example, on Amazon Linux, RHEL, or Ubuntu Server instances, when the config file is in /etc/codedeployagent.yml, the command is:</p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-bash">codedeploy-local -e BeforeInstall,ApplicationStop -c /etc/codedeployagent.yml</code></pre> 
+</div> 
+<p>For example, on Windows Server instances, when the config file is in C:/ProgramData/conf.yml, the command is:</p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-bash">codedeploy-local -e BeforeInstall,ApplicationStop -c C:/ProgramData/conf.yml</code></pre> 
+</div> 
+<p><strong>Point to an application package in an S3 bucket or GitHub repository</strong></p> 
+<p>If the application package is stored in an S3 bucket or GitHub repository, <strong>codedeploy-local</strong> can be executed without downloading the file onto the local machine. You can do this using the&nbsp;<strong>-l, –bundle-location</strong> and&nbsp;<strong>-t, –type</strong> with the <strong>codedeploy-local</strong> command.</p> 
+<p>Here is an example for deploying a sample application package located in an S3 bucket:</p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-bash">codedeploy-local&nbsp;-l&nbsp;s3://aws-codedeploy-us-east-1/samples/latest/SampleApp_Linux.zip&nbsp;-t&nbsp;zip</code></pre> 
+</div> 
+<p>Here is an example for deploying a sample application package from a public GitHub repository:</p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-bash">codedeploy-local --bundle-location https://api.github.com/repos/awslabs/aws-codedeploy-sample-tomcat/zipball/master --type zip</code></pre> 
+</div> 
+<p>If you use GitHub, make sure that the application package with the appspec.yaml is in the root of the directory. If these contents are in a subfolder path, download the package to the local instance or server and then:</p> 
+<ul> 
+ <li>Execute <strong>codedeploy-local</strong> from the directory where the file exists.</li> 
+</ul> 
+<p>-OR-</p> 
+<ul> 
+ <li>Use the&nbsp;<strong>-t, –type&nbsp;</strong>&nbsp;option with the value of <strong>directory</strong> and&nbsp;<strong>-l, –bundle-location</strong> as the local path.</li> 
+</ul> 
+<p><strong>Troubleshooting common errors using codedeploy-local</strong></p> 
+<p>The<strong> codedeploy-local</strong> command can be used to detect if the appspec.yml is in valid YAML format. If the format is invalid, you get the following error:</p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-bash">/usr/share/ruby/vendor_ruby/2.0/psych.rb:205:in `parse': (&lt;unknown&gt;): mapping values are not allowed in this context at line 10 column 13 (Psych::SyntaxError)</code></pre> 
+</div> 
+<p>If there is an invalid lifecycle hook in the appspec.yml file, the deployment fails with this error:</p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-bash">ERROR: appspec.yml file contains unknown lifecycle events: [&quot;BeforeInstall1&quot;]</code></pre> 
+</div> 
+<p>The name of a lifecycle hook is case-sensitive. The following error is returned because the BeforeInstall lifecycle hook&nbsp;was entered as&nbsp;Beforeinstall:</p> 
+<p><code class="lang-bash">ERROR: appspec.yml file contains unknown lifecycle events: [&quot;Beforeinstall&quot;]</code></p> 
+<p>If there is any error in the scripts provided for execution in any lifecycle hooks (for example, a problem in the BeforeInstall script), the execution logs show something like this:</p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-bash">codedeploy-local -g testing
+Starting to execute deployment from within folder /opt/codedeploy-agent/deployment-root/testing/d-6UBAIVVSK-local
+Your local deployment failed while trying to execute your script at /opt/codedeploy-agent/deployment-root/testing/d-6UBAIVVSK-local/deployment-archive/scripts/install_dependencies
+See the deployment log at /opt/codedeploy-agent/deployment-root/testing/d-6UBAIVVSK-local/logs/scripts.log for more details</code></pre> 
+</div> 
+<p>For the preceding error, when you look at the logs in the deployment directory for the deployment group, you will see something like this:</p> 
+<div class="hide-language"> 
+ <div class="hide-language"> 
+  <pre class="unlimited-height-code"><code class="lang-bash">cat /opt/codedeploy-agent/deployment-root/testing/d-6UBAIVVSK-local/logs/scripts.log
+2018-03-21 03:34:04 LifecycleEvent - ApplicationStop
+2018-03-21 03:34:04 Script - scripts/stop_server
+2018-03-21 03:34:04 [stdout]LocalFleet
+2018-03-21 03:34:04 [stdout]/home/ec2-user/CodeDeployPackage
+2018-03-21 03:34:04 [stdout]d-6UBAIVVSK-local
+2018-03-21 03:34:04 [stdout]testing
+2018-03-21 03:34:04 [stdout]ApplicationStop
+2018-03-21 03:34:04 [stdout]Stopping httpd: [  OK  ]
+2018-03-21 03:34:04 LifecycleEvent - BeforeInstall
+2018-03-21 03:34:04 Script - scripts/install_dependencies
+2018-03-21 03:34:04 [stdout]Loaded plugins: priorities, update-motd, upgrade-helper
+2018-03-21 03:34:04 [stdout]No package httpd1 available.
+2018-03-21 03:34:04 [stderr]Error: Nothing to do</code></pre> 
+ </div> 
+</div> 
+<p>This log snippet shows that the install_dependencies script had a package called httpd1 that is not available for installation.</p> 
+<p>If the appspec.yml is not found in the root of the application package, you will see an error like this:</p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-bash">/opt/codedeploy-agent/lib/instance_agent/plugins/codedeploy/hook_executor.rb:213:in `parse_app_spec': The CodeDeploy agent did not find an AppSpec file within the unpacked revision directory at revision-relative path &quot;appspec.yml&quot;. The revision was unpacked to directory &quot;/opt/codedeploy-agent/deployment-root/default-local-deployment-group/d-BE59ORH9I-local/deployment-archive&quot;, and the AppSpec file was expected but not found at path &quot;/opt/codedeploy-agent/deployment-root/default-local-deployment-group/d-BE59ORH9I-local/deployment-archive/appspec.yml&quot;. Consult the AWS CodeDeploy Appspec documentation for more information at http://docs.aws.amazon.com/codedeploy/latest/userguide/reference-appspec-file.html (RuntimeError)
+    from /opt/codedeploy-agent/lib/instance_agent/plugins/codedeploy/hook_executor.rb:100:in `initialize'
+    from /opt/codedeploy-agent/lib/instance_agent/plugins/codedeploy/command_executor.rb:147:in `new'
+    from /opt/codedeploy-agent/lib/instance_agent/plugins/codedeploy/command_executor.rb:147:in `block (3 levels) in map'
+    from /opt/codedeploy-agent/lib/instance_agent/plugins/codedeploy/command_executor.rb:146:in `each'
+    from /opt/codedeploy-agent/lib/instance_agent/plugins/codedeploy/command_executor.rb:146:in `block (2 levels) in map'
+    from /opt/codedeploy-agent/lib/instance_agent/plugins/codedeploy/command_executor.rb:68:in `execute_command'
+    from /opt/codedeploy-agent/lib/aws/codedeploy/local/deployer.rb:85:in `block in execute_events'
+    from /opt/codedeploy-agent/lib/aws/codedeploy/local/deployer.rb:84:in `each'
+    from /opt/codedeploy-agent/lib/aws/codedeploy/local/deployer.rb:84:in `execute_events'
+    from /opt/codedeploy-agent/bin/codedeploy-local:117:in `&lt;main&gt;'</code></pre> 
+</div> 
+<p><strong>Conclusion</strong></p> 
+<p>The <strong>codedeploy-local</strong> command can be used to validate and debug an application package for deployments to Amazon EC2 instances or on-premises servers. With <strong>codedeploy-local</strong>, you can test and fix errors on a local machine during the code development phase. CodeDeploy local deployments also make it possible for you to change the order of the lifecycle hooks so you can restructure the appspec.yaml to add commands on the fly.</p> 
+<h3>About the Author</h3> 
+<table style="height: 143px" width="1263"> 
+ <tbody> 
+  <tr> 
+   <td><img class="wp-image-1533  alignleft" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/10/08/kirankumar.jpeg" alt="" width="218" height="294" /></td> 
+   <td>Kirankumar Chandrashekar has been a Cloud Support Engineer at AWS since 2015. He focuses on supporting customers in using DevOps technologies, specializes in CloudFormation and Elastic Container Service. Kirankumar is passionate about Infrastructure as Code and DevOps. He enjoys music, as well as cooking and traveling</td> 
+  </tr> 
+ </tbody> 
+</table> 
+<p></p>

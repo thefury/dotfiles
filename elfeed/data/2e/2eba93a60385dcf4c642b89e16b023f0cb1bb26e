@@ -1,0 +1,41 @@
+<p>Today, the canonical repository of the Ruby programming language was moved to Git from Subversion.</p>
+
+<p>The web interface for the new repository is <a href="https://git.ruby-lang.org">https://git.ruby-lang.org</a>, and is provided by cgit. We can keep the commit hash from the contributor on the Ruby repository directly.</p>
+
+<h2>Development policy</h2>
+
+<ul>
+  <li>We don’t use a topic branch on cgit.</li>
+  <li>The GitHub repository will still be just a mirror. We don’t use the “Merge pull request” feature.</li>
+  <li>The ruby_2_4, ruby_2_5, and ruby_2_6 branches will continue to use SVN. We don’t push anything to these branches on cgit.</li>
+  <li>Starting with ruby_2_7, we’ll use cgit to develop stable branches.</li>
+  <li>We don’t use merge commits.</li>
+</ul>
+
+<h2>Special Thanks</h2>
+
+<ul>
+  <li>
+    <p>k0kubun</p>
+
+    <p>k0kubun aggressively developed toolchains related to release and backport workflows and also updated the hook script for git.</p>
+  </li>
+  <li>
+    <p>naruse</p>
+
+    <p>naruse updated the feature changes for Ruby CI and Redmine (bugs.ruby-lang.org).</p>
+  </li>
+  <li>
+    <p>mame</p>
+
+    <p>mame created the commit notification script for slack.</p>
+  </li>
+</ul>
+
+<h2>Future Work</h2>
+
+<p>We still have to complete some tasks. If you find an issue related to the Git migration, please file it to <a href="https://bugs.ruby-lang.org/issues/14632">https://bugs.ruby-lang.org/issues/14632</a>.</p>
+
+<p>Enjoy!</p>
+
+<p>Posted by hsbt on 23 Apr 2019</p>

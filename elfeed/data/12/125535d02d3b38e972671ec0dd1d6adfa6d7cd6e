@@ -1,0 +1,112 @@
+<p>We’ve recently added a utility class to the AWS SDK for Ruby that makes it easy to poll an Amazon SQS queue for messages.</p> 
+<pre class="brush: ruby">poller = Aws::SQS::QueuePoller.new(queue_url)
+
+poller.poll do |msg|
+  puts msg.body
+end</pre> 
+<p>Messages are automatically deleted from the queue at the end of the block. This tool supports receiving and deleting messages in batches, long-polling, client-side tracking of stats, and more.</p> 
+<h2>Long Polling</h2> 
+<p>By default, messages are received using long polling. This method will force a default <code>:wait_time_seconds</code> of 20 seconds. If you prefer to use the queue default wait time, then pass a <code>nil</code> value for <code>:wait_time_seconds</code>.</p> 
+<pre class="brush: ruby"># disables 20 second default, use queue ReceiveMessageWaitTimeSeconds attribute
+poller.poll(wait_time_seconds:nil) do |msg|
+  # ...
+end</pre> 
+<p>When disabling <code>:wait_time_seconds</code> by passing <code>nil</code>, you must ensure the queue <code>ReceiveMessageWaitTimeSeconds</code> attribute is set to a non zero value, or you will be short polling. This will trigger significantly more API calls.</p> 
+<h2>Batch Receiving Messages</h2> 
+<p>You can specify a maximum number of messages to receive with each polling attempt via <code>:max_number_of_messages</code>. When this is set to a positive value, greater than 1, the block will receive an array of messages, instead of a single message.</p> 
+<pre class="brush: ruby"># receives and yields up to 10 messages at a time
+poller.poll(max_number_of_messages:10) do |messages|
+  messages.each do |msg|
+    # ...
+  end
+end</pre> 
+<p>The maximum value for <code>:max_number_of_messages</code> is enforced by Amazon SQS.</p> 
+<h2>Visibility Timeouts</h2> 
+<p>When receiving messages, you have a fixed amount of time to process and delete each message before it is added back into the queue. This is the visibility timeout. By default, the queue’s <code>VisibilityTimeout</code> attribute is used. You can provide an alternative visibility timeout when polling.</p> 
+<pre class="brush: ruby"># override queue visibility timeout
+poller.poll(visibility_timeout:10) do |msg|
+  # do work ...
+end</pre> 
+<p>You can reset the visibility timeout of a single message by calling <code>#change_message_visibility</code>. This is useful when you need more time to finish processing the message.</p> 
+<pre class="brush: ruby">poller.poll do |msg|
+
+  # do work ...
+
+  # need more time for processing
+  poller.change_message_visibility(msg, 60)
+
+  # finish work ...
+
+end</pre> 
+<p>If you change the visibility timeout of a message to zero, it will return to the queue immediately.</p> 
+<h2>Deleting Messages</h2> 
+<p>Messages are deleted from the queue when the block returns normally.</p> 
+<pre class="brush: ruby">poller.poll do |msg|
+  # do work
+end # messages deleted here</pre> 
+<p>You can skip message deletion by passing <code>skip_delete: true</code>. This allows you to manually delete the messages using {#delete<em>message}, or {#delete</em>messages}.</p> 
+<pre class="brush: ruby"># single message
+poller.poll(skip_delete: true) do |msg|
+  poller.delete_message(msg) # if successful
+end
+
+# message batch
+poller.poll(skip_delete: true, max_number_of_messages:10) do |messages|
+  poller.delete_messages(messages)
+end</pre> 
+<p>Another way to manage message deletion is to throw <code>:skip_delete</code> from the poll block. You can use this to choose when a message, or message batch is deleted on an individual basis:</p> 
+<pre class="brush: ruby">poller.poll do |msg|
+  begin
+    # do work
+  rescue
+    # unexpected error occurred while processing messages,
+    # log it, and skip delete so it can be re-processed later
+    throw :skip_delete
+  end
+end</pre> 
+<h2>Terminating the Polling Loop</h2> 
+<p>By default, polling will continue indefinitely. You can stop the poller by providing an idle timeout or by throwing <code>:stop_polling</code> from the {#before_request} callback.</p> 
+<h3>:idle_timeout</h3> 
+<p>This is a configurable, maximum number of seconds to wait for a new message before the polling loop exists. By default, there is no idle timeout.</p> 
+<pre class="brush: ruby"># stops polling after a minute of no received messages
+poller.poll(idle_timeout: 60) do |msg|
+  # ...
+end</pre> 
+<h3>:stop_polling</h3> 
+<p>If you want more fine-grained control, you can configure a before request callback to trigger before each long poll. Throwing <code>:stop_polling</code> from this callback will cause the poller to exit normally without making the next request.</p> 
+<pre class="brush: ruby"># stop after processing 100 messages
+poller.before_request do |stats|
+  throw :stop_polling if stats.receive_message_count &gt;= 100
+end
+
+poller.poll do |msg|
+  # do work ...
+end</pre> 
+<h2>Tracking Progress</h2> 
+<p>The poller will automatically track a few statistics client-side in a PollerStats object. You can access the poller stats three ways:</p> 
+<ul> 
+ <li>The first block argument of {#before_request}</li> 
+ <li>The second block argument of {#poll}.</li> 
+ <li>The return value from {#poll}.</li> 
+</ul> 
+<p>Here are examples of accessing the statistics.</p> 
+<ul> 
+ <li> <p>Configure a {#before_request} callback.</p> <pre class="brush: ruby">poller.before_reqeust do |stats|
+  logger.info(&quot;requests: #{stats.request_count}&quot;)
+  logger.info(&quot;messages: #{stats.received_message_count}&quot;)
+  logger.info(&quot;last-timestamp: #{stats.last_message_received_at}&quot;)
+end</pre> </li> 
+ <li> <p>Accept a second argument in the poll block, for example:</p> <pre class="brush: ruby">poller.poll do |msg, stats|
+  logger.info(&quot;requests: #{stats.request_count}&quot;)
+  logger.info(&quot;messages: #{stats.received_message_count}&quot;)
+  logger.info(&quot;last-timestamp: #{stats.last_message_received_at}&quot;)
+end</pre> </li> 
+ <li> <p>Return value:</p> <pre class="brush: ruby">stats = poller.poll(idle_timeout:10) do |msg|
+  # do work ...
+end
+logger.info(&quot;requests: #{stats.request_count}&quot;)
+logger.info(&quot;messages: #{stats.received_message_count}&quot;)
+logger.info(&quot;last-timestamp: #{stats.last_message_received_at}&quot;)</pre> </li> 
+</ul> 
+<h2>Feedback</h2> 
+<p>Let us know what you think about the new queue poller. Join the conversation in our <a href="http://gitter.im/aws/aws-sdk-ruby">Gitter channel</a> or open a <a href="https://github.com/aws/aws-sdk-ruby/issues">GitHub issue</a>.</p>

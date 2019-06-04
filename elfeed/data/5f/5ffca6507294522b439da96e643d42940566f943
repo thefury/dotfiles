@@ -1,0 +1,23 @@
+<p>Since we launched the Learn platform we’ve been working hard to populate it with content informed by our users&#39; needs. With that in mind, we’re excited to share some new resources: a track to help you get started with Kubernetes, more guidance on configuring ACLs, instructions on how to integrate with Ambassador, and a streamlined troubleshooting guide. </p>
+
+<h2>Getting Started with Kubernetes</h2>
+
+<p><img src="https://www.datocms-assets.com/2885/1555888079-k8s-consul-simple.png" alt=""></p>
+
+<p>The brand new <a href="https://learn.hashicorp.com/consul/?track=getting-started-k8s#getting-started-k8s">Getting Started with Kubernetes</a> track includes step by step walkthroughs on how to deploy Consul on Kubernetes using a Helm chart, either with MiniKube or an existing Kubernetes cluster. These guides combined with our <a href="https://www.consul.io/docs/platform/k8s/index.html">Kubernetes documentation</a> provide an easy onramp for anyone looking to fit Consul into their K8s strategy. </p>
+
+<h2>ACL Resources</h2>
+
+<p>Access Control Lists (ACLs) group rules into policies and associate one or more policies with a token which you can apply to Consul agents, services, DNS, KV, and the Consul UI. ACLs are highly configurable in order to fit into your security model, so we’ve provided some extra guidance around production considerations in the new <a href="https://learn.hashicorp.com/consul/advanced/day-1-operations/production-acls/">Securing Consul with ACLs</a> guide. If you’re ready to go straight to the documentation, we’ve made the ACL docs easier to get to by giving them <a href="https://www.consul.io/docs/acl/index.html">their own section</a> in the Consul docs.</p>
+
+<h2>Ambassador Ingress Controller Integration</h2>
+
+<p>Ambassador is a popular Kubernetes-native ingress controller. It supports an optional integration with Consul that enables end-to-end encryption from a user’s browser all the way down to your Kubernetes services. Learn how to set up Ambassador with Consul Connect in our <a href="https://www.consul.io/docs/platform/k8s/ambassador.html">Ambassador Integration documentation</a>, or read the <a href="https://www.hashicorp.com/blog/ambassador-api-gateway-integration-consul-service-mesh">announcement blog</a> about our partnership.</p>
+
+<h2>Streamlined Troubleshooting</h2>
+
+<p>Users coming to the <a href="https://learn.hashicorp.com/consul/day-2-operations/advanced-operations/troubleshooting/">Troubleshooting guide</a> are looking to get help fast. We streamlined the guide, reducing the amount of background about troubleshooting approaches, and making it easier to find Consul-specific guidance. </p>
+
+<h2>Try a Track</h2>
+
+<p>All the guides are organized into tracks to make it easier to learn Consul. Whether you’re just getting started, setting up your first datacenter, or are already up and running, you can find step-by-step walkthroughs of common Consul tasks on our <a href="https://learn.hashicorp.com/consul/">Learn platform</a>. Try a track and let us know what you think! </p>

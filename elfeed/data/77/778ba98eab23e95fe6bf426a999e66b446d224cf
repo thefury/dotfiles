@@ -1,0 +1,64 @@
+<p>I use <a href="https://aws.amazon.com/codecommit/">AWS CodeCommit</a> to host all of my private Git repositories. My repositories are split across several AWS accounts for different purposes: personal projects, internal projects at work, and customer projects.</p> 
+<p>The <a href="https://docs.aws.amazon.com/codecommit/latest/userguide/setting-up.html">CodeCommit documentation</a> shows you how to configure and clone a repository from one place, but in this blog post I want to share how I manage my Git configuration across multiple AWS accounts.<span id="more-2965"></span></p> 
+<h2 id="background">Background</h2> 
+<p>First, I have <a href="https://docs.aws.amazon.com/cli/latest/userguide/cli-multiple-profiles.html">profiles</a> configured for each of my AWS environments. I connect to some of them using <a href="https://docs.aws.amazon.com/general/latest/gr/aws-sec-cred-types.html#access-keys-and-secret-access-keys">IAM user credentials</a> and others by using <a href="https://aws.amazon.com/blogs/security/how-to-use-a-single-iam-user-to-easily-access-all-your-accounts-by-using-the-aws-cli/">cross-account roles</a>.</p> 
+<p>I intentionally do not have any credentials associated with the default profile. That way I must always be sure I have selected a profile before I run any AWS CLI commands.</p> 
+<p>Here’s an anonymized copy of my <code>~/.aws/config</code> file:</p> 
+<pre class="config"><code>[profile personal]
+region = eu-west-1
+aws_access_key_id = ABCDEFGHIJKLMNOPQRST
+aws_secret_access_key = uvwxyz0123456789abcdefghijklmnopqrstuvwx
+
+[profile work]
+region = us-east-1
+aws_access_key_id = ABCDEFGHIJKLMNOPQRST
+aws_secret_access_key = uvwxyz0123456789abcdefghijklmnopqrstuvwx
+
+[profile customer]
+region = eu-west-2
+source_profile = work
+role_arn = arn:aws:iam::123456789012:role/CrossAccountPowerUser
+</code></pre> 
+<p>If I am doing some work in one of those accounts, I run <code>export AWS_PROFILE=work</code> and use the AWS CLI as normal.</p> 
+<h2 id="the-problem">The problem</h2> 
+<p>I use the <a href="https://docs.aws.amazon.com/codecommit/latest/userguide/setting-up-https-unixes.html">Git credential helper</a> so that the Git client works seamlessly with CodeCommit. However, because I use different profiles for different repositories, my use case is a little more complex than the average.</p> 
+<p>In general, to use the credential helper, all you need to do is place the following options into your <code>~/.gitconfig</code> file, like this:</p> 
+<pre class="config"><code>[credential]
+    helper = !aws codecommit credential-helper $@
+    UserHttpPath = true
+</code></pre> 
+<p>I could make this work across accounts by setting the appropriate value for <code>AWS_PROFILE</code> before I use Git in a repository, but there is a much neater way to deal with this situation using a feature released in <a href="https://blog.github.com/2017-05-10-git-2-13-has-been-released/">Git version 2.13</a>, <a href="https://git-scm.com/docs/git-config#_includes">conditional includes</a>.</p> 
+<h2 id="a-solution">A solution</h2> 
+<p>First, I separate my work into different folders. My <code>~/code/</code> directory looks like this:</p> 
+<pre class="console"><code>code
+    personal
+        repo1
+        repo2
+    work
+        repo3
+        repo4
+    customer
+        repo5
+        repo6
+</code></pre> 
+<p>Using this layout, each folder that is directly underneath the code folder has different requirements in terms of configuration for use with CodeCommit.</p> 
+<p>Solving this has two parts; first, I create a <code>.gitconfig</code> file in each of the three folder locations. The <code>.gitconfig</code> files contain any customization (specifically, configuration for the credential helper) that I want in place while I work on projects in those folders.</p> 
+<p>For example:</p> 
+<pre class="config"><code>[user]
+    # Use a custom email address
+    email = sengledo@amazon.co.uk
+
+[credential]
+    # Note the use of the --profile switch
+    helper = !aws --profile work codecommit credential-helper $@
+    UseHttpPath = true
+</code></pre> 
+<p>I also make sure to specify the AWS CLI profile to use in the <code>.gitconfig</code> file which means that, when I am working in the folder, I don’t need to set <code>AWS_PROFILE</code> before I run <code>git push</code>, etc.</p> 
+<p>Secondly, to make use of these folder-level .gitconfig files, I need to reference them in my global Git configuration at <code>~/.gitconfig</code></p> 
+<p>This is done through the <code>includeIf</code> section. For example:</p> 
+<pre class="config"><code>[includeIf &quot;gitdir:~/code/personal/&quot;]
+    path = ~/code/personal/.gitconfig
+</code></pre> 
+<p>This example specifies that if I am working with a Git repository that is located anywhere under <code>~/code/personal/``,</code> Git should load additional configuration from <code>~/code/personal/.gitconfig</code>. That additional file specifies the appropriate credential helper invocation with the corresponding AWS CLI profile selected as detailed earlier.</p> 
+<p>The contents of the new file are treated as if they are inserted into the main <code>.gitconfig</code> file at the location of the <code>includeIf</code> section. This means that the included configuration will only override any configuration specified <em>earlier</em> in the config.</p> 
+<p>I hope you find this approach useful. If you have any questions or feedback, please free to leave them in the comments.</p>

@@ -1,0 +1,180 @@
+<p>We’re excited to announce support for the Amazon Simple Storage Service (Amazon S3) <code>#select_object_content</code> API with event streams in the AWS SDK for Ruby. <a href="https://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectSELECTContent.html" title="undefined" target="_blank">Amazon S3 Select</a> enables you to retrieve only a subset of data from an object by using simple SQL expressions.</p> 
+<p>Amazon S3 streams the responses as a series of events, instead of returning the full response all at once. This provides performance benefits by enabling you to process response messages as they come in. To support this behavior, the AWS SDK for Ruby now supports processing events asynchronously, instead of needing to wait for the full response to be loaded before you can process it.</p> 
+<h2>SDK version requirement</h2> 
+<p>To use event streams and the Amazon S3 <code>#select_object_content</code> API, you need to use <a href="https://aws.amazon.com/blogs/developer/announcing-the-modularized-aws-sdk-for-ruby-version-3" title="undefined" target="_blank">version 3 of the AWS SDK for Ruby</a>. You also need to have the <code>aws-sdk-s3 </code>gem version <code>1.13.0</code> or later available.</p> 
+<pre><code class="lang-ruby">
+require ‘aws-sdk-s3’
+
+client = Aws::S3::Client.new(region: ‘us-west-2’)
+
+# Some basic S3 client usage
+# take S3 #put_object API as an example
+resp = client.put_object(bucket: ‘my-bucket’, key: ‘foo’, body: ‘Hello World!’)
+# =&gt; Aws::S3::Types::PutObjectOutput
+</code></pre> 
+<p>For more information about the AWS SDK for Ruby and its guides, check out our GitHub <a href="https://github.com/aws/aws-sdk-ruby/blob/master/README.md" title="undefined" target="_blank">README</a>.</p> 
+<h2>Amazon S3 select usage pattern</h2> 
+<p>Let’s try an SQL query against a CSV file in Amazon S3. Given that I have a CSV document named <code>target_file.csv</code> stored in an S3 bucket named <code>my-bucket</code> in the AWS Region <code>us-west-2</code>, with contents describing user and age information:</p> 
+<pre><code class="lang-csv"> user  age
+ foo    12
+ bar    15
+ baz    10
+ ...
+</code></pre> 
+<p>Assuming this is a huge file and you want to select data of rows of users whose age is over 12 years old, you would have a SQL expression like the following:</p> 
+<pre><code class="lang-sql">
+SELECT * FROM S3Object WHERE cast(age as int) &gt; 12
+</code></pre> 
+<p>By following the SDK for Ruby API <a href="https://docs.aws.amazon.com/sdk-for-ruby/v3/api/Aws/S3/Client.html#select_object_content-instance_method" title="undefined" target="_blank">documentation</a> for <code>#select_object_content</code> request syntax, we could come up with input parameters for the operation, like this:</p> 
+<pre><code class="lang-ruby">
+params = {
+  bucket: ‘my-bucket’,
+  key: ‘target_file.csv’,
+  expression_type: ‘SQL’,
+  expression: “SELECT * FROM S3Object WHERE cast(age as int) &gt; 12”,
+  input_serialization: {
+    csv: { file_header_info: ‘USE’}
+  },
+  output_serialization: {
+    csv: {}
+  }
+}
+</code></pre> 
+<p>Now we have everything ready to make the API call. To process events once they arrive, you can use a block statement attached to the S3 Select call, or provide a handler that has callbacks registered for events.</p> 
+<h3>Using a Ruby block statement</h3> 
+<p>The following example shows how to use a block to process all events.</p> 
+<pre><code class="lang-ruby">
+client.select_object_content(params) do |stream|
+
+  # Callback for every event that arrives
+  stream.on_event do |event|
+     puts event.event_type
+     # =&gt; :records / :stats / :end / :cont etc
+     # Do Something with event object
+  end
+
+end
+</code></pre> 
+<h3>Pass in <code>:event_stream_handler</code></h3> 
+<p>You can pass in a handler that can be an EventStream object or a Ruby Proc object that is registered with callbacks for the <code>:event_stream_handler</code> option.</p> 
+<p><em>Using an EventStream object</em></p> 
+<p>Let’s try using the <code>:event_stream_handler</code> option with an <code>Aws::S3::EventStreams::SelectObjectEventStream</code> <a href="https://docs.aws.amazon.com/sdk-for-ruby/v3/api/Aws/S3/EventStreams/SelectObjectContentEventStream.html" title="undefined" target="_blank">object</a>.</p> 
+<pre><code class="lang-ruby">
+handler = Aws::S3::EventStreams::SelectObjectContentEventStream.new
+handler.on_records_event do |event|
+  # get :records event payload that contains selected contents
+  puts event.payload.read
+  # =&gt; &quot;bar,15\n …&quot;
+end
+handler.on_stats_event do |event|
+   # get :stats event that contains progress information
+   puts event.details.inspect
+   # =&gt; Aws::S3::Types::Stats bytes_scanned=xx, bytes_processed=xx, bytes_returned=xx
+end
+
+# Add :event_stream_handler option
+params[:event_stream_handler] = handler
+client.select_object_content(params)
+</code></pre> 
+<p><em>Using a Proc object</em></p> 
+<p>Using a Proc object is also supported with the same pattern.</p> 
+<pre><code class="lang-ruby">
+handler = Proc.new do |stream|
+
+  stream.on_records_event do |event|
+    # Do Something with :records event
+  end
+
+  stream.on_stats_event do |event|
+     # Do Something with :stats event
+  end
+
+end
+
+# Add :event_stream_handler option
+params[:event_stream_handler] = handler
+client.select_object_content(params)
+</code></pre> 
+<p><em>Using a hybrid pattern</em></p> 
+<p>You can also try a hybrid of the previous two usage patterns, as follows.</p> 
+<pre><code class="lang-ruby">
+handler = Aws::S3::EventStreams::SelectObjectContentEventStream.new
+handler.on_records_event do |event|
+  # get :records event payload that contains selected contents
+  puts event.payload.read
+  # =&gt; &quot;bar,15\n …” 
+end
+
+# Add :event_stream_handler option
+params[:event_stream_handler] = handler
+client.select_object_content(params) do |stream|
+  # raise the error in the event stream
+  stream.on_error_event do |event|
+    raise event
+    # =&gt; Aws::Errors::EventError
+    # event.event_type =&gt; :error
+    # event.error_code =&gt; String
+    # event.error_message =&gt; String
+  end
+
+end
+</code></pre> 
+<p>Notice that in the previous example, the <code>on_error_event</code> callback is available for capturing all error events that happened after a stream connection is established. If an error happened when the request started, but before the stream response started, you can still rescue it from <code>Aws::S3::Errors::ServiceError</code>.</p> 
+<p>When using a hybrid pattern, also note that callbacks passed in with a block statement attached to the API call would be registered to the <code>:event_stream_handler</code> that was passed in. Thus, if the handler object is reused, it will contain all registered callbacks.</p> 
+<h3>Wait for a full response</h3> 
+<p>Of course, you can still wait for a full response to complete to fetch all events that are available from an Enumerator. (Notice that with the above streaming usage pattern, full response is also available.)</p> 
+<pre><code class="lang-ruby">
+resp = client.select_object_content(params)
+# =&gt; Aws::S3::Types::SelectObjectContentOutput payload= Aws::S3::Types::SelectObjectContentEventStream: ...
+
+events = resp.payload
+# =&gt; Aws::S3::Types::SelectObjectContentEventStream: ...
+
+# SelectObjectContentEventStream is an Enumerator containing all events arrived
+# it also has a helper method #event_types, returning an array of all valid event types
+events.event_types
+# =&gt; [:records, :stats, :progress, :cont, :end]
+events.next
+# =&gt; Aws::S3::Types::RecordsEvent payload=StringIO:0x007fc160a590a0, event_type=:records
+</code></pre> 
+<h3>Response stubbing support</h3> 
+<p>In addition to using the S3 Select API, the AWS SDK for Ruby also provides stubbed event stream responses for Rspec tests that you might want to write. </p> 
+<p>Let’s say you want to mock an event stream response with events (including errors). You just need to provide an Enumerator of mocking events, as follows.</p> 
+<pre><code class="lang-ruby">
+stream = [
+   { message_type: ‘event’, event_type: :records, payload: StringIO.new(‘selected content part one’) },
+   { message_type: ‘event’, event_type: :records, payload: StringIO.new(‘selected content part two’) },
+   { message_type: ‘error’, error_code: ‘InternalError’, error_message: &quot;Something went wrong&quot;}
+  ].each
+</code></pre> 
+<p>And you use <code>:stub_responses</code>, similarly to other APIs.</p> 
+<pre><code class="lang-ruby">
+client = Aws::S3::Client.new(stub_responses: {select_object_content: {payload: stream}})
+
+# Then you can expect
+resp = client.select_object_content(params)
+# =&gt; Aws::S3::Types::SelectObjectContentOutput payload=Aws::S3::Types::SelectObjectContentEventStream: ...
+
+# Get stubbing eventstream
+stream = resp.payload
+# Aws::S3::Types::SelectObjectContentEventStream: ...
+
+# List all mocked events
+stream.to_a
+# =&gt; [ Aws::S3::Types::RecordsEvent payload=StringIO:0x007fc1c28f7b00, event_type=:records,
+#  Aws::S3::Types::RecordsEvent payload=StringIO:0x007fc1c28e7138, event_type=:records,
+# Aws::Errors::EventError: Aws::Errors::EventError ]
+
+stream.next.payload.read
+# =&gt; &quot;selected content part one&quot;
+
+stream.next.payload.read
+# =&gt; &quot;selected content part two&quot;
+
+stream.next
+# =&gt; Aws::Errors::EventError: Aws::Errors::EventError
+</code></pre> 
+<h2>Final thoughts</h2> 
+<p>With Amazon S3 Select, you can use SQL statements to filter the contents of Amazon S3 objects and retrieve just the subset of data that you need. You can process selected record events asynchronously with the AWS SDK for Ruby, with multiple usage patterns. You can also use stubbed responses for the S3 Select API and write tests for your code.</p> 
+<h2>Feedback</h2> 
+<p>Please share your questions, comments, and issues with us on <a href="https://github.com/aws/aws-sdk-ruby" title="undefined" target="_blank">GitHub</a>. You can also catch us in <a href="https://gitter.im/aws/aws-sdk-ruby" title="undefined" target="_blank">Gitter</a> Channel.</p>

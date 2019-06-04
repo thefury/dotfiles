@@ -1,0 +1,6 @@
+<p><b>2018/05/21 2:00 PM PDT</b><br /> <b>CVE Identifiers: CVE-2018-3639</b></p> 
+<p>Intel has published a security advisory (<a href="https://www.intel.com/content/www/us/en/security-center/advisory/intel-sa-00115.html" target="_blank">SA-00115</a>) regarding new variants of speculative execution side-channel issues concerning their processors.</p> 
+<p>These issues do not impact AWS infrastructure. No customer’s instance can read the memory of another customer’s instance, nor can any instance read AWS hypervisor memory.</p> 
+<p>As a general security best practice, we recommend that customers patch their operating systems or software as relevant patches become available to address speculative execution side-channel issues. Some operating system and software patches meant to address such concerns within an instance may require AWS to activate new Intel CPU microcode. We are working with Intel and operating system vendors to carefully test and evaluate the security benefits and performance impacts of any CPU microcode-enabled features.</p> 
+<p>Meanwhile, we suggest using the stronger security and isolation properties of instances to separate any untrusted workloads.</p> 
+<p>&nbsp;</p>

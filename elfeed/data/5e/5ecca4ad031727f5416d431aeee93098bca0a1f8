@@ -1,0 +1,31 @@
+<p>Today we’re announcing the <a href="https://community.hashicorp.com">HashiCorp Community Portal</a>, a single source for all members of our community to learn, share, and discuss HashiCorp products.</p>
+
+<p>The community portal includes a <a href="https://discuss.hashicorp.com/">new discussion forum</a>, video content, product guides, local in-person events (HashiCorp User Groups), and more. We recognize that individuals want to engage with the community in different ways at different moments and the community portal is meant to reflect this.</p>
+
+<p>Effective today, we will no longer officially be endorsing the Gitter channels for our open source projects. We will also be changing the nature of our Google Groups to focus on outbound communication and redirecting the inbound communication to the forum. Please read more to learn why we’ve made this decision and recommended steps for the community. </p>
+
+<h2>A Unified Community</h2>
+
+<p>The HashiCorp Community Portal and new HashiCorp discussion forum are a single shared resource for a unified community rather than a per-product website. </p>
+
+<p>HashiCorp builds multiple separate open source projects that each have millions of downloads. But while the projects are separate, the <a href="https://www.hashicorp.com/tao-of-hashicorp">philosophy</a> and vision is unified and we’ve found that most of our community share common goals or use multiple products. Having a single destination for community reflects this. </p>
+
+<p>We still have separate categories for each product so you can easily find Terraform-focused content, Vault-focused content, etc. But having it in a single location will make it easier to find cross-product content such as “Using Terraform with Vault” or just learning more about an adjacent topic.</p>
+
+<h2>Evolving Our Approach</h2>
+
+<p>Today we introduced a new <a href="https://discuss.hashicorp.com/">discussion forum</a>. Alongside this launch, we will be shutting down our Gitter channels and will no longer provide any /official/ real-time discussion. There are many community-run options such as Slack channels, and we encourage our community to join those. </p>
+
+<p>We love talking with our community in real time. We want to meet you, learn about your use cases, help you, hear your great ideas, and more. But we found that real-time channels introduced unhealthy expectations and demands on many people. </p>
+
+<p>Real-time chat often sets the expectation that you’ll receive 1:1 help at a moment’s notice. This put a difficult burden on ourselves and members of our community to be constantly present and checking channels in order to respond. This introduces a lot of context switching and takes away from our ability to focus on fixing bugs or otherwise improving the products. </p>
+
+<p>Additionally, the chat is often poorly search indexed if at all. This means that any help or discussion in a chat system provides only short term benefit before being lost forever. We found ourselves repeating the answers to the same questions many times in chat systems without being able to link back to a concise historical solution. </p>
+
+<p>Official chat is therefore moving to our new <a href="https://discuss.hashicorp.com/">discussion forums</a>. These forums are staffed with HashiCorp employees and a forum will give us a better long-form way to answer questions and link to them. </p>
+
+<h2>Next</h2>
+
+<p>We’re thankful for the active and friendly community we have and are looking forward to providing more programs and resources to foster that community. Launching the HashiCorp Community Portal is the first step and gives us a central source to make future changes.</p>
+
+<p>Please visit the new <a href="https://community.hashicorp.com">HashiCorp Community Portal</a> and <a href="https://discuss.hashicorp.com/">discussion forums</a> today!</p>

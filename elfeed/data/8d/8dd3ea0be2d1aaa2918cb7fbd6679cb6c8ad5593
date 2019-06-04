@@ -1,0 +1,53 @@
+<p>As AWS product portfolios and feature sets grow, as an enterprise customer, you are likely to migrate your existing workloads and innovate your new products on AWS. To help you keep your cloud charges simple, you can use consolidated billing. This can, however, create complexity for your internal chargebacks, especially if some of your resources and services are not tagged correctly. To help your individual teams and business units normalize and reduce their costs as your AWS implementation grows, you can implement chargebacks transparently and automate billing.</p> 
+<p>This blog post includes a walkthrough of an end-to-end mechanism that you can use to automate your consolidated billing charges for either your existing AWS accounts, or for newly created accounts.</p> 
+<h2>Walkthrough</h2> 
+<p>Prerequisites for implementation:</p> 
+<ul> 
+ <li>One account that is the payer account, which consolidates billing and links all other accounts (including admin accounts)</li> 
+ <li>An understanding of billing, Detailed Billing Report (DBR), Cost and Usage Report (CUR), and blended and unblended costs</li> 
+ <li>Activate propagation of necessary cost allocation tags to consolidated billing</li> 
+ <li>Access to reservations across the linked accounts</li> 
+ <li>Read permission on the source bucket and write permission to the transformed bucket</li> 
+ <li>An automated method (such as database access or an API) to verify the cost centers tagged to AWS resources</li> 
+ <li>Permissions to get access to the services described in this solution on the account targeted for this automation</li> 
+</ul> 
+<p>Before you begin, it is important to understand the blended costs and unblended costs in consolidated billing. Blended costs are calculated based on the blended rate (the average rates for the reserved and on-demand instances that are used by your member accounts) for each service your accounts used, multiplied by the account usage of those services. Unblended costs are the charges for those services broken out for each linked account.</p> 
+<p>Based on your organization’s strategy for savings (centralized or not), you could consider either the blended or unblended costs. The consolidated billing files that include the information for the chargeback are the Detailed Billing Report (DBR) and Cost and Usage Report (CUR). Both of these reports provide both the blended and unblended rates as separate columns.</p> 
+<p>To help you create and maintain your AWS accounts, you can use AWS Account Vending Machine (AVM). You can launch AVM from either the AWS Landing Zone or with a custom solution. AVM keeps all your account information in a DynamoDB table (such as the account number, root mail ID, default cost center, name of the owner, etc.) and maintains reservation-related data (such as invoice ID, instance type, region, amount, cost center, etc.) in another table. To enable your account administrator to add invoice details for all your reservations, you can use a web page hosted on AWS Lambda, Amazon Simple Storage Service (Amazon S3), or a web server.</p> 
+<p>To begin the process of billing transformation, you must add a trigger on an S3 bucket (which contains raw AWS billing files) that pushes messages (PutObject) into Amazon Simple Queue Service (SQS) and your billing transformation program (written in Python, Nodejs, Java, .net, etc. using AWS SDK) that runs on an Amazon Elastic Compute Cloud (Amazon EC2) instance, containers, or Lambda (if the bill can be processed within 15 minutes with file size restrictions).</p> 
+<p>The billing transformation program must do the following:</p> 
+<ul> 
+ <li><strong>Cache</strong> the Account details and reservation DynamoDB tables</li> 
+ <li><strong>Verify</strong> if there are any messages in SQS</li> 
+ <li><strong>Ignore</strong> if the file is not a DBR or CUR file (process either of them, not both)</li> 
+ <li><strong>Download</strong> the file, unzip, and read row-by-row; for a DBR file, consider only the “LineItem” RecordType</li> 
+ <li><strong>Add</strong> two new columns: Bill_CostCenter and Bill_Notes 
+  <ul> 
+   <li>If there is a valid value in the CostCenter tag (verified with internal automation processes), add the same value to the Bill_CostCenter column and any notes to the Bill_Notes column</li> 
+   <li>If the CostCenter is invalid, get the default Cost Center from the cached account details and add the information to the Bill_CostCenter and Bill_Notes columns</li> 
+   <li>If the row is a reservation invoice, the cost center information comes from the reservation table and is added to the correct column</li> 
+  </ul> </li> 
+ <li><strong>Cache</strong> consolidation of cost centers with the blended or unblended cost of each row</li> 
+ <li><strong>Write</strong> each of these processed line items into a new file</li> 
+ <li><strong>Handle</strong> exceptions by the normal organization practices (for example, email the owner of the cost center or the finance team)</li> 
+ <li><strong>Push</strong> the new file into the transformed Amazon S3 bucket</li> 
+ <li><strong>Write</strong> the consolidated lines into a different file and upload to Transformed Amazon S3 bucket</li> 
+</ul> 
+<div id="attachment_1018" style="width: 1034px" class="wp-caption alignnone">
+ <img class="wp-image-1018 size-large" src="https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2019/01/22/image001-1024x575.png" alt="Figure 1 – Architecture of processing a billing chargeback" width="1024" height="575" />
+ <p class="wp-caption-text">Figure 1 – Architecture of processing a billing chargeback</p>
+</div> 
+<p>&nbsp;</p> 
+<div id="attachment_1019" style="width: 1214px" class="wp-caption alignnone">
+ <img class="size-full wp-image-1019" src="https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2019/01/22/image003.png" alt="" width="1204" height="1118" />
+ <p class="wp-caption-text">Figure 2 – Validating the Cost Center process</p>
+</div> 
+<p>After you have the consolidated billing file aggregated by cost center, you can easily see and handle your internal chargebacks. To further simplify your chargeback model, you can get help from AWS Technical Account Managers and Billing Concierge, if your organization would like AWS to provide custom invoices from the consolidated billing file.</p> 
+<p>Because the cost centers in your organization can expire over time, it’s important validate them frequently with automation, such as a Lambda program.</p> 
+<h2>Improvements</h2> 
+<p>If your organization has a more complex chargeback structure, you can extend the logic described above to support deeper and broader chargeback codes, or implement hierarchical chargeback structure.</p> 
+<p>You can also extend the transformation logic to support several chargeback codes (such as comma separated or with additional tags) if you have multiple teams or project that want to share a resource.</p> 
+<h2>Summary</h2> 
+<p>As enterprise organizations grow and consume more cloud services, the cost optimization process grows and evolves with them. Sophisticated chargeback models enable the teams and business units in the organization to be accountable and contribute to take the steps necessary to normalize the usage and costs of AWS services.</p> 
+<h3>About the Author</h3> 
+<p><img class="alignleft size-thumbnail wp-image-1021" src="https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2019/01/22/varad-ram-150x150.png" alt="Varad Ram" width="150" height="150" />Varad Ram likes to help customers adopt to cloud technologies and he is particularly interested in Artificial Intelligence. He believes Deep Learning will power future technology growth. In his spare time, his daughter and toddler son keep him busy biking and hiking.</p>

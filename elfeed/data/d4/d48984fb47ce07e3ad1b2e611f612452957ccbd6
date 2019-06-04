@@ -1,0 +1,161 @@
+<blockquote>
+ <p><strong>Note from May 10, 2019</strong>: We’ve updated a code sample for accuracy.</p>
+</blockquote> 
+<hr /> 
+<p>Today, <a href="https://aws.amazon.com/secrets-manager" target="_blank" rel="noopener noreferrer">AWS Secrets Manager</a> introduced <a href="https://github.com/aws/aws-secretsmanager-caching-python" rel="noopener noreferrer" target="_blank">a client-side caching library</a> for Python that improves the availability and latency of accessing and distributing credentials to your applications. It can also help you reduce the cost associated with retrieving secrets. In this post, I’ll walk you through the following topics:</p> 
+<ul> 
+ <li>An overview of the Secrets Manager client-side caching library for Python</li> 
+ <li>How to use the Python client-side caching library to retrieve a secret</li> 
+</ul> 
+<p>Here are the key benefits of client-side caching libraries:</p> 
+<ul> 
+ <li>Improved availability: You can cache secrets to reduce the impact of network availability issues such as increased response times and temporary loss of network connectivity.</li> 
+ <li>Improved latency: Retrieving secrets from the local cache is faster than retrieving secrets by <a href="https://aws.amazon.com/blogs/security/how-to-connect-to-aws-secrets-manager-service-within-a-virtual-private-cloud/" target="_blank" rel="noopener noreferrer">sending API requests to Secrets Manager within a Virtual Private Network</a> (VPN) or over the Internet.</li> 
+ <li>Reduced cost: Retrieving secrets from the cache can reduce the number of API requests made to and billed by Secrets Manager.</li> 
+ <li>Automatic refresh of secrets: The library updates the cache by calling Secrets Manager periodically, ensuring your applications use the most current secret value. This ensures any regularly rotated secrets are automatically retrieved.</li> 
+ <li>Implementation in just two steps: Add the Python library dependency to your application, and then provide the identifier of the secret that you want the library to use.</li> 
+</ul> 
+<h2>Using the Secrets Manager client-side caching library for Python</h2> 
+<p>First, I’ll walk you through an example in which I retrieve a secret without using the Python cache. Then I’ll show you how to update your code to use the Python client-side caching library.</p> 
+<h3>Retrieving a secret without using a cache</h3> 
+<p>Using the <a href="https://aws.amazon.com/sdk-for-python/" target="_blank" rel="noopener noreferrer">AWS SDK for Python</a> (Boto3), you can retrieve a secret from Secrets Manager using the API call flow, as shown below.</p> 
+<div id="attachment_10505" style="width: 526px" class="wp-caption aligncenter">
+ <img class="size-full wp-image-10505" src="https://d2908q01vomqb2.cloudfront.net/22d200f8670dbdb3e253a90eee5098477c95c23d/2019/04/26/Fig-1.jpg" alt="Figure 1: Diagram showing GetSecretValue API call without the Python cache" width="516" height="291" />
+ <p class="wp-caption-text">Figure 1: Diagram showing GetSecretValue API call without the Python cache</p>
+</div> 
+<p>To understand the benefits of using a cache, I’m going to create a sample secret using the <a href="https://aws.amazon.com/cli/" target="_blank" rel="noopener noreferrer">AWS Command Line Interface</a> (AWS CLI):</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-text">
+aws secretsmanager create-secret --name python-cache-test --secret-string &quot;cache-test&quot;
+</code></pre> 
+</div> 
+<p>The code below demonstrates a <span style="font-family: courier">GetSecretValue</span> API call to AWS Secrets Manager without using the cache feature. Each time the application makes a call, the AWS Secrets Manager <span style="font-family: courier">GetSecretValue</span> API will also be called. This increases the secret retrieval latency. Additionally, there is a <a href="https://aws.amazon.com/secrets-manager/pricing/" target="_blank" rel="noopener noreferrer">minor cost</a> associated with an API call made to the AWS Secrets Manager API endpoint.</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-text">
+    import boto3
+    import base64
+    from botocore.exceptions import ClientError
+    
+    def get_secret():
+    
+        secret_name = &quot;python-cache-test&quot;
+        region_name = &quot;us-west-2&quot;
+    
+        # Create a Secrets Manager client
+        session = boto3.session.Session()
+        client = session.client(
+            service_name='secretsmanager',
+            region_name=region_name
+        )
+    
+        # In this sample we only handle the specific exceptions for the 'GetSecretValue' API.
+        # See https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+        # We rethrow the exception by default.
+    
+        try:
+            get_secret_value_response = client.get_secret_value(
+                SecretId=secret_name
+            )
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'DecryptionFailureException':
+                # Secrets Manager can't decrypt the protected secret text using the provided KMS key.
+                # Deal with the exception here, and/or rethrow at your discretion.
+                raise e
+        else:
+            # Decrypts secret using the associated KMS CMK.
+            # Depending on whether the secret is a string or binary, one of these fields will be populated.
+            if 'SecretString' in get_secret_value_response:
+                secret = get_secret_value_response['SecretString']
+                print(secret)
+            else:
+                decoded_binary_secret = base64.b64decode(get_secret_value_response['SecretBinary'])
+                
+        # Your code goes here.
+    
+    get_secret()       
+</code></pre> 
+</div> 
+<h3>Using the Python client-side caching library to retrieve a secret</h3> 
+<p>Using the Python cache feature, you can now use the cache library to reduce calls to the AWS Secrets Manager API, improving the availability and latency of your application. As shown in the diagram below, when you implement the Python cache, the call to retrieve the secret is routed to the local cache before reaching the AWS Secrets Manager API. If the secret exists in the cache, the application retrieves the secret from the client-side cache. If the secret does not exist in the client-side cache, the request is routed to the AWS Secrets Manager endpoint to retrieve the secret.</p> 
+<div id="attachment_10506" style="width: 765px" class="wp-caption aligncenter">
+ <img class="size-full wp-image-10506" src="https://d2908q01vomqb2.cloudfront.net/22d200f8670dbdb3e253a90eee5098477c95c23d/2019/04/29/Fig-2.jpg" alt="Figure 2: Diagram showing GetSecretValue API call using Python client-side cache" width="755" height="291" />
+ <p class="wp-caption-text">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Figure 2: Diagram showing GetSecretValue API call using Python client-side cache</p>
+</div> 
+<p>In the example below, I’ll implement a Python cache to retrieve the secret from a local cache, and hence avoid calling the AWS Secrets Manager API:</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-text">
+    import boto3
+	import base64
+	from aws_secretsmanager_caching import SecretCache, SecretCacheConfig
+
+	from botocore.exceptions import ClientError
+
+	def get_secret():
+
+    	secret_name = &quot;python-cache-test&quot;
+    	region_name = &quot;us-west-2&quot;
+
+    	# Create a Secrets Manager client
+    	session = boto3.session.Session()
+    	client = session.client(
+        	service_name='secretsmanager',
+        	region_name=region_name
+    	)
+
+    	try:
+        	# Create a cache
+        	cache = SecretCache(SecretCacheConfig(),client)
+
+        	# Get secret string from the cache
+        	get_secret_value_response = cache.get_secret_string(secret_name)
+
+    	except ClientError as e:
+        	if e.response['Error']['Code'] == 'DecryptionFailureException':
+            	# Deal with the exception here, and/or rethrow at your discretion.
+            	raise e
+    	else:
+            	secret = get_secret_value_response
+            	print(secret)
+    	# Your code goes here.
+	get_secret()    
+</code></pre> 
+</div> 
+<p>The cache allows advanced configuration using the <span style="font-family: courier">SecretCacheConfig</span> library. This library allows you to define cache configuration parameters to help meet your application security, performance, and cost requirements. The SDK enforces the configuration thresholds on maximum cache size, default secret version stage to request, and secret refresh interval between requests. It also allows configuration of various exception thresholds. Further detail on this library is provided <a href="https://github.com/aws/aws-secretsmanager-caching-python" rel="noopener noreferrer" target="_blank">in the library</a>.</p> 
+<p>Based on the secret refresh interval defined in your cache configuration, the cache will check the version of the secret at the defined interval, using the <span style="font-family: courier">DescribeSecret</span> API to determine if a new version is available. If there is a newer version of the secret, the cache will update to the latest version from AWS Secrets Manager, using the <span style="font-family: courier">GetSecretValue</span> API. This ensures that an updated version of the secret is available in the cache.</p> 
+<p>Additionally, the Python client-side cache library allows developers to retrieve secrets from the cache directly, using the secret name through decorator functions. An example of using a decorator function is shown below:</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-text">
+    from aws_secretsmanager_caching.decorators import InjectKeywordedSecretString
+ 
+    class TestClass:
+        def __init__(self):
+            pass
+     
+        @InjectKeywordedSecretString('python-cache-test', cache, arg1='secret_key1', arg2='secret_key2')
+        def my_test_function(arg1, arg2):
+            print(&quot;arg1: {}&quot;.format(arg1))
+            print(&quot;arg2: {}&quot;.format(arg2))
+     
+    test = TestClass()
+    test.my_test_function()    
+</code></pre> 
+</div> 
+<p>To delete the secret created in this post, run the command below:</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-text">
+aws secretsmanager delete-secret --secret-id python-cache-test --force-delete-without-recovery
+</code></pre> 
+</div> 
+<h2>Summary</h2> 
+<p>In this post, we’ve showed how you can improve availability, reduce latency, and reduce API call cost for your secrets by using the Secrets Manager client-side caching library for Python. To get started managing secrets, open the <a href="https://console.aws.amazon.com/secretsmanager/home?region=us-east-1#/home" target="_blank" rel="noopener noreferrer">Secrets Manager console</a>. To learn more, read <a href="https://aws.amazon.com/blogs/aws/aws-secrets-manager-store-distribute-and-rotate-credentials-securely/" target="_blank" rel="noopener noreferrer">How to Store, Distribute, and Rotate Credentials Securely with Secret Manager</a> or refer to the <a href="https://aws.amazon.com/documentation/secretsmanager/" target="_blank" rel="noopener noreferrer">Secrets Manager documentation</a>.</p> 
+<p>If you have comments about this post, submit them in the Comments section below. If you have questions about anything in this post, start a new thread on the <a href="https://forums.aws.amazon.com/forum.jspa?forumID=296" target="_blank" rel="noopener noreferrer">Secrets Manager forum</a> or <a href="https://console.aws.amazon.com/support/home" target="_blank" rel="noopener noreferrer">contact AWS Support</a>.</p> 
+<p><strong>Want more AWS Security news? Follow us on <a href="https://twitter.com/AWSsecurityinfo" target="_blank" rel="noopener noreferrer">Twitter</a>.</strong></p> 
+<footer> 
+ <div class="blog-author-box"> 
+  <div class="blog-author-image">
+   <img class="alignnone size-full wp-image-10488" src="https://d2908q01vomqb2.cloudfront.net/22d200f8670dbdb3e253a90eee5098477c95c23d/2019/04/25/fig-3-Secrets_Mgr_Python_Client-side.png" alt="" width="122" height="162" />
+  </div> 
+  <h3 class="lb-h4">Paavan Mistry</h3> 
+  <p>Paavan is a Security Specialist Solutions Architect at AWS where he enjoys solving customers’ cloud security, risk, and compliance challenges. Outside of work, he enjoys reading about leadership, politics, law, and human rights.</p> 
+ </div> 
+</footer>

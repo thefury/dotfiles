@@ -1,0 +1,246 @@
+<p>The <a href="https://aws.amazon.com/sdk-for-ruby/">AWS SDK for Ruby</a> provides a robust set of features for stubbing your clients, to make unit tests easier and less fragile. Many of you have used these features to stub your client calls. But in this post, we’re going to explore both a new stub feature in version 3 of the AWS SDK for Ruby, and some advanced stubbing techniques you can add to your testing toolbox.</p> 
+<h2 id="how-to-stub-a-client">How to stub a client</h2> 
+<p>The <a href="https://docs.aws.amazon.com/sdk-for-ruby/v3/api/Aws/ClientStubs.html">Aws::ClientStubs documentation</a> has several examples of how to write client stubs, but in the most basic form, you do the following:</p> 
+<ol type="1"> 
+ <li>Set the <code>:stub_responses</code> parameter at client creation.</li> 
+ <li>Write out the stubbed responses you want, sequentially.</li> 
+</ol> 
+<p>For a simple example of stubbing an operation, consider the following.</p> 
+<pre class="unlimited-height-code"><code class="lang-ruby">s3 = Aws::S3::Client.new(stub_responses: true)
+s3.stub_responses(:list_buckets, { buckets: [{ name: &quot;my-bucket&quot; }] })
+s3.list_buckets.buckets.map(&amp;:name) #=&gt; ['my-bucket']
+</code></pre> 
+<p>You can also stub the same operation to provide different responses for sequential calls.</p> 
+<pre class="unlimited-height-code"><code class="lang-ruby">s3 = Aws::S3::Client.new(stub_responses: true)
+s3.stub_responses(:get_object,
+  'NoSuchKey',
+  { body: &quot;Hello!&quot; }
+)
+begin
+  s3.get_object(bucket: &quot;test&quot;, key: &quot;test&quot;)
+rescue Aws::S3::Errors::NoSuchKey
+  # You don't NEED to do this, but maybe your test function would be doing this.
+  s3.put_object(bucket: &quot;test&quot;, key: &quot;test&quot;, body: &quot;Doesn't matter&quot;)
+end
+s3.get_object(bucket: &quot;test&quot;, key: &quot;test&quot;).body.read #=&gt; &quot;Hello!&quot;
+</code></pre> 
+<p>This works pretty well for most test use cases, but it can be fragile in others. We’re expecting that API calls will come in a certain sequence, and for that <code>#put_object</code> call, the <code>:body</code> parameter value didn’t matter at all – the stub is fixed. In some cases, we want our stubs to have a bit of dynamic logic, and that’s where dynamic client stubbing is an option.</p> 
+<h2 id="dynamic-client-stubbing">Dynamic client stubbing</h2> 
+<p>The <code>#stub_responses</code> method accepts more than static response objects in sequence. You can also provide a <code>Proc</code> object, which is able to inspect the request context and dynamically determine a response. To take the previous <a href="https://aws.amazon.com/s3/">Amazon S3</a> example, we could have an in-memory bucket that dynamically tracks objects in the database, and can even be pre-seeded.</p> 
+<pre class="unlimited-height-code"><code class="lang-ruby">bucket = {
+  &quot;SeededKey&quot; =&gt; { body: &quot;Hello!&quot; }
+}
+s3 = Aws::S3::Client.new(stub_responses: true)
+s3.stub_responses(:get_object, -&gt; (context) {
+  obj = bucket[context.params[:key]]
+  if obj
+    obj
+  else
+    'NoSuchKey'
+  end
+})
+s3.stub_responses(:put_object, -&gt; (context) {
+  bucket[context.params[:key]] = { body: context.params[:body] }
+  {}
+})
+begin
+  s3.get_object(bucket: &quot;test&quot;, key: &quot;test&quot;)
+rescue Aws::S3::Errors::NoSuchKey
+  s3.put_object(bucket: &quot;test&quot;, key: &quot;test&quot;, body: &quot;DOES matter!&quot;)
+end
+s3.get_object(bucket: &quot;test&quot;, key: &quot;test&quot;).body.read #=&gt; &quot;DOES matter!&quot;
+s3.get_object(bucket: &quot;test&quot;, key: &quot;SeededKey&quot;).body.read #=&gt; &quot;Hello!&quot;
+</code></pre> 
+<p>We’ll take this even further in the final example.</p> 
+<h2 id="new-feature-recorded-api-requests">New feature: recorded API requests</h2> 
+<p>While developing the <a href="https://github.com/aws/aws-sdk-ruby-record">aws-record</a> gem, we discovered that we needed additional testing functionality around client calls. When creating <a href="https://aws.amazon.com/dynamodb/">Amazon DynamoDB</a> tables from attribute and metadata specifications, the main thing we wanted to test was that the <code>#create_table</code> parameters exactly matched what we would have otherwise handcrafted. The stubbed response was mostly irrelevant.</p> 
+<p>To solve that problem, our tests added a lightweight “handler” that recorded the request parameters. These could then be inspected by our tests and compared to expectations. Starting with version <code>3.23.0</code> of <code>aws-sdk-core</code>, this is now a <a href="https://docs.aws.amazon.com/sdk-for-ruby/v3/api/Aws/ClientStubs.html#api_requests-instance_method">built-in feature</a> of stubbed SDK clients!</p> 
+<p>You can access this set of API requests directly from your stubbed client, as follows.</p> 
+<pre><code class="lang-ruby">require 'aws-sdk-s3'
+
+s3 = Aws::S3::Client.new(stub_responses: true)
+s3.create_bucket(bucket: &quot;foo&quot;)
+s3.api_requests.size # =&gt; 1
+create_bucket_request = s3.api_requests.first
+create_bucket_request[:params][:bucket] # =&gt; &quot;foo&quot;
+</code></pre> 
+<p>To see how this is used, here is how we’d rewrite one of the <code>Aws::Record::TableConfig</code> <a href="https://github.com/aws/aws-sdk-ruby-record/blob/master/spec/aws-record/record/table_config_spec.rb#L54">unit tests</a> and its prerequisites.</p> 
+<pre class="unlimited-height-code"><code class="lang-ruby">require 'rspec'
+require 'aws-record'
+
+class TestModel
+  include Aws::Record
+
+  string_attr :hk, hash_key: true
+  string_attr :rk, range_key: true
+end
+
+module Aws
+  module Record
+    describe TableConfig do
+      describe &quot;#migrate!&quot; do
+        it 'will attempt to create the remote table if it does not exist' do
+          cfg = TableConfig.define do |t|
+            t.model_class(TestModel)
+            t.read_capacity_units(1)
+            t.write_capacity_units(1)
+            t.client_options(stub_responses: true)
+          end
+          stub_client = cfg.client
+
+          # Sequential responses are appropriate, so a proc stub is more than
+          # we need.
+          stub_client.stub_responses(
+            :describe_table,
+            'ResourceNotFoundException',
+            { table: { table_status: &quot;ACTIVE&quot; } }
+          )
+          cfg.migrate!
+
+          # We don't need to know how many calls happened around describing
+          # state. We can find the call we care about.
+          create_table_request = stub_client.api_requests.find do |req|
+            req[:operation_name] == :create_table
+          end
+
+          # Parameters are separated into their own key. Full context is available
+          # if you want it.
+          expect(create_table_request[:params]).to eq(
+            table_name: &quot;TestModel&quot;,
+            provisioned_throughput:
+            {
+              read_capacity_units: 1,
+              write_capacity_units: 1
+            },
+            key_schema: [
+              {
+                attribute_name: &quot;hk&quot;,
+                key_type: &quot;HASH&quot;
+              },
+              {
+                attribute_name: &quot;rk&quot;,
+                key_type: &quot;RANGE&quot;
+              }
+            ],
+            attribute_definitions: [
+              {
+                attribute_name: &quot;hk&quot;,
+                attribute_type: &quot;S&quot;
+              },
+              {
+                attribute_name: &quot;rk&quot;,
+                attribute_type: &quot;S&quot;
+              }
+            ]
+          )
+        end
+      end
+    end
+  end
+end
+</code></pre> 
+<p>This is one way to make tests a little less fragile, and test both how you handle client responses (via stubbing) and how you form your requests (via the <code>#api_requests</code> log of requests made to the client).</p> 
+<h2 id="advanced-stubbing-test-example">Advanced stubbing test example</h2> 
+<p>Let’s bring all of this together into a runnable test file.</p> 
+<p>Let’s say we’re testing a class that interacts with Amazon S3. We’re performing relatively basic operations around writing and retrieving objects, but don’t want to keep track of which fixed stubs go in which order.</p> 
+<p>The code below creates a very simple “Fake S3” with an in-memory hash, and implements the <code>#create_bucket</code>, <code>#get_object</code>, and <code>#put_object</code> APIs for their basic parameters. With this, we’re able to verify that our code makes the client calls we intend and handles the responses, without tracking API client call order details as the tests get more complex.</p> 
+<p>(A caveat: In reality, you likely wouldn’t be testing the client stubbing functionality directly. Instead, you’d be calling into your own functions and then making these checks. However, for example purposes, the file is standalone.)</p> 
+<pre class="unlimited-height-code"><code class="lang-ruby">require 'rspec'
+require 'aws-sdk-s3'
+
+describe &quot;Enhanced Stubbing Example Tests&quot; do
+  let(:fake_s3) { {} }
+  let(:client) do
+    client = Aws::S3::Client.new(stub_responses: true)
+    client.stub_responses(
+      :create_bucket, -&gt;(context) {
+        name = context.params[:bucket]
+        if fake_s3[name]
+          'BucketAlreadyExists' # standalone strings are treated as exceptions
+        else
+          fake_s3[name] = {}
+          {}
+        end
+      }
+    )
+    client.stub_responses(
+      :get_object, -&gt;(context) {
+        bucket = context.params[:bucket]
+        key = context.params[:key]
+        b_contents = fake_s3[bucket]
+        if b_contents
+          obj = b_contents[key]
+          if obj
+            { body: obj }
+          else
+            'NoSuchKey'
+          end
+        else
+          'NoSuchBucket'
+        end
+      }
+    )
+    client.stub_responses(
+      :put_object, -&gt;(context) {
+        bucket = context.params[:bucket]
+        key = context.params[:key]
+        body = context.params[:body]
+        b_contents = fake_s3[bucket]
+        if b_contents
+          b_contents[key] = body
+          {}
+        else
+          'NoSuchBucket'
+        end
+      }
+    )
+    client
+  end
+
+  it &quot;raises an exception when a bucket is created twice&quot; do
+    client.create_bucket(bucket: &quot;foo&quot;)
+    client.create_bucket(bucket: &quot;bar&quot;)
+    expect {
+      client.create_bucket(bucket: &quot;foo&quot;)
+    }.to raise_error(Aws::S3::Errors::BucketAlreadyExists)
+    expect(client.api_requests.size).to eq(3)
+  end
+
+  context &quot;bucket operations&quot; do
+    before do
+      client.create_bucket(bucket: &quot;test&quot;)
+    end
+
+    it &quot;can write and retrieve an object&quot; do
+      client.put_object(bucket: &quot;test&quot;, key: &quot;obj&quot;, body: &quot;Hello!&quot;)
+      obj = client.get_object(bucket: &quot;test&quot;, key: &quot;obj&quot;)
+      expect(obj.body.read).to eq(&quot;Hello!&quot;)
+      expect(client.api_requests.size).to eq(3)
+      expect(client.api_requests.last[:params]).to eq(
+        bucket: &quot;test&quot;,
+        key: &quot;obj&quot;
+      )
+    end
+
+    it &quot;raises the appropriate exception when a bucket doesn't exist&quot; do
+      expect {
+        client.put_object(
+          bucket: &quot;sirnotappearinginthistest&quot;,
+          key: &quot;knight_sayings&quot;,
+          body: &quot;Ni!&quot;
+        )
+      }.to raise_error(Aws::S3::Errors::NoSuchBucket)
+      expect(client.api_requests.size).to eq(2)
+    end
+
+    it &quot;raises the appropriate exception when an object doesn't exist&quot; do
+      expect {
+        client.get_object(bucket: &quot;test&quot;, key: &quot;404NoSuchKey&quot;)
+      }.to raise_error(Aws::S3::Errors::NoSuchKey)
+      expect(client.api_requests.size).to eq(2)
+    end
+  end
+end
+</code></pre> 
+<h2 id="conclusion">Conclusion</h2> 
+<p>Client stubs in the AWS SDK for Ruby are a powerful tool for unit testing. They provide a way to test without hitting the network, but allow your code to behave like it’s calling the AWS API clients without having to form mocks for full response objects. This can bring your testing closer to “the real thing” and help you develop code with the SDK with increased confidence.</p>

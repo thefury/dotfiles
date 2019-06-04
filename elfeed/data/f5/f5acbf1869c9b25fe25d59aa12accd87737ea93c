@@ -1,0 +1,17 @@
+<p>After <a href="https://www.hashicorp.com/blog/terraform-collaboration-for-everyone">announcing our plans to bring HashiCorp Terraform collaboration features to everyone</a> last fall, we’re excited to introduce Terraform Cloud, a collaboration platform designed for all Terraform users. Terraform Cloud is a SaaS application that brings free collaboration features to individual users and teams with additional paid feature sets that provide team management, self-service infrastructure, and governance features. </p>
+
+<p>After Beta testing the past few months, we’re excited to make the Remote State Management feature of Terraform Cloud generally available today. Other features to be made available later this year. Sign up for a Terraform Cloud account <a href="https://app.terraform.io/signup?utm_source=blog&utm_campaign=intro_tf_cloud_remote">here</a>! </p>
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/ZGl8wlxlcIU" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe> 
+
+<h2>Remote State Management</h2>
+
+<p><a href="https://www.terraform.io/docs/state/">State files</a> in Terraform capture the existing state of provisioned infrastructure for a given workspace. These files are used by Terraform to ensure that it properly creates or destroys infrastructure with respect to infrastructure that already exists.   </p>
+
+<p>For existing users of Terraform Open Source, state files are stored on machines locally by default.  That means collaborating on Infrastructure with a team member involves carefully sharing that file and ensuring that team members update each other when they’ve made changes. That motion gets more complex as both number of state files/workspaces and number of collaborators grow.    </p>
+
+<p>Today we’re introducing remote state management with Terraform Cloud.  This feature allows users to use Terraform Cloud as a remote backend to store and manage state files.  With Terraform Cloud remote state management, individual users no longer need to maintain local state files and teams no longer need to carefully share or manage those files.  Terraform Cloud will automatically handle everything. </p>
+
+<h2>Summary</h2>
+
+<p>We’re very excited to bring more features and functionality to our users.  Remote State management is just the beginning for Terraform Cloud.   If you’re interested in getting started or want to be informed of future updates, sign up for Terraform Cloud <a href="https://app.terraform.io/signup?utm_source=blog&utm_campaign=intro_tf_cloud_remote">here</a>. </p>

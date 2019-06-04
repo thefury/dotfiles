@@ -1,0 +1,117 @@
+<p>Do you encrypt your Amazon Machine Instances (AMIs) with <a href="http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifySnapshotAttribute.html" rel="noopener noreferrer" target="_blank">AWS Key Management Service</a> (AWS KMS) <a href="https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#master_keys" rel="noopener noreferrer" target="_blank">customer master keys</a> (CMKs) for regulatory or compliance reasons? Do you launch instances with encrypted root volumes? Do you create a <a href="https://aws.amazon.com/blogs/awsmarketplace/announcing-the-golden-ami-pipeline/" rel="noopener noreferrer" target="_blank">golden AMI</a> and distribute it to other accounts in your organization for standardizing application-specific <a href="https://aws.amazon.com/ec2" rel="noopener noreferrer" target="_blank">Amazon Elastic Compute Cloud</a> (Amazon EC2) instance launches? If so, then we have good news for you!</p> 
+<p>We’re happy to announce that you can now share AMIs encrypted with <a href="https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk" rel="noopener noreferrer" target="_blank">customer-managed</a> CMKs across accounts with a single API call. Additionally, you can launch an EC2 instance directly from an encrypted AMI that has been shared with you. Previously, this was possible for unencrypted AMIs only. Extending this capability to encrypted AMIs simplifies your AMI distribution process and reduces the snapshot storage cost associated with the <a href="https://aws.amazon.com/blogs/security/how-to-create-a-custom-ami-with-encrypted-amazon-ebs-snapshots-and-share-it-with-other-accounts-and-regions/" rel="noopener noreferrer" target="_blank">older method</a> of sharing encrypted AMIs that resulted in a copy in each of your accounts.</p> 
+<p>In this post, we demonstrate how you can share an encrypted AMI between accounts and launch an encrypted, <a href="https://aws.amazon.com/ebs/" rel="noopener noreferrer" target="_blank">Amazon Elastic Block Store</a> (Amazon EBS) backed EC2 instance from the shared AMI. </p> 
+<h2>Prerequisites for sharing AMIs encrypted with a customer-managed CMK</h2> 
+<p>Before you can begin sharing the encrypted AMI and launching an instance from it, you’ll need to set up your AWS KMS key policy and <a href="https://aws.amazon.com/iam/" rel="noopener noreferrer" target="_blank">AWS Identity and Access Management</a> (IAM) policies. </p> 
+<p>For this walkthrough, you need two AWS accounts:</p> 
+<ol> 
+ <li>A source account in which you build a custom AMI and encrypt the associated EBS snapshots.</li> 
+ <li>A target account in which you launch instances using the shared custom AMI with encrypted snapshots.</li> 
+</ol> 
+<p>In this example, I’ll use fictitious account IDs <span style="font-family: courier">111111111111</span> and <span style="font-family: courier">999999999999</span> for the source account and the target account, respectively. In addition, you’ll need to <a href="http://docs.aws.amazon.com/kms/latest/developerguide/create-keys.html" rel="noopener noreferrer" target="_blank">create an AWS KMS customer master key</a> (CMK) in the source account in the source region. For simplicity, I’ve created an AWS KMS CMK with the alias <span style="font-family: courier">cmkSource</span> under account <span style="font-family: courier">111111111111</span> in <span style="font-family: courier">us-east-1</span>. I’ll use this <span style="font-family: courier">cmkSource</span> to encrypt my AMI (<span style="font-family: courier">ami-1234578</span>) that I’ll share with account <span style="font-family: courier">999999999999</span>. As you go through this post, be sure to change the account IDs, source account, AWS KMS CMK, and AMI ID to match your own.</p> 
+<h3>Create the policy setting for the source account</h3> 
+<p>First, an IAM user or role in the source account needs permission to share the AMI (an EC2 <span style="font-family: courier"><a href="http://docs.aws.amazon.com/kms/latest/APIReference/API_Decrypt.html" rel="noopener noreferrer" target="_blank">ModifyImageAttribute</a></span> operation). The following JSON policy document shows an example of the permissions an IAM user or role policy needs to have. In order to share <span style="font-family: courier">ami-12345678</span>, you’ll need to create a policy like this:</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-text">
+    &quot;Version&quot;: &quot;2012-10-17&quot;,
+    &quot;Statement&quot;: [
+        {
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Action&quot;: [
+                &quot;ec2: ModifyImageAttribute&quot;,
+            ],
+            &quot;Resource&quot;: [
+                &quot;arn:aws:ec2:us-east-1::image/<font color="red">&lt;12345678&gt;</font>&quot;
+            ]
+        }
+ ] 
+}
+</code></pre> 
+</div> 
+<p>Second, the target account needs permission to use <span style="font-family: courier">cmkSource</span> for re-encrypting the snapshots. The following steps walk you through how to add the target account’s ID to the <span style="font-family: courier">cmkSource</span> key policy.</p> 
+<ol> 
+ <li>From the IAM console, select <b>Encryption Keys</b> in the left pane, and then select the source account’s CMK, <b>cmkSource</b>, as shown in Figure 1:<br /> &nbsp;<br /> 
+  <div id="attachment_9966" style="width: 483px" class="wp-caption aligncenter">
+   <img src="https://d2908q01vomqb2.cloudfront.net/22d200f8670dbdb3e253a90eee5098477c95c23d/2019/02/06/Now-easily-share-encrypted-AMIs-Figure1.png" alt="Figure 1: Select &quot;cmkSource&quot;" width="473" height="496" class="size-full wp-image-9966" />
+   <p class="wp-caption-text">Figure 1: Select “cmkSource”</p>
+  </div> </li> 
+ <li>Look for the <b>External Accounts</b> subsection, type the target account ID (for example, 999999999999), and then select <b>Add External Account</b>.<br /> &nbsp;<br /> 
+  <div id="attachment_9967" style="width: 584px" class="wp-caption aligncenter">
+   <img src="https://d2908q01vomqb2.cloudfront.net/22d200f8670dbdb3e253a90eee5098477c95c23d/2019/02/06/Now-easily-share-encrypted-AMIs-Figure2.png" alt="Figure 2: Enter the target account ID and then select &quot;Add External Account&quot;" width="574" height="289" class="size-full wp-image-9967" />
+   <p class="wp-caption-text">Figure 2: Enter the target account ID and then select “Add External Account”</p>
+  </div> </li> 
+</ol> 
+<h3>Create a policy setting for the target account</h3> 
+<p>Once you’ve configured the source account, you need to configure the target account. The IAM user or role in the target account needs to be able to perform the AWS KMS <span style="font-family: courier"><a href="http://docs.aws.amazon.com/kms/latest/APIReference/API_DescribeKey.html" rel="noopener noreferrer" target="_blank">DescribeKey</a></span>, <span style="font-family: courier"><a href="http://docs.aws.amazon.com/kms/latest/APIReference/API_CreateGrant.html" rel="noopener noreferrer" target="_blank">CreateGrant</a></span>, <span style="font-family: courier"><a href="https://docs.aws.amazon.com/kms/latest/APIReference/API_ReEncrypt.html" rel="noopener noreferrer" target="_blank">ReEncrypt*</a></span> and <span style="font-family: courier"><a href="http://docs.aws.amazon.com/kms/latest/APIReference/API_Decrypt.html" rel="noopener noreferrer" target="_blank">Decrypt</a></span> operations on <span style="font-family: courier">cmkSource</span> in order to launch an instance from a shared encrypted AMI. The following JSON policy document shows an example of these permissions: </p> 
+<div class="hide-language"> 
+ <pre><code class="lang-text">
+{
+    &quot;Version&quot;: &quot;2012-10-17&quot;,
+    &quot;Statement&quot;: [
+        {
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Action&quot;: [
+                &quot;kms:DescribeKey&quot;,
+                &quot;kms:ReEncrypt*&quot;,
+                &quot;kms:CreateGrant&quot;,
+                &quot;kms:Decrypt&quot;
+            ],
+            &quot;Resource&quot;: [
+                &quot;arn:aws:kms:us-east-1:<font color="red">&lt;111111111111&gt;</font>:key/<font color="red">&lt;key-id of cmkSource&gt;</font>&quot;
+            ]                                                    
+        }
+    ]
+}
+</code></pre> 
+</div> 
+<p>Once you’ve completed the configuration steps in the source and target accounts, then you’re ready to share and launch encrypted AMIs. The actual sharing of the encrypted AMI is no different from sharing an unencrypted AMI. If you want to use the <a href="https://aws.amazon.com/console" rel="noopener noreferrer" target="_blank">AWS Management Console</a>, then follow the steps described in <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/sharingamis-explicit.html" rel="noopener noreferrer" target="_blank">Sharing an AMI (Console)</a>. To use the AWS Command Line Interface (AWS CLI), follow the steps described in <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/sharingamis-explicit.html" rel="noopener noreferrer" target="_blank">Sharing an AMI (AWS CLI)</a>.</p> 
+<p>Below is an example of what the CLI command to share the AMI would look like:</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-text">
+aws ec2 modify-image-attribute --image-id <font color="red">&lt;ami-12345678&gt;</font> --launch-permission &quot;Add=[{UserId=<font color="red">&lt;999999999999&gt;</font>}]&quot;
+</code></pre> 
+</div> 
+<h3>Launch an instance from the shared encrypted AMI</h3> 
+<p>To launch an AMI that was shared with you, set the AMI ID of the shared AMI in the <span style="font-family: courier">image-id</span> parameter of <a href="https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RunInstances.html" rel="noopener noreferrer" target="_blank">Run-Instances</a> API/CLI. Optionally, to re-encrypt the volumes with a custom CMK in your account, you can specify the KmsKeyId in the <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-device-mapping-concepts.html" rel="noopener noreferrer" target="_blank">Block Device Mapping</a> as follows:</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-text">
+    $&gt; aws ec2 run-instances 
+    --image-id ami-
+    --count 1 
+    --instance-type m4.large 
+    --region us-east-1
+    --subnet-id subnet-aec2fc86 
+    --key-name 2016KeyPair 
+    --security-group-ids sg-f7dbc78e subnet-id subnet-aec2fc86 
+    --block-device-mappings <a href="\\mapping.json" rel="noopener noreferrer" target="_blank">file://mapping.json</a>    
+</code></pre> 
+</div> 
+<p>Where the <span style="font-family: courier">mapping.json</span> contains the following:</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-text">
+[
+    {
+        &quot;DeviceName&quot;: &quot;/dev/xvda&quot;,
+        &quot;Ebs&quot;: {
+                &quot;Encrypted&quot;: true,
+                &quot;KmsKeyId&quot;: &quot;arn:aws:kms:us-east-1:<font color="red">&lt;999999999999&gt;</font>:key/<font color="red">&lt;abcd1234-a123-456a-a12b-a123b4cd56ef&gt;</font>&quot;
+        }
+    }
+]
+</code></pre> 
+</div> 
+<p>While launching the instance from a shared encrypted AMI, you can specify a CMK of your choice. You may also choose <span style="font-family: courier">cmkSource</span> to encrypt volumes in your account. However, we recommend that you re-encrypt the volumes using a CMK in the target account. This protects you if the source CMK is compromised, or if the source account revokes permissions, which could cause you to lose access to any encrypted volumes you created using <span style="font-family: courier">cmkSource</span>.</p> 
+<h2>Summary</h2> 
+<p>In this blog post, we discussed how you can easily share encrypted AMIs across accounts to launch encrypted instances. AWS has extended the same capabilities to snapshots, allowing you to create encrypted EBS volumes from shared encrypted snapshots. </p> 
+<p>This feature is available through the AWS Management Console, <a href="https://aws.amazon.com/cli/" rel="noopener noreferrer" target="_blank">AWS CLI</a>, or AWS SDKs at no extra charge in all commercial AWS regions except China. If you have feedback about this blog post, submit comments in the <b>Comments</b> section below. If you have questions about this blog post, start a new thread on the <a href="https://forums.aws.amazon.com/forum.jspa?forumID=30" rel="noopener noreferrer" target="_blank">Amazon EC2 forum</a> or contact <a href="https://console.aws.amazon.com/support/home" rel="noopener noreferrer" target="_blank">AWS Support</a>.</p> 
+<p><strong>Want more AWS Security how-to content, news, and feature announcements? Follow us on <a href="https://twitter.com/AWSsecurityinfo" title="Twitter" target="_blank" rel="noopener noreferrer">Twitter</a>.</strong></p> 
+<footer> 
+ <div class="blog-author-box"> 
+  <div class="blog-author-image"> 
+   <img src="https://d2908q01vomqb2.cloudfront.net/22d200f8670dbdb3e253a90eee5098477c95c23d/2019/02/06/nishit-nagar-bio.jpg" alt="Author" width="119" height="160" class="aligncenter size-full wp-image-9956" /> 
+  </div> 
+  <h3 class="lb-h4">Nishit Nagar</h3> 
+  <p>Nishit is a Senior Product Manager at AWS.</p> 
+  <p></p>
+ </div> 
+</footer>

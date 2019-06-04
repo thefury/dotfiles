@@ -1,0 +1,151 @@
+<p>Amazon <a href="https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html">Transcribe streaming transcription</a> enables you to send an audio stream, and with a single API call, receive a stream of text in real time. We’re excited to announce support for the<code> #start_stream_transcription</code> API with bidirectional streaming usage in the AWS SDK for Ruby.</p> 
+<p><strong>Before calling #start_stream_transcription</strong></p> 
+<p>To use the Amazon Transcribe #start_stream_transcription API, you need to have <a href="https://rubygems.org/gems/http-2"><code>http-2</code> gem</a> and <code>aws-sdk-transcribestreamingservice</code> gem available, as follows. </p> 
+<pre><code class="lang-ruby">
+gem 'http-2', '~&gt; 0.10'
+gem 'aws-sdk-transcribestreamingservice', '~&gt; 1.0'
+</code></pre> 
+<p>The Amazon Transcribe <code>#start_stream_transcription</code> API enables you to send an audio stream and receive a stream of text in real time. Although the AWS SDK for Ruby supports all Ruby versions later than 1.9.3, this API is streamed over the HTTP2 protocol. This means to use the API, you need to have Ruby version 2.1 or later.</p> 
+<p>To check your Ruby version, run the following.</p> 
+<pre><code class="lang-ruby">
+ruby -v
+</code></pre> 
+<p>Currently, Amazon Transcribe supports both 16 kHz and 8 kHz audio streams (WAV, MP3, MP4, and FLAC) in 16-bit linear PCM encoding. Make sure your audio stream is under supported sample rates and within supported encoding before trying out the API, or you might get back empty transcripts or bad request exceptions. </p> 
+<p>You can find more FAQs on Amazon Transcribe streaming transcription <a href="https://aws.amazon.com/transcribe/faqs/">here</a>.</p> 
+<p><strong>#start_stream_transcription API usage pattern</strong></p> 
+<p>Let’s walk through the key parts for making an async API call from an async client and event stream handlers, and a complete example of using the API. </p> 
+<p><strong><em>Introduction to AsyncClient</em></strong></p> 
+<p>Following the nature of HTTP2, the AWS SDK for Ruby introduces <code>AsyncClient</code> for streaming APIs, compared to <code>Client</code> (which you might be familiar with) for API calls over HTTP1.1. </p> 
+<pre><code class="lang-ruby">
+require 'aws-sdk-transcribestreamingservice'
+
+async_client = Aws::TranscribeStreamingService::AsyncClient.new(region: 'us-west-2')
+
+# List all available HTTP2/Async operations
+async_client.operation_names
+# =&gt; [:start_stream_transcription]
+</code></pre> 
+<p><strong><em>Introduction to input and output event stream handlers</em></strong></p> 
+<p>For a bidirectional streaming API, you need to provide an <code>:input_event_stream_handler</code> for signaling audio events, and an <code>:output_event_stream_handler</code> registered with callbacks to process events immediately when they arrive. </p> 
+<pre><code class="lang-ruby">
+input_stream = Aws::TranscribeStreamingService::EventStreams::AudioStream.new
+output_stream = Aws::TranscribeStreamingService::EventStreams::TranscriptResultStream.new
+</code></pre> 
+<p>You can find all of the available event streams for those handlers, and documentation about them, at <code>Aws::TranscribeStreamingService::EventStreams</code>.</p> 
+<p>Before we make the request, let’s take a closer look at those handlers. For handling events in responses, although you still can <code>#wait</code> or <code>#join!</code> for a final sync response, you get the most benefit out of streaming APIs on HTTP2 by registering callbacks on output_stream to access events with no delay.</p> 
+<pre><code class="lang-ruby">
+#  Print out transcripts received
+output_stream.on_transcript_event_event do |event|
+	unless event.transcript.results.empty?
+		event.transcript.results.each do |result|
+			result.alternatives.each {|alter| puts alter.transcript.inspect }
+		end
+  end
+end
+
+# Raise an error on bad request exception
+output_stream.on_bad_request_exception_event do |exception|
+	raise exception
+end
+
+# Alternatively, watch all events that arrive
+# output_stream.on_event {|event| # do something}
+
+# Callbacks for error events (unmodeled exceptions)
+# output_stream.on_error_event {|error| # Aws::Errors::EventError }
+</code></pre> 
+<p>You can find all of the available callback methods for <code>output_stream</code> in the <code>Aws::TranscribeStreamingService::EventStreams::TranscriptResultStream</code> documentation.</p> 
+<p>Then, when it comes to using <code>input_stream</code>, you can <code>#signal</code> audio events after initializing an async request.</p> 
+<pre><code class="lang-ruby">
+input_stream.signal_audio_event_event(audio_chunk: ...# audio bytes ... )
+</code></pre> 
+<p><strong>Calling the API</strong></p> 
+<p>For a complete example to demo, we’re using an AWS Podcast audio here to show how we use the <code>#start_stream_transcription</code> API to get real-time transcripts streamed back. </p> 
+<p>Let’s pick AWS Podcast <a href="https://aws.amazon.com/podcasts/aws-podcast/#285">#285</a>, which talks about AWS Lambda support for the native Ruby runtime and more. </p> 
+<p>First, download the file and convert the audio to 16kHz rate with 16-bit linear PCM encoding, with the name <code>AwsPodCast285.wav</code>.</p> 
+<p>Now we’re set to call the API. Let’s create a <code>demo.rb</code> file as follows.</p> 
+<pre><code class="lang-ruby">
+...
+# Omit async client initialization
+# and input/output event stream handler initialization part
+
+# Have an audio file
+audio_file = File.new('AwsPodCast285.wav', 'rb')
+
+# Register callbacks
+output_stream.on_transcript_event_event do |event|
+	unless event.transcript.results.empty?
+		event.transcript.results.each do |result|
+			result.alternatives.each {|alter| puts alter.transcript.inspect }
+		end
+  end
+end
+output_stream.on_bad_request_exception_event do |exception|
+	input_stream.signal_end_stream
+end
+
+# Make an async call
+async_resp = async_client.start_stream_transcription(
+	language_code: &quot;en-US&quot;,
+	media_encoding: &quot;pcm&quot;,
+	media_sample_rate_hertz: 16000,
+	input_event_stream_handler: input_stream,
+	output_event_stream_handler: output_stream
+)
+# =&gt; Aws::Seahorse::Client::AsyncResponse
+
+# Signaling audio chunks
+while !audio_file.eof? do
+	input_stream.signal_audio_event_event(audio_chunk: audio_file.read(30000))
+  sleep(1)
+end
+sleep(0.5)
+input_stream.signal_end_stream
+audio_file.close
+
+# You can call #join! after some time passes, which would end the stream immediately
+resp =  async_resp.wait
+# =&gt; Aws::Seahorse:Client::Response
+</code></pre> 
+<p>Running the code produces the following.</p> 
+<pre><code class="lang-ruby">
+&quot;This.&quot;
+&quot;This is&quot;
+&quot;This is a&quot;
+&quot;This is EP.&quot;
+&quot;This is episode&quot;
+&quot;This is Episode two&quot;
+&quot;This is episode too, huh?&quot;
+&quot;This is Episode two hundred&quot;
+&quot;This is Episode two hundred and eight.&quot;
+&quot;This is Episode two hundred and eighty&quot;
+&quot;This is Episode two hundred and eighty five.&quot;
+&quot;This is Episode two hundred and eighty five of&quot;
+&quot;This is Episode two hundred and eighty five of the&quot;
+&quot;This is Episode two hundred and eighty five of the eight&quot;
+&quot;This is Episode two hundred and eighty five of the tub.&quot;
+&quot;This is Episode two hundred and eighty five of the W.&quot;
+&quot;This is Episode two hundred and eighty five of the W s.&quot;
+&quot;This is Episode two hundred and eighty five of the W s.&quot;
+&quot;This is Episode two hundred and eighty five of the Ws Po'd.&quot;
+&quot;This is Episode two hundred and eighty five of the Ws podcast.&quot;
+&quot;This is Episode two hundred and eighty five of the Ws podcast.&quot;
+&quot;This is Episode two hundred and eighty five of the Ws podcast Real&quot;
+&quot;This is Episode two hundred and eighty five of the WS podcast released on&quot;
+&quot;This is Episode two hundred and eighty five of the WS podcast released on DIS&quot;
+&quot;This is Episode two hundred and eighty five of the Ws podcast released on December.&quot;
+&quot;This is Episode two hundred and eighty five of the Ws podcast released on December twenty.&quot;
+&quot;This is Episode two hundred and eighty five of the Ws podcast released on December twenty third.&quot;
+&quot;This is Episode two hundred and eighty five of the Ws podcast released on December twenty third, twenty.&quot;
+...
+</code></pre> 
+<p>For full documentation of how to use this API, see the <a href="https://docs.aws.amazon.com/sdk-for-ruby/v3/api/Aws/TranscribeStreamingService/AsyncClient.html">AWS SDK for Ruby API Reference</a>.</p> 
+<p><strong>Additional notes</strong></p> 
+<p>Due to the nature of the HTTP2 protocol, request and response happens in parallel, and multiple streams share a single connection. Although you have full control of the speed of signaling audio events from input event streams, when the signal speed is too fast, with huge audio chunks, the bandwidths left for responding to events could be narrowed. To get the most from bidirectional streaming, we recommend a balanced pace in signaling events at input streams. </p> 
+<p>We recommend calling <code>#signal_end_stream</code> at the input event stream handler after audio event signaling is completed as a good practice. It sends a clear “end” stream signal to the server side. Some services might be waiting for this “end” stream signal to complete stream communication. If no further audio event is sent and no end stream is signaled, a <code>:bad_request_exception</code> event might also be returned.</p> 
+<p>As you might have noticed, different from sync HTTP1.1 API calls, the <code>AsyncResponse</code> object is returned immediately once an async API call is made. There are two methods for syncing an <code>AsyncResponse</code>: <code>#wait</code> and <code>#join!</code>. The <code>#wait</code> method would wait on the request until the stream is closed, which can take minutes or even hours (depending on input event signaling). However, when <code>#join!</code> is called, it would end the stream immediately with no delay.</p> 
+<p>We also provide <code>#close_connection</code> and <code>#new_connection</code> methods for an <code>AsyncClient</code>, as connection will be shared across multiple requests (streams), we recommend calling <code>#close_connection</code> when you finished syncing all async responses. By default connection will be closed after 60 sec if no errors occurred when no data is received, you can configure this value by <code>:connection_timeout</code>.</p> 
+<p><strong>Final thoughts</strong></p> 
+<p>We walked through async API usage in this blog post and provided some best practices. Although async API usage is new and different from sync API calls in the AWS SDK for Ruby, it’s bringing streaming benefits for many use cases. Free feel to give it a try and let us know if you have any questions.</p> 
+<p><strong>Feedback</strong></p> 
+<p>Please share your questions, comments, and issues with us on <a href="https://github.com/aws/aws-sdk-ruby">GitHub</a>. You can also catch us in our Gitter channel.</p>

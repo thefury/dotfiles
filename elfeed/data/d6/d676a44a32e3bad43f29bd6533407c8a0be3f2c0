@@ -1,0 +1,241 @@
+<p> We are happy to announce that the <code>aws-record</code> gem is now in Developer Preview and available for you to try.</p> 
+<h2> What Is Aws::Record?</h2> 
+<p> In version 1 of the AWS SDK for Ruby, the <code>AWS::Record</code> class provided a data mapping abstraction over Amazon DynamoDB operations. As version 2 of the AWS SDK for Ruby was being developed, many of you asked for an updated version of the library.</p> 
+<p> The <code>aws-record</code> gem provides a data mapping abstraction for DynamoDB built on top of the AWS SDK for Ruby version 2.</p> 
+<h2> Using Aws::Record</h2> 
+<p> You can download the <code>aws-record</code> gem from RubyGems by including the <code>--pre</code> flag in a gem installation:</p> 
+<pre class="brush: bash">
+gem install 'aws-record' --pre
+</pre> 
+<p> You can also include it in your Gemfile. Do not include a version lock yet, so that <code>bundler</code> can find the pre-release version:</p> 
+<pre class="brush: ruby">
+# Gemfile
+gem 'aws-record'
+</pre> 
+<h3> Defining a Model</h3> 
+<p> To create an aws-record model, include the <code>Aws::Record</code> module in your class definition:</p> 
+<pre class="brush: ruby">
+require 'aws-record'
+
+class Forum
+  include Aws::Record
+end
+</pre> 
+<p> This will decorate your class with helper methods you can use to create a model compatible with DynamoDB’s table schemas. You might define keys for your table:</p> 
+<pre class="brush: ruby">
+require 'aws-record'
+
+class Forum
+  include Aws::Record
+  string_attr  :forum_uuid, hash_key: true
+  integer_attr :post_id,    range_key: true
+end
+</pre> 
+<p> When you use these helper methods, you do not need to worry about how to define these attributes and types in DynamoDB. The helper methods and marshaler classes are able to define your table and item operations for you. The <code>aws-record</code> gem comes with predefined attribute types that cover a variety of potential use cases:</p> 
+<pre class="brush: ruby">
+require 'aws-record'
+
+class Forum
+  include Aws::Record
+  string_attr   :forum_uuid, hash_key: true
+  integer_attr  :post_id,    range_key: true
+  string_attr   :author_username
+  string_attr   :post_title
+  string_attr   :post_body
+  datetime_attr :created_at
+  map_attr      :post_metadata
+end
+</pre> 
+<h3> Creating a DynamoDB Table</h3> 
+<p> The <code>aws-record</code> gem provides a helper class for table operations, such as migrations. If we wanted to create a table for our <code>Forum</code> model in DynamoDB, we would run the following migration:</p> 
+<pre class="brush: ruby">
+require 'forum' # Depending on where you defined the class above.
+
+migration = Aws::Record::TableMigration.new(Forum)
+
+migration.create!(
+  provisioned_throughput: {
+    read_capacity_units: 10,
+    write_capacity_units: 4
+  }
+)
+
+migration.wait_until_available # Blocks until table creation is complete.
+</pre> 
+<h3> Operations with DynamoDB Items</h3> 
+<p> With a model and table defined, we can perform operations that relate to items in our table. Let’s create a post:</p> 
+<pre class="brush: ruby">
+require 'forum'
+require 'securerandom'
+
+uuid = SecureRandom.uuid
+
+post = Forum.new
+post.forum_uuid = uuid
+post.post_id = 1
+post.author_username = &quot;User1&quot;
+post.post_title = &quot;Hello!&quot;
+post.post_body = &quot;Hello Aws::Record&quot;
+post.created_at = Time.now
+post.post_metadata = {
+  this_is_a: &quot;Post&quot;,
+  types_supported_include: [&quot;String&quot;, &quot;Integer&quot;, &quot;DateTime&quot;],
+  how_many_times_ive_done_this: 1
+}
+
+post.save # Writes to the database.
+</pre> 
+<p> This example shows us some of the types that are supported and serialized for you. Using the key we’ve defined, we can also find this object in our table:</p> 
+<pre class="brush: ruby">
+my_post = Forum.find(forum_uuid: uuid, post_id: 1)
+my_post.post_title # =&gt; &quot;Hello!&quot;
+my_post.created_at # =&gt; #&lt;DateTime: 2016-02-09T14:39:07-08:00 ((2457428j,81547s,0n),-28800s,2299161j)&gt;
+</pre> 
+<p> You can use the same approach to save changes or, as shown here, you can delete the item from the table:</p> 
+<pre class="brush: ruby">
+my_post.delete! # =&gt; true
+</pre> 
+<p> At this point, we know how to use <code>Aws::Record</code> to perform key-value store operations powered by DynamoDB and have an introduction to the types available for use in our tables.</p> 
+<h3> Querying, Scanning, and Collections</h3> 
+<p> Because it is likely that you’re probably doing Query and Scan operations in addition to key-value operations, <code>aws-record</code> provides support for integrating them with your model class.</p> 
+<p> When you include the <code>Aws::Record</code> module, your model class is decorated with <code>#query</code> and <code>#scan</code> methods, which correspond to the AWS SDK for Ruby client operations. The response is wrapped in a collection enumerable for you. Consider the following basic scan operation:</p> 
+<pre class="brush: ruby">
+Forum.scan # =&gt; #&lt;Aws::Record::ItemCollection:0x007ffc293ec790 @search_method=:scan, @search_params={:table_name=&gt;&quot;Forum&quot;}, @model=Forum, @client=#&lt;Aws::DynamoDB::Client&gt;&gt;
+</pre> 
+<p> No client call has been made yet: <code>ItemCollection</code> instances are lazy, and only make client calls only when needed. Because they provide an enumerable interface, you can use any of Ruby’s enumerable methods on your collection, and your result page is saved:</p> 
+<pre class="brush: ruby">
+resp = Forum.scan
+resp.take(1) # Makes a call to the underlying client. Returns a 'Forum' object.
+resp.take(1) # Same result, but does not repeat the client call.
+</pre> 
+<p> Because the <code>Aws::Record::ItemCollection</code> uses version 2 ofthe AWS SDK for Ruby, pagination support is built-in. So, if your operation requires multiple DynamoDB client calls due to response truncation, <code>ItemCollection</code> will handle the calls required in your enumeration:</p> 
+<pre class="brush: ruby">
+def author_posts
+  Forum.scan.inject({}) do |acc, post|
+    author = post.author_username
+    if acc[author]
+      acc[author] += 1
+    else
+      acc[author] = 1
+    end
+    acc
+  end
+end
+</pre> 
+<p> The same applies for queries. Your query result will also be provided as an enumerable <code>ItemCollection</code>:</p> 
+<pre class="brush: ruby">
+def posts_by_forum(uuid)
+  Forum.query(
+    key_condition_expression: &quot;#A = :a&quot;,
+    expression_attribute_names: {
+      &quot;#A&quot; =&gt; &quot;forum_uuid&quot;
+    },
+    expression_attribute_values: {
+      &quot;:a&quot; =&gt; uuid
+    }
+  )
+end
+</pre> 
+<p> Given this functionality, you have the flexibility to mix and match Ruby’s enumerable functionality with DynamoDB filter expressions, for example, to curate your results. These two functions return the same set of responses:</p> 
+<pre class="brush: ruby">
+def posts_by_author_in_forum(uuid, author)
+  posts_by_forum(uuid).select do |post|
+    post.author_username == author
+  end
+end
+
+def posts_by_author_in_forum_with_filter(uuid, author)
+  Forum.query(
+    key_condition_expression: &quot;#A = :a&quot;,
+    filter_expression: &quot;#B = :b&quot;,
+    expression_attribute_names: {
+      &quot;#A&quot; =&gt; &quot;forum_uuid&quot;,
+      &quot;#B&quot; =&gt; &quot;author_username&quot;
+    },
+    expression_attribute_values: {
+      &quot;:a&quot; =&gt; uuid,
+      &quot;:b&quot; =&gt; author
+    }
+  )
+end
+</pre> 
+<h3> Support for Secondary Indexes</h3> 
+<p> <code>Aws::Record</code> also supports both local and global secondary indexes. Consider this modified version of our Forum table:</p> 
+<pre class="brush: ruby">
+require 'aws-record'
+
+class IndexedForum
+  include Aws::Record
+
+  string_attr   :forum_uuid, hash_key: true
+  integer_attr  :post_id,    range_key: true
+  string_attr   :author_username
+  string_attr   :post_title
+  string_attr   :post_body
+  datetime_attr :created_at
+  map_attr      :post_metadata
+
+  global_secondary_index(:author,
+    hash_key: :author_username,
+    projection: {
+      projection_type: &quot;INCLUDE&quot;,
+      non_key_attributes: [&quot;post_title&quot;]
+    }
+  )
+
+  local_secondary_index(:by_date,
+    range_key: :created_at,
+    projection: {
+      projection_type: &quot;ALL&quot;
+    }
+  )
+end
+</pre> 
+<p> You can see the table’s attributes are the same, but we’ve included a couple potentially useful indexes.</p> 
+<ul> 
+ <li> <code>:author</code>: This uses the author name as a partition, which provides a way to search across forums by author user name without having to scan and filter. Take note of the projection, because your global secondary index results will only return the <code>:forum_uuid</code>, <code>:post_id</code>, <code>:author_username</code>, and <code>:post_title</code>. Other attributes will be missing from this projection, and you would have to hydrate your item by calling <code>#reload!</code> on the item instance.</li> 
+ <li> <code>:by_date</code>: This provides a way to sort and search within a forum by post creation date.</li> 
+</ul> 
+<p> To create this table with secondary indexes, you create a migration like we did before:</p> 
+<pre class="brush: ruby">
+require 'indexed_forum'
+
+migration = Aws::Record::TableMigration.new(IndexedForum)
+
+migration.create!(
+  provisioned_throughput: {
+    read_capacity_units: 10,
+    write_capacity_units: 4
+  },
+  global_secondary_index_throughput: {
+    author: {
+      read_capacity_units: 5,
+      write_capacity_units: 3
+    }
+  }
+)
+
+migration.wait_until_available
+</pre> 
+<p> You can use either of these indexes with the query interface:</p> 
+<pre class="brush: ruby">
+require 'indexed_forum'
+
+def search_by_author(author)
+  IndexedForum.query(
+    index_name: &quot;author&quot;,
+    key_condition_expression: &quot;#A = :a&quot;,
+    expression_attribute_names: {
+      &quot;#A&quot; =&gt; &quot;author_username&quot;
+    },
+    expression_attribute_values: {
+      &quot;:a&quot; =&gt; author
+    }
+  )
+)
+</pre> 
+<p> Secondary indexes can be a powerful performance tool, and <code>aws-record</code> can simplify the process of managing them.</p> 
+<h2> Get Involved!</h2> 
+<p> Please download the gem, give it a try, and let us know what you think. This project is a work in progress, so we welcome feature requests, bug reports, and information about the kinds of problems you’d like to solve by using this gem. And, as with other SDKs and tools we produce, we’d also be happy to look at contributions.</p> 
+<p> You can find the project on GitHub at <a href="https://github.com/awslabs/aws-sdk-ruby-record">https://github.com/awslabs/aws-sdk-ruby-record</a></p> 
+<p> Please reach out and let us know what you think!</p>

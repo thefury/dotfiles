@@ -1,0 +1,176 @@
+<p>Slack is widely used by DevOps and development teams to communicate status. Typically, when a build has been tested and is ready to be promoted to a staging environment, a QA engineer or DevOps engineer kicks off the deployment. Using Slack in a ChatOps collaboration model, the promotion can be done in a single click from a Slack channel. And because the promotion happens through a Slack channel, the whole development team knows what’s happening without checking email.</p> 
+<p>In this blog post, I will show you how to integrate AWS services with a Slack application. I use an interactive message button and incoming webhook to promote a stage with a single click.</p> 
+<p>To follow along with the steps in this post, you’ll need a pipeline in <a href="https://aws.amazon.com/codepipeline/">AWS CodePipeline</a>. If you don’t have a pipeline, the fastest way to create one for this use case is to use <a href="https://aws.amazon.com/codestar/">AWS CodeStar</a>. Go to the AWS CodeStar console and select the <strong>Static Website</strong> template (shown in the screenshot). AWS CodeStar will create a pipeline with an AWS CodeCommit repository and an AWS CodeDeploy deployment for you. After the pipeline is created, you will need to <a href="https://docs.aws.amazon.com/codepipeline/latest/userguide/approvals-action-add.html">add a manual approval stage</a>.</p> 
+<p>You’ll also need to build a Slack app with webhooks and interactive components, write two Lambda functions, and create an API Gateway API and a SNS topic.</p> 
+<p><img class="aligncenter " src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/05/24/codestar-1.png" width="540" height="275" /></p> 
+<p>As you’ll see in the following diagram, when I make a change and merge a new feature into the master branch in AWS CodeCommit, the check-in kicks off my CI/CD pipeline in AWS CodePipeline. When CodePipeline reaches the approval stage, it sends a notification to <a href="https://aws.amazon.com/sns/">Amazon SNS</a>, which triggers an <a href="https://aws.amazon.com/lambda/">AWS Lambda</a> function (ApprovalRequester).</p> 
+<p><img class="size-medium aligncenter" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/05/23/architecture_diagram.jpg" width="764" height="410" /></p> 
+<p>The Slack channel receives a prompt that looks like the following screenshot. When I click <strong>Yes</strong> to approve the build promotion, the approval result is sent to CodePipeline through API Gateway and Lambda (ApprovalHandler). The pipeline continues on to deploy the build to the next environment.</p> 
+<p><img class="size-medium aligncenter" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/05/23/interactive_messagebutton.png" width="823" height="127" /></p> 
+<p><strong>Create a Slack app</strong></p> 
+<p>For <strong>App Name</strong>, type a name for your app. For <strong>Development Slack Workspace</strong>, choose the name of your workspace. You’ll see in the following screenshot that my workspace is <strong>AWS ChatOps</strong>.</p> 
+<p><img class="size-full aligncenter" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/05/24/create_a_slack_app-1.png" width="422" height="426" /></p> 
+<p>After the Slack application has been created, you will see the <strong>Basic Information</strong> page, where you can create incoming webhooks and enable interactive components.</p> 
+<p><img class="size-full aligncenter" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/05/24/slack_basic_info-2.png" width="478" height="515" /></p> 
+<p><strong>To add incoming webhooks:</strong></p> 
+<ol> 
+ <li>Under <strong>Add features and functionality</strong>, choose <strong>Incoming Webhooks</strong>. Turn the feature on by selecting <strong>Off</strong>, as shown in the following screenshot.</li> 
+ <li>Now that the feature is turned on, choose <strong>Add New Webhook to Workspace</strong>. In the process of creating the webhook, Slack lets you choose the channel where messages will be posted.</li> 
+ <li>After the webhook has been created, you’ll see its URL. You will use this URL when you create the Lambda function.</li> 
+</ol> 
+<p><img class="size-full aligncenter" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/05/24/slack_incoming_webhook-1.png" width="505" height="219" /></p> 
+<p>If you followed the steps in the post, the pipeline should look like the following.</p> 
+<p><img class="size-full aligncenter" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/05/24/pipeline-1.png" width="301" height="543" /></p> 
+<p><strong>Write the Lambda function for approval requests</strong></p> 
+<p>This Lambda function is invoked by the SNS notification. It sends a request that consists of an interactive message button to the incoming webhook you created earlier. &nbsp;The following sample code sends the request to the incoming webhook. WEBHOOK_URL and SLACK_CHANNEL are the environment variables that hold values of the webhook URL that you created and the Slack channel where you want the interactive message button to appear.</p> 
+<pre><code class="lang-python"># This function is invoked via SNS when the CodePipeline manual approval action starts.
+# It will take the details from this approval notification and sent an interactive message to Slack that allows users to approve or cancel the deployment.
+
+import os
+import json
+import logging
+import urllib.parse
+
+from base64 import b64decode
+from urllib.request import Request, urlopen
+from urllib.error import URLError, HTTPError
+
+# This is passed as a plain-text environment variable for ease of demonstration.
+# Consider encrypting the value with KMS or use an encrypted parameter in Parameter Store for production deployments.
+SLACK_WEBHOOK_URL = os.environ['SLACK_WEBHOOK_URL']
+SLACK_CHANNEL = os.environ['SLACK_CHANNEL']
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+def lambda_handler(event, context):
+    print(&quot;Received event: &quot; + json.dumps(event, indent=2))
+    message = event[&quot;Records&quot;][0][&quot;Sns&quot;][&quot;Message&quot;]
+    
+    data = json.loads(message) 
+    token = data[&quot;approval&quot;][&quot;token&quot;]
+    codepipeline_name = data[&quot;approval&quot;][&quot;pipelineName&quot;]
+    
+    slack_message = {
+        &quot;channel&quot;: SLACK_CHANNEL,
+        &quot;text&quot;: &quot;Would you like to promote the build to production?&quot;,
+        &quot;attachments&quot;: [
+            {
+                &quot;text&quot;: &quot;Yes to deploy your build to production&quot;,
+                &quot;fallback&quot;: &quot;You are unable to promote a build&quot;,
+                &quot;callback_id&quot;: &quot;wopr_game&quot;,
+                &quot;color&quot;: &quot;#3AA3E3&quot;,
+                &quot;attachment_type&quot;: &quot;default&quot;,
+                &quot;actions&quot;: [
+                    {
+                        &quot;name&quot;: &quot;deployment&quot;,
+                        &quot;text&quot;: &quot;Yes&quot;,
+                        &quot;style&quot;: &quot;danger&quot;,
+                        &quot;type&quot;: &quot;button&quot;,
+                        &quot;value&quot;: json.dumps({&quot;approve&quot;: True, &quot;codePipelineToken&quot;: token, &quot;codePipelineName&quot;: codepipeline_name}),
+                        &quot;confirm&quot;: {
+                            &quot;title&quot;: &quot;Are you sure?&quot;,
+                            &quot;text&quot;: &quot;This will deploy the build to production&quot;,
+                            &quot;ok_text&quot;: &quot;Yes&quot;,
+                            &quot;dismiss_text&quot;: &quot;No&quot;
+                        }
+                    },
+                    {
+                        &quot;name&quot;: &quot;deployment&quot;,
+                        &quot;text&quot;: &quot;No&quot;,
+                        &quot;type&quot;: &quot;button&quot;,
+                        &quot;value&quot;: json.dumps({&quot;approve&quot;: False, &quot;codePipelineToken&quot;: token, &quot;codePipelineName&quot;: codepipeline_name})
+                    }  
+                ]
+            }
+        ]
+    }
+
+    req = Request(SLACK_WEBHOOK_URL, json.dumps(slack_message).encode('utf-8'))
+
+    response = urlopen(req)
+    response.read()
+    
+    return None</code></pre> 
+<p>&nbsp;</p> 
+<p><strong>Create a SNS topic</strong></p> 
+<p>Create a topic and then create a subscription that invokes the ApprovalRequester Lambda function. You can configure the manual approval action in the pipeline to send a message to this SNS topic when an approval action is required. When the pipeline reaches the approval stage, it sends a notification to this SNS topic. SNS publishes a notification to all of the subscribed endpoints. In this case, the Lambda function is the endpoint. Therefore, it invokes and executes the Lambda function. For information about how to create a SNS topic, see <a href="https://docs.aws.amazon.com/sns/latest/dg/CreateTopic.html">Create a Topic</a> in the Amazon SNS Developer Guide.</p> 
+<p><strong>Write the Lambda function for handling the interactive message button</strong></p> 
+<p>This Lambda function is invoked by API Gateway. It receives the result of the interactive message button whether or not the build promotion was approved. If approved, an API call is made to CodePipeline to promote the build to the next environment. If not approved, the pipeline stops and does not move to the next stage.</p> 
+<p>The Lambda function code might look like the following. SLACK_VERIFICATION_TOKEN is the environment variable that contains your Slack verification token. You can find your verification token under <strong>Basic Information</strong> on Slack manage app page. When you scroll down, you will see <strong>App Credential</strong>. Verification token is found under the section.</p> 
+<pre><code class="lang-python"># This function is triggered via API Gateway when a user acts on the Slack interactive message sent by approval_requester.py.
+
+from urllib.parse import parse_qs
+import json
+import os
+import boto3
+
+SLACK_VERIFICATION_TOKEN = os.environ['SLACK_VERIFICATION_TOKEN']
+
+#Triggered by API Gateway
+#It kicks off a particular CodePipeline project
+def lambda_handler(event, context):
+	#print(&quot;Received event: &quot; + json.dumps(event, indent=2))
+	body = parse_qs(event['body'])
+	payload = json.loads(body['payload'][0])
+
+	# Validate Slack token
+	if SLACK_VERIFICATION_TOKEN == payload['token']:
+		send_slack_message(json.loads(payload['actions'][0]['value']))
+		
+		# This will replace the interactive message with a simple text response.
+		# You can implement a more complex message update if you would like.
+		return  {
+			&quot;isBase64Encoded&quot;: &quot;false&quot;,
+			&quot;statusCode&quot;: 200,
+			&quot;body&quot;: &quot;{\&quot;text\&quot;: \&quot;The approval has been processed\&quot;}&quot;
+		}
+	else:
+		return  {
+			&quot;isBase64Encoded&quot;: &quot;false&quot;,
+			&quot;statusCode&quot;: 403,
+			&quot;body&quot;: &quot;{\&quot;error\&quot;: \&quot;This request does not include a vailid verification token.\&quot;}&quot;
+		}
+
+
+def send_slack_message(action_details):
+	codepipeline_status = &quot;Approved&quot; if action_details[&quot;approve&quot;] else &quot;Rejected&quot;
+	codepipeline_name = action_details[&quot;codePipelineName&quot;]
+	token = action_details[&quot;codePipelineToken&quot;] 
+
+	client = boto3.client('codepipeline')
+	response_approval = client.put_approval_result(
+							pipelineName=codepipeline_name,
+							stageName='Approval',
+							actionName='ApprovalOrDeny',
+							result={'summary':'','status':codepipeline_status},
+							token=token)
+	print(response_approval)
+</code></pre> 
+<p>&nbsp;</p> 
+<p><strong>Create the API Gateway API</strong></p> 
+<ol> 
+ <li>In the Amazon API Gateway console, create a resource called InteractiveMessageHandler.</li> 
+ <li>Create a POST method. 
+  <ul> 
+   <li>For <strong>Integration type</strong>, choose <strong>Lambda Function</strong>.</li> 
+   <li>Select <strong>Use Lambda Proxy integration</strong>.</li> 
+   <li>From <strong>Lambda Region</strong>, choose a region.</li> 
+   <li>In <strong>Lambda Function</strong>, type a name for your function.</li> 
+  </ul> </li> 
+ <li>&nbsp;Deploy to a stage.</li> 
+</ol> 
+<p><img class="size-full aligncenter" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/05/24/api_gateway-1.png" width="615" height="377" /></p> 
+<p>For more information, see <a href="https://docs.aws.amazon.com/apigateway/latest/developerguide/getting-started.html">Getting Started with Amazon API Gateway</a> in the Amazon API Developer Guide.</p> 
+<p>Now go back to your Slack application and enable interactive components.</p> 
+<p><strong>To enable interactive components for the interactive message (Yes) button:</strong></p> 
+<ol> 
+ <li>Under <strong>Features</strong>, choose <strong>Interactive Components</strong>.</li> 
+ <li>Choose <strong>Enable Interactive Components</strong>.</li> 
+ <li>Type a request URL in the text box. Use the invoke URL in Amazon API Gateway that will be called when the approval button is clicked.</li> 
+</ol> 
+<p><img class="alignnone size-full aligncenter" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/05/24/slack_interactive_components-1.png" width="735" height="427" /></p> 
+<p>Now that all the pieces have been created, run the solution by checking in a code change to your CodeCommit repo. That will release the change through CodePipeline. When the CodePipeline comes to the approval stage, it will prompt to your Slack channel to see if you want to promote the build to your staging or production environment. Choose <strong>Yes</strong> and then see if your change was deployed to the environment.</p> 
+<p><strong>Conclusion</strong></p> 
+<p>That is it! You have now created a Slack ChatOps solution using AWS CodeCommit, AWS CodePipeline, AWS Lambda, Amazon API Gateway, and Amazon Simple Notification Service.</p> 
+<p>Now that you know how to do this Slack and CodePipeline integration, you can use the same method to interact with other AWS services using API Gateway and Lambda. You can also use Slack’s slash command to initiate an action from a Slack channel, rather than responding in the way demonstrated in this post.</p>

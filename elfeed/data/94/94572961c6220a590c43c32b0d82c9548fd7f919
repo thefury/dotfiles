@@ -1,0 +1,200 @@
+<p>As we showed in the previous post, it’s easy to put JSON items into Amazon DynamoDB and retrieve specific attributes with projection expressions. <a href="http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.SpecifyingConditions.html#Expressions.SpecifyingConditions.ConditionExpressions">Condition Expressions</a> provide a more flexible and SQL-like way to retrieve only the items you want from DynamoDB. First, let’s put a few more items into DynamoDB using a BatchWriteItem operation. (Note: this code uses the same ProductCatalog table we used in Part 1)</p> 
+<pre class="brush: ruby"># add some more items
+@dynamodb.batch_write_item(
+  :request_items =&gt; {
+    &quot;ProductCatalog&quot; =&gt; [
+
+      {:put_request =&gt; { :item =&gt; {
+        Id: 300,
+        Title: &quot;Sojourner&quot;,
+        Description: &quot;Mars Pathfinder robotic Mars rover&quot;,
+        Price: BigDecimal.new(&quot;2.65e8&quot;),
+        LaunchDate: {
+          M: 12, D: 4, Y: 1996
+        },
+        LostCommunicationDate: {
+          M: 9, D: 27, Y: 1997
+        },
+        Features: {
+          Rover: true,
+        },
+        NumberInStock: 10,
+        OrdersPlaced: 3,
+        Tags: [&quot;#Mars&quot;, &quot;#InStarTrekSeason4&quot;, &quot;#InRedPlant2000&quot;, &quot;#LostComms&quot;],
+      }}},
+
+      {:put_request =&gt; { :item =&gt; {
+        Id: 301,
+        Title: &quot;Spirit&quot;,
+        Description: &quot;Mars Exploration Rover – A&quot;,
+        Price: BigDecimal.new(&quot;4.1e8&quot;),
+        LaunchDate: {
+          M: 6, D: 10, Y: 2003
+        },
+        LostCommunicationDate: {
+          M: 3, D: 22, Y: 2010
+        },
+        Features: {
+          Rover: true,
+        },
+        NumberInStock: 10,
+        OrdersPlaced: 5,
+        Tags: Set.new([&quot;#Mars&quot;, &quot;#StuckOnMars&quot;, &quot;#LostComms&quot;]),
+      }}},
+
+      {:put_request =&gt; { :item =&gt; {
+        Id: 302,
+        Title: &quot;Opportunity&quot;,
+        Description: &quot;Mars Exploration Rover – B&quot;,
+        Price: BigDecimal.new(&quot;4.1e8&quot;),
+        LaunchDate: {
+          M: 7, D: 7, Y: 2003
+        },
+        LostCommunicationDate: nil,
+        Features: {
+          Rover: true,
+        },
+        NumberInStock: 10,
+        OrdersPlaced: 10,
+        Tags: Set.new([&quot;#Mars&quot;, &quot;#StillRoving&quot;]),
+      }}},
+
+      {:put_request =&gt; { :item =&gt; {
+        Id: 303,
+        Title: &quot;Curiosity&quot;,
+        Description: &quot;car-sized robotic rover&quot;,
+        Price: BigDecimal.new(&quot;2.5e9&quot;),
+        LaunchDate: {
+          M: 11, D: 26, Y: 2011
+        },
+        LostCommunicationDate: nil,
+        Features: {
+          Rover: true,
+          RoboticArm: true,
+        },
+        NumberInStock: 0,
+        OrdersPlaced: 30,
+        Tags: Set.new([&quot;#Mars&quot;, &quot;#MarsCuriosity&quot;, &quot;#StillRoving&quot;]),
+      }}},
+
+    ]
+  }
+)
+</pre> 
+<h2>Using Condition Expressions</h2> 
+<p>We could also use condition expressions on the results of Query, but since we’re using a simple data model (only have hash key on product Id), we demonstrate this with scans. We use the following helper method to perform the scan and format the product titles returned:</p> 
+<pre class="brush: ruby">def do_scan(filter_exp, exp_attribute_values)
+  result = @dynamodb.scan(
+    :expression_attribute_values =&gt; exp_attribute_values,
+    :filter_expression =&gt; filter_exp,   # Condition Expressions are supplied through the FilterExpression parameter
+    :projection_expression =&gt; &quot;Title&quot;,
+    :table_name =&gt; &quot;ProductCatalog&quot;
+  ).data.items
+
+  # format all retrieved titles into a single line
+  return &quot;scan retrieved: #{(result.map { |item| item[&quot;Title&quot;] }).join(&quot;, &quot;)}&quot;
+end
+</pre> 
+<p>Let’s look at some example expressions and the results they return from our current ProductCatalog table:</p> 
+<pre class="brush: ruby"># All products that don't have a launch month of November (11)
+puts do_scan(
+  &quot;LaunchDate.M &lt;&gt; :m&quot;,
+  {
+    &quot;:m&quot; =&gt; 11
+  }
+)
+# scan retrieved: 20-Bicycle 205, Opportunity, Spirit, Sojourner
+
+
+# All rover products that don't have a launch month of November
+puts do_scan(
+  &quot;attribute_exists(Features.Rover) AND LaunchDate.M &lt;&gt; :m&quot;,
+  {
+    &quot;:m&quot; =&gt; 11,
+  }
+)
+# scan retrieved: Opportunity, Spirit, Sojourner
+
+
+# Non-rovers
+puts do_scan(
+  &quot;attribute_not_exists(Features.Rover)&quot;,
+  nil
+)
+# scan retrieved: 20-Bicycle 205
+
+
+# mid-range rovers or inexpensive products
+puts do_scan(
+  &quot;(Price BETWEEN :low AND :high) OR Price &lt; :verylow&quot;,
+  {
+    &quot;:verylow&quot; =&gt; BigDecimal.new(&quot;1e8&quot;),
+    &quot;:low&quot; =&gt; BigDecimal.new(&quot;3e8&quot;),
+    &quot;:high&quot; =&gt; BigDecimal.new(&quot;5e8&quot;)
+  }
+)
+# scan retrieved: 20-Bicycle 205, Opportunity, Spirit
+
+
+# within-Item referencing: more orders placed than in stock
+puts do_scan(
+  &quot;OrdersPlaced &gt; NumberInStock&quot;,
+  nil
+)
+# scan retrieved: Curiosity
+
+
+# string prefixing
+puts do_scan(
+  &quot;begins_with(Title, :s)&quot;,
+  {
+    &quot;:s&quot; =&gt; &quot;S&quot;,
+  }
+)
+# scan retrieved: Spirit, Sojourner
+
+
+# contains
+puts do_scan(
+  &quot;contains(Tags, :tag1) AND contains(Tags, :tag2)&quot;,
+  {
+    &quot;:tag1&quot; =&gt; &quot;#StuckOnMars&quot;,
+    &quot;:tag2&quot; =&gt; &quot;#LostComms&quot;,
+  }
+)
+# scan retrieved: Spirit
+
+
+# contains (Note: &quot;Tags&quot; is a list for Sojourner)
+puts do_scan(
+  &quot;contains(Tags, :tag1)&quot;,
+  {
+    &quot;:tag1&quot; =&gt; &quot;#LostComms&quot;,
+  }
+)
+# scan retrieved: Spirit, Sojourner
+
+
+# in operator
+puts do_scan(
+  &quot;Id in (:id1, :id2)&quot;,
+  {
+    &quot;:id1&quot; =&gt; 302,
+    &quot;:id2&quot; =&gt; 303,
+  }
+)
+# scan retrieved: Curiosity, Opportunity
+
+
+# equivalently, with parentheses
+puts do_scan(
+  &quot;(Id = :id1) OR (Id = :id2)&quot;,
+  {
+    &quot;:id1&quot; =&gt; 302,
+    &quot;:id2&quot; =&gt; 303,
+  }
+)
+# scan retrieved: Curiosity, Opportunity
+</pre> 
+<h2>Next Steps</h2> 
+<p>As you can see, condition expressions enable you to write more concise code to retrieve data. They also provide querying capabilities unavailable with the original access model such as within-Item references and more flexible conditions with parentheses. In an upcoming blog post, we’ll take a closer look at how we can update existing data through <a href="http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.Modifying.html">update expressions</a>.</p>

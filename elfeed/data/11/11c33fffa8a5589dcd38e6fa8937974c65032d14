@@ -1,0 +1,526 @@
+<p>This post shows a step-by-step walkthrough of how to set up a cross-account Amazon Redshift COPY and Spectrum query using a sample dataset in Amazon S3. The sample dataset is encrypted at rest using AWS KMS-managed keys (SSE-KMS).</p> 
+<h2>About AWS Key Management Service (AWS KMS)</h2> 
+<p>With <a href="https://aws.amazon.com/kms/details/" target="_blank" rel="noopener">AWS Key Management Service (AWS KMS</a>), you can have centralized control over the encryption keys used to protect your data at rest. You can create, import, rotate, disable, delete, define usage policies, and audit the use of encryption keys used to encrypt your data. AWS KMS uses FIPS 140-2 validated cryptographic modules to protect the confidentiality and integrity of your master keys.</p> 
+<p>AWS KMS is seamlessly integrated with most AWS services. This integration means that you can easily use <a href="https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#master_keys" target="_blank" rel="noopener">customer master keys</a> (CMKs) to control the encryption of the data you store within these services. When deciding to encrypt data in a service such as <a href="https://aws.amazon.com/redshift/" target="_blank" rel="noopener">Amazon Redshift</a>, you can choose to use an AWS-managed CMK that Amazon Redshift automatically creates in KMS. You can track the usage of the key, but it’s managed by the service on your behalf. In some cases, you might need direct control over the lifecycle of a CMK or want to allow other accounts to use it. In these cases, you can create and manage your own CMK that AWS services such as Amazon Redshift can use on your behalf. These customer-managed&nbsp;CMKs&nbsp;enable you to have full control over the access permissions that determine who can use the key and under which conditions. AWS KMS is integrated with <a href="https://aws.amazon.com/cloudtrail/" target="_blank" rel="noopener">AWS CloudTrail</a>, a service that provides a record of actions performed by a user, role, or AWS service in AWS KMS.</p> 
+<h2>About Amazon Redshift and Redshift Spectrum</h2> 
+<p><a href="https://aws.amazon.com/redshift/" target="_blank" rel="noopener">Amazon Redshift</a> is a petabyte scale, fully managed data warehouse service on AWS. It uses a distributed, massively parallel processing (MPP), shared-nothing architecture that scales horizontally to meet usage requirements.</p> 
+<p><a href="https://docs.aws.amazon.com/redshift/latest/dg/c-using-spectrum.html" target="_blank" rel="noopener">Amazon Redshift Spectrum</a> is a feature of Amazon Redshift that extends the analytic power of Amazon Redshift beyond the data that is stored on local disks in the data warehouse. In other words, Amazon Redshift Spectrum enables you to use the same ANSI SQL syntax of Amazon Redshift on the data that is stored in an <a href="https://aws.amazon.com/s3/" target="_blank" rel="noopener">Amazon S3</a> data lake. You do so using external tables, without having to ingest the data into Amazon Redshift first. A common pattern is to run queries that span both the frequently accessed “hot” data stored locally in Amazon Redshift and the “warm/cold” data stored cost-effectively in Amazon S3. That pattern separates compute and storage by enabling independent scaling of both to match the use case. This means you don’t have to pay for unused compute capacity just to add more storage. More importantly, this approach enables seamless interoperability between your data lake and Amazon Redshift.</p> 
+<p>The Amazon Redshift COPY command supports the following types of Amazon S3 <a href="https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingEncryption.html" target="_blank" rel="noopener">encryption</a>:</p> 
+<ul> 
+ <li>Server-side encryption with Amazon S3-managed keys (SSE-S3)</li> 
+ <li>Server-side encryption with AWS KMS-managed keys (SSE-KMS)</li> 
+ <li>Client-side encryption using a client-side symmetric master key</li> 
+</ul> 
+<p>The Amazon Redshift COPY command doesn’t support the following types of Amazon S3 encryption:</p> 
+<ul> 
+ <li>Server-side encryption with customer-provided keys (SSE-C)</li> 
+ <li>Client-side encryption using an AWS KMS–managed customer master key</li> 
+ <li>Client-side encryption using a customer-provided asymmetric master key</li> 
+</ul> 
+<h2>About the use case</h2> 
+<p>A multiple-account AWS environment is a common pattern across our customers for a variety of reasons. One of the common reasons for <a href="https://aws.amazon.com/big-data/datalakes-and-analytics/what-is-a-data-lake/" target="_blank" rel="noopener">data lake</a> customers in AWS is to separate ownership of data assets from different business units in the company. At the same time, business units might need to grant access to some of their data assets to each other for new business insights.</p> 
+<p>As illustrated in the following drawing, in our example Account A owns an S3 bucket with SSE-KMS encrypted data and Account B owns an Amazon Redshift cluster with Redshift Spectrum enabled. Account B needs access to the same data to load to the Amazon Redshift cluster using the COPY command and also to query using Redshift Spectrum.</p> 
+<p><img class="alignnone size-full wp-image-6535" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS31.png" alt="" width="621" height="331" /></p> 
+<h2>Solution walkthrough</h2> 
+<p>Following, we walk through a couple different options to support this use case.</p> 
+<h3>Prerequisites</h3> 
+<p>The solution assumes that you already have the following set up:</p> 
+<ol> 
+ <li style="list-style-type: none"> 
+  <ol> 
+   <li>Access to <em>two</em> AWS accounts (we call them Account A and B) in the same AWS Region.*</li> 
+   <li>Grant the <tt>AdministratorAccess</tt> policy to the AWS accounts (which should be restricted further for production).</li> 
+   <li><strong>Account A</strong> has a customer-managed CMK in AWS KMS with the following attributes: 
+    <ul> 
+     <li>Alias as <tt>kms_key_account_a</tt></li> 
+     <li>Description as <strong>Cross Account KMS Key in Account A</strong></li> 
+     <li><strong>Administrator</strong> as current IAM user using which you signed in to the AWS console and created the KMS key</li> 
+     <li><strong>Account B</strong> added as <strong>External Accounts</strong></li> 
+    </ul> <p>Copy and save the CMK Amazon Resource Name (ARN) to be used shortly</p></li> 
+   <li>Account A uses the following sample dataset from AWS: 
+    <div class="hide-language"> 
+     <pre><code class="lang-code">Customer - s3://awssampledbuswest2/ssbgz/customer0002_part_00.gz</code></pre> 
+    </div> </li> 
+   <li><strong>Account A</strong> has an S3 bucket called <tt>rs-xacct-kms-bucket</tt> with bucket encryption option set to AWS KMS using the KMS key <tt>kms_key_account_a</tt> created earlier.<br /> <img class="alignnone size-full wp-image-6537" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS32_2.png" alt="" width="450" height="312" /></li> 
+   <li>Use the following AWS CLI command to copy the <strong>customer</strong> table data from AWS sample dataset <a href="https://docs.aws.amazon.com/redshift/latest/dg/tutorial-tuning-tables-create-test-data.html">SSB – Sample Schema Benchmark</a>, found in the Amazon Redshift documentation.<strong>Note:</strong> Because bucket names are global across all AWS customers, you need a unique bucket name for your test run. Be sure to replace <span style="background-color: yellow"><tt>rs-xacct-kms-bucket</tt></span> with your own bucket name in the following command: 
+    <div class="hide-language"> 
+     <pre><code class="lang-code">aws s3 cp s3://awssampledbuswest2/ssbgz/ s3://rs-xacct-kms-bucket/customer/ --recursive --exclude '*' --include 'customer*'</code></pre> 
+    </div> </li> 
+   <li>After the copy is complete, check the <strong>KMS key ID</strong> for the file from S3 console, as shown following.<img class="alignnone size-full wp-image-6538" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS33.png" alt="" width="300" height="320" /></li> 
+   <li><strong>Account B</strong> has an Amazon Redshift cluster: 
+    <ul> 
+     <li>The cluster name is <tt>rstest</tt></li> 
+     <li>It’s publicly accessible</li> 
+     <li>It has an IAM role attached called <span style="background-color: yellow"><tt>redshift_role_account_b</tt></span> with the following two managed IAM policies: 
+      <ul> 
+       <li><tt>AmazonS3ReadOnlyAccess</tt></li> 
+       <li><tt>AWSGlueConsoleFullAccess</tt></li> 
+      </ul> </li> 
+    </ul> <p><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </strong><strong>Note: </strong>Be sure to update <span style="background-color: yellow"><tt>redshift_role_account_b</tt></span> with your own IAM role.</p> <p><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </strong>You can set up a database session successfully from a client tool, such as SQL Workbench from your laptop.</p></li> 
+  </ol> </li> 
+</ol> 
+<p style="padding-left: 30px"><em>* This walkthrough uses a publicly available AWS sample dataset from the US-West-2 (Oregon) Region. Hence, we recommend that you use the US-West-2 (Oregon) Region for your test run to reduce cross-region network latency and cost due to data movement.</em></p> 
+<h3>Step-by-step walkthrough</h3> 
+<p>Depending on which account’s AWS Glue Data Catalog you want to use for Redshift Spectrum, there are two solution options to choose from:</p> 
+<ol> 
+ <li>AWS Glue Data Catalog in Account B</li> 
+ <li>AWS Glue Data Catalog in Account A</li> 
+</ol> 
+<h3>Option 1: AWS Glue Data Catalog in Account B</h3> 
+<p><img class="alignnone size-full wp-image-6539" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS34.png" alt="" width="621" height="331" /></p> 
+<h4>Set up permissions</h4> 
+<ol> 
+ <li>Sign in to <strong>Account A</strong>’s AWS console. Then, change the AWS Region to <strong>us-west-2 (Oregon)</strong>. Add the following bucket policy for the <tt>rs-xacct-kms-bucket</tt> bucket so that Account B (which owns the Amazon Redshift cluster – <tt>rstest</tt>) can access the bucket.</li> 
+</ol> 
+<p style="padding-left: 30px"><strong>Note: </strong>Replace <span style="background-color: yellow"><em>&lt;</em>Account B&gt;</span> with AWS Account ID for Account B and <span style="background-color: yellow"><tt>rs-xacct-kms-bucket</tt></span> with your bucket name.</p> 
+<div class="hide-language"> 
+ <pre style="padding-left: 30px"><code class="lang-json">{
+    &quot;Version&quot;: &quot;2012-10-17&quot;,
+    &quot;Statement&quot;: [
+        {
+            &quot;Sid&quot;: &quot;AllowS3&quot;,
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Principal&quot;: {
+                &quot;AWS&quot;: &quot;arn:aws:iam::&lt;Account B&gt;:root&quot;
+            },
+            &quot;Action&quot;: [
+                &quot;s3:ListBucket&quot;,
+                &quot;s3:GetObject&quot;
+            ],
+            &quot;Resource&quot;: [
+                &quot;arn:aws:s3:::rs-xacct-kms-bucket/*&quot;,
+                &quot;arn:aws:s3:::rs-xacct-kms-bucket&quot;
+            ]
+        }
+    ]
+}</code></pre> 
+</div> 
+<ol start="2"> 
+ <li style="list-style-type: none"> 
+  <ol start="2"> 
+   <li>Sign in to <strong>Account B</strong>’s AWS console. Then, change the AWS Region to <strong>us-west-2 (Oregon)</strong>. Create IAM policies and roles as described following:</li> 
+  </ol> </li> 
+</ol> 
+<p style="padding-left: 90px">a) Create the following two IAM permission policies: <tt>rs_xacct_bucket_policy</tt> to give Account B access to the S3 bucket in Account A, and <tt>rs_xacct_kms_policy</tt> to give Account B access to the CMK in <strong>Account A</strong>.</p> 
+<p style="padding-left: 90px"><strong>Policy name: rs_xacct_kms_policy</strong></p> 
+<p style="padding-left: 90px"><strong>Note: </strong>Replace <span style="background-color: yellow"><tt>&lt;ARN of kms_key_account_a from Account A&gt;</tt></span> with your KMS key ARN from Account A.</p> 
+<div class="hide-language"> 
+ <pre style="padding-left: 90px"><code class="lang-json">{
+    &quot;Version&quot;: &quot;2012-10-17&quot;,
+    &quot;Statement&quot;: [
+        {
+            &quot;Sid&quot;: &quot;AllowUseOfTheKey&quot;,
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Action&quot;: [
+                &quot;kms:Encrypt&quot;,
+                &quot;kms:Decrypt&quot;,
+                &quot;kms:ReEncrypt*&quot;,
+                &quot;kms:GenerateDataKey*&quot;,
+                &quot;kms:DescribeKey&quot;
+            ],
+            &quot;Resource&quot;: [
+                &quot;&lt;ARN of kms_key_account_a from Account A&gt;&quot;
+            ]
+        },
+        {
+            &quot;Sid&quot;: &quot;AllowAttachmentOfPersistentResources&quot;,
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Action&quot;: [
+                &quot;kms:CreateGrant&quot;,
+                &quot;kms:ListGrants&quot;,
+                &quot;kms:RevokeGrant&quot;
+            ],
+            &quot;Resource&quot;: [
+                &quot;&lt;ARN of kms_key_account_a from Account A&gt;&quot;
+            ],
+            &quot;Condition&quot;: {
+                &quot;Bool&quot;: {
+                    &quot;kms:GrantIsForAWSResource&quot;: true
+                }
+            }
+        }
+    ]
+}</code></pre> 
+</div> 
+<p style="padding-left: 90px"><strong>Policy name:</strong> <strong>rs_xacct_bucket_policy</strong></p> 
+<p style="padding-left: 90px"><strong>Note: </strong>Replace <span style="background-color: yellow"><tt>rs-xacct-kms-bucket</tt></span> with your bucket name.</p> 
+<div class="hide-language"> 
+ <pre style="padding-left: 90px"><code class="lang-json">{
+    &quot;Version&quot;: &quot;2012-10-17&quot;,
+    &quot;Statement&quot;: [
+        {
+            &quot;Sid&quot;: &quot;AllowS3&quot;,
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Action&quot;: &quot;s3:*&quot;,
+            &quot;Resource&quot;: [
+                &quot;arn:aws:s3:::rs-xacct-kms-bucket/*&quot;,
+                &quot;arn:aws:s3:::rs-xacct-kms-bucket&quot;
+            ]
+        }
+    ]
+}</code></pre> 
+</div> 
+<p style="padding-left: 90px">b) Create a new IAM role called <tt>xacct_kms_role_account_b</tt> for the Amazon Redshift service with the following IAM policies attached:</p> 
+<p style="padding-left: 120px">• <tt>rs_xacct_bucket_policy</tt><br /> • <tt>rs_xacct_kms_policy</tt><br /> • <tt>AWSGlueConsoleFullAccess</tt></p> 
+<p style="padding-left: 90px">Save the Amazon Resource Name (ARN) of the IAM role. You’ll use it soon.</p> 
+<p style="padding-left: 90px">c) Now let’s set up the <a href="https://docs.aws.amazon.com/redshift/latest/mgmt/authorizing-redshift-service.html#authorizing-redshift-service-chaining-roles" target="_blank" rel="noopener">IAM role chaining for Amazon Redshift</a> between the two IAM roles, <tt>redshift_role_account_b</tt> and <tt>xacct_kms_role_account_b</tt>.</p> 
+<p style="padding-left: 90px">To chain roles, you establish a trust relationship between the roles. A role that assumes another role (for example, Role A) must have a permission policy that allows it to assume the next chained role (for example, Role B). Similarly, the role that passes permissions (Role B) must have a trust policy that allows it to pass its permissions to the previous chained role (Role A).</p> 
+<p style="padding-left: 90px">The first role in the chain must be a role attached to the Amazon Redshift cluster. The first role and each subsequent role that assumes the next role in the chain must have a policy that includes a specific statement. This statement has the <tt>Allow</tt> effect on the <tt>sts:AssumeRole</tt> action and the ARN of the next role in a <tt>Resource</tt> element.</p> 
+<p style="padding-left: 90px">In our example, Role A is <tt>redshift_role_account_b</tt>, which needs the permission policy <tt>rs_xacct_assume_role_policy</tt>, which &nbsp;allows it to assume Role B (which is <tt>xacct_kms_role_account_b</tt>). Both IAM roles are owned by AWS <strong>Account B</strong>.</p> 
+<p style="padding-left: 90px">d) Let’s create the IAM permission policy <tt>rs_xacct_assume_role_policy</tt> and attach the policy to the IAM role <tt>redshift_role_account_b</tt>.</p> 
+<p style="padding-left: 90px"><strong>Policy name:</strong> <strong>rs_xacct_assume_role_policy</strong></p> 
+<p style="padding-left: 90px"><strong>Note: </strong>Replace <span style="background-color: yellow">&lt;ARN for IAM role <strong><tt>xacct_kms_role_account_b</tt></strong> from Account B&gt;</span>.</p> 
+<div class="hide-language" style="padding-left: 90px"> 
+ <pre><code class="lang-json">{
+    &quot;Version&quot;: &quot;2012-10-17&quot;,
+    &quot;Statement&quot;: [
+        {
+            &quot;Sid&quot;: &quot;Stmt1487639602000&quot;,
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Action&quot;: [
+                &quot;sts:AssumeRole&quot;
+            ],
+            &quot;Resource&quot;: [
+&quot;&lt;ARN for IAM role xacct_kms_role_account_b from Account B&gt;&quot;
+            ]
+        }
+    ]
+}</code></pre> 
+</div> 
+<p style="padding-left: 90px">e) Change the trust relationship for IAM role <tt>xacct_kms_role_account_b</tt> by choosing<strong> Edit trust relationship</strong> and replacing the existing trust policy with the following:</p> 
+<p style="padding-left: 90px"><strong>Note: </strong>Replace <span style="background-color: yellow"><tt>&lt;Account B&gt;</tt></span> with the AWS Account ID for Account B.</p> 
+<div class="hide-language" style="padding-left: 90px"> 
+ <pre><code class="lang-json">{
+  &quot;Version&quot;: &quot;2012-10-17&quot;,
+  &quot;Statement&quot;: [
+    {
+      &quot;Effect&quot;: &quot;Allow&quot;,
+      &quot;Principal&quot;: {
+        &quot;Service&quot;: &quot;redshift.amazonaws.com&quot;
+      },
+      &quot;Action&quot;: &quot;sts:AssumeRole&quot;
+    },
+    {
+      &quot;Effect&quot;: &quot;Allow&quot;,
+      &quot;Principal&quot;: {
+        &quot;AWS&quot;: &quot;arn:aws:iam::&lt;Account B&gt;:root&quot;
+      },
+      &quot;Action&quot;: &quot;sts:AssumeRole&quot;
+    }
+  ]
+} </code></pre> 
+</div> 
+<p style="padding-left: 90px">f) Create an AWS Glue service IAM role called <tt>glue_service_role_account_b</tt> with the following policies attached:</p> 
+<p style="padding-left: 120px"><tt>• AWSGlueServiceRole</tt> (AWS managed policy)<br /> <tt>• rs_xacct_bucket_policy</tt> (managed policy created earlier)<br /> <tt>• rs_xacct_kms_policy</tt> (managed policy created earlier)</p> 
+<p style="padding-left: 90px"><strong>Note: </strong>Be sure to update <span style="background-color: yellow"><tt>glue_service_role_account_b</tt></span> with your own IAM role.</p> 
+<h4>Perform the Amazon Redshift COPY</h4> 
+<ol> 
+ <li>Log in to the Amazon Redshift cluster from your query tool and create the customer table using the DDL following.</li> 
+</ol> 
+<div class="hide-language"> 
+ <pre style="padding-left: 30px"><code class="lang-sql">CREATE TABLE customer 
+(
+  c_custkey      INTEGER NOT NULL,
+  c_name         VARCHAR(25) NOT NULL,
+  c_address      VARCHAR(25) NOT NULL,
+  c_city         VARCHAR(10) NOT NULL,
+  c_nation       VARCHAR(15) NOT NULL,
+  c_region       VARCHAR(12) NOT NULL,
+  c_phone        VARCHAR(15) NOT NULL,
+  c_mktsegment   VARCHAR(10) NOT NULL
+);</code></pre> 
+</div> 
+<p style="padding-left: 30px">2. Now you can run the COPY statement following successfully.</p> 
+<div class="hide-language"> 
+ <pre style="padding-left: 30px"><code class="lang-sql">copy customer from 's3://rs-xacct-kms-bucket/customer/' 
+iam_role '&lt;IAM role ARN of redshift_role_account_b,IAM role ARN of xacct_kms_role_account_b&gt;'
+gzip
+region 'us-west-2';</code></pre> 
+</div> 
+<p style="padding-left: 30px"><strong>Note:</strong> Replace the IAM role ARNs from Account B separated by a comma without any spaces around it.</p> 
+<p style="padding-left: 30px">3. Run the following sample query to verify that the data was loaded successfully.</p> 
+<div class="hide-language"> 
+ <pre style="padding-left: 30px"><code class="lang-sql">select * from customer limit 10;</code></pre> 
+</div> 
+<h4 style="padding-left: 30px"><img class="alignnone size-full wp-image-6603" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/08/RedshiftCopy2.png" alt="" width="800" height="180" /></h4> 
+<h4>Set up an AWS Glue Data Catalog table for Redshift Spectrum to query</h4> 
+<p>Let’s now create an AWS Glue crawler in Account B to crawl the same <tt>customer</tt> data and create a table called <tt>customer</tt> in the AWS Glue Data Catalog database <tt>spectrumdb_account_b</tt> following these steps:</p> 
+<ol> 
+ <li>Navigate to <strong>Databases</strong> on the AWS Glue console and choose <strong>Add database</strong> to create an AWS Glue Data Catalog database called <tt>spectrumdb_account_b</tt>, as shown following.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6540" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS35.png" alt="" width="624" height="149" /></p> 
+<ol start="2"> 
+ <li>Navigate to <strong>Crawlers</strong> on the AWS Glue console and choose <strong>Add crawler</strong>, as shown following.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6541" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS36.png" alt="" width="630" height="154" /></p> 
+<ol start="3"> 
+ <li>Create a crawler <tt>customerxacct</tt>, as shown following.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6542" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS37.png" alt="" width="631" height="168" /></p> 
+<p style="padding-left: 30px"><strong>Note: </strong>The Crawler job name (<tt>customerxacct</tt> in this case) is not same as the table name created by the crawler (a common confusion). The table name is picked up automatically from the prefix and folder name from your S3 bucket and folder structure. You also have an option to attach a table name prefix if you want to.<em>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </em></p> 
+<ol start="4"> 
+ <li>Choose <strong>Next</strong> to enter <strong>Data store</strong> details of the <tt>customer table</tt>, as following.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6543" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS38.png" alt="" width="629" height="279" /></p> 
+<ol start="5"> 
+ <li>Choose <strong>Next</strong> to get to the <strong>Add another data store</strong> We leave the default, <strong>No</strong>, because we don’t have any other data stores to add.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6544" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS39.png" alt="" width="629" height="138" /></p> 
+<ol start="6"> 
+ <li>Choose <strong>Next</strong> to choose the IAM role created earlier, <tt>glue_service_role_account_b</tt>, for the crawler to use, as shown following.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6545" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS310.png" alt="" width="631" height="251" /></p> 
+<ol start="7"> 
+ <li>Choose <strong>Next</strong> to go to the <strong>Schedule</strong> page and choose the schedule that you want this crawler job to run. For this example, we can choose <strong>Run on demand</strong>.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6546" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS311.png" alt="" width="633" height="211" /></p> 
+<ol start="8"> 
+ <li>Choose <strong>Next</strong> to choose the AWS Glue Data Catalog database <span style="background-color: yellow"><tt>spectrumdb_account_b</tt></span> (created earlier by create external schema command) as the crawler output location.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6547" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS312.png" alt="" width="632" height="246" /></p> 
+<ol start="9"> 
+ <li>Choose <strong>Next</strong> to get to the review page.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6548" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS313.png" alt="" width="630" height="342" /></p> 
+<ol start="10"> 
+ <li>After reviewing the details, choose <strong>Finish</strong> to finish creating the crawler.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6549" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS314.png" alt="" width="629" height="92" /></p> 
+<ol start="11"> 
+ <li>Now, let’s run the crawler job by selecting the job as following and choosing <strong>Run crawler</strong>.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6550" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS315.png" alt="" width="637" height="96" /></p> 
+<ol start="12"> 
+ <li>Wait and watch for the job to complete. Its status changes from <strong>Starting</strong> to <strong>Stopping</strong> to <strong>Ready</strong>. You can choose the refresh button for the latest status.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6551" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS316.png" alt="" width="631" height="105" /></p> 
+<ol start="13"> 
+ <li>If the job fails, the failure is recorded in Amazon CloudWatch logs. To view the logs, choose <strong>Logs</strong>, shown in the screenshot preceding, which takes you to the CloudWatch logs.</li> 
+</ol> 
+<ol start="14"> 
+ <li>Now, let’s go to the AWS Glue Data Catalog database to make sure that the table exists.</li> 
+</ol> 
+<p style="padding-left: 30px">Choose Databases, choose the <tt>spectrumdb_account_b</tt> database, and then choose <strong>View Tables</strong>, or choose the hyperlink of the database name. You should see the customer table, as shown following.</p> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6552" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS318.png" alt="" width="633" height="113" /></p> 
+<ol start="15"> 
+ <li>Choose the <strong>customer</strong> hyperlink to get to the external table, details following.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6553" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS319.png" alt="" width="673" height="312" /></p> 
+<p style="padding-left: 30px">Because the data file didn’t have a header record, the AWS Glue crawler has assigned a default column naming convention as shown preceding. For the <strong>customer</strong> table, this naming is column 0 to column 7</p> 
+<ol start="16"> 
+ <li>Choose <strong>Edit Schema</strong> and assign appropriate column names, as per the mapping following.</li> 
+</ol> 
+<p style="padding-left: 30px">c0 =&gt; c_custkey</p> 
+<p style="padding-left: 30px">c1 =&gt; c_name</p> 
+<p style="padding-left: 30px">c2 =&gt; c_address</p> 
+<p style="padding-left: 30px">c3 =&gt; c_city</p> 
+<p style="padding-left: 30px">c4 =&gt; c_nation</p> 
+<p style="padding-left: 30px">c5 =&gt; c_region</p> 
+<p style="padding-left: 30px">c6 =&gt; c_phone</p> 
+<p style="padding-left: 30px">c7 =&gt; c_mktsegment</p> 
+<p style="padding-left: 30px">When you are done, choose <strong>Save</strong>.</p> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6554" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS320.png" alt="" width="657" height="175" /></p> 
+<h4>Perform the Redshift Spectrum query</h4> 
+<p>Now that the customer table is created in AWS Glue Data Catalog, let’s query the table using Redshift Spectrum.</p> 
+<ol> 
+ <li>Log in to the Amazon Redshift cluster from your query tool.</li> 
+ <li>Run the statements following to create an external schema called <tt>spectrumxacct</tt> for Redshift Spectrum pointing to the AWS Glue Data Catalog database. This database is <tt>spectrumdb_account_b</tt> in Account B, already created on the AWS Glue console. 
+  <div class="hide-language"> 
+   <pre><code class="lang-sql">drop schema if exists spectrumxacct;
+create external schema spectrumxacct
+from data catalog 
+database 'spectrumdb_account_b'
+iam_role '&lt;IAM role ARN of redshift_role_account_b,IAM role ARN of xacct_kms_role_account_b&gt;'
+create external database if not exists;
+</code></pre> 
+  </div> <p><strong>Note: </strong>Replace the IAM role ARNs from Account B separated by a comma without any spaces around it.</p></li> 
+ <li>Run the following sample query to verify that Redshift Spectrum can query the data successfully. 
+  <div class="hide-language"> 
+   <pre><code class="lang-sql">select * from spectrumxacct.customer limit 10;</code></pre> 
+  </div> </li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6555" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS321.png" alt="" width="800" height="180" /></p> 
+<p style="padding-left: 30px"><strong>Note: </strong>Redshift Spectrum uses the AWS Glue Data Catalog in Account B, not Account A.</p> 
+<h3>Option 2: AWS Glue Data Catalog in Account A</h3> 
+<p><strong>&nbsp;</strong><img class="alignnone size-full wp-image-6556" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS322.png" alt="" width="621" height="331" /></p> 
+<h4>Set up permissions</h4> 
+<p>1. Sign in to the <strong>Account A</strong> AWS console, then change the AWS Region to <strong>us-west-2 (Oregon)</strong>.</p> 
+<ul> 
+ <li style="list-style-type: none"> 
+  <ul>
+   a) Create the following IAM policies:
+  </ul> </li> 
+</ul> 
+<p style="padding-left: 90px"><tt>• rs-xacct-bucket-policy</tt> to give access to the S3 bucket in Account A<br /> <tt>• rs_xacct_kms_policy</tt> to give access to the CMK in Account A</p> 
+<p style="padding-left: 90px"><strong>Policy name: rs_xacct_bucket_policy</strong></p> 
+<p style="padding-left: 90px"><strong>Note: </strong>Replace the bucket name <span style="background-color: yellow"><tt>rs-xacct-kms-bucket</tt></span> with your bucket name.</p> 
+<div class="hide-language"> 
+ <pre style="padding-left: 90px"><code class="lang-json">{
+    &quot;Version&quot;: &quot;2012-10-17&quot;,
+    &quot;Statement&quot;: [
+        {
+            &quot;Sid&quot;: &quot;AllowS3&quot;,
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Action&quot;: [
+                &quot;s3:ListBucket&quot;,
+                &quot;s3:GetObject&quot;
+            ],
+            &quot;Resource&quot;: [
+                &quot;arn:aws:s3:::rs-xacct-kms-bucket/*&quot;,
+                &quot;arn:aws:s3:::rs-xacct-kms-bucket&quot;
+            ]
+        }
+    ]
+}</code></pre> 
+</div> 
+<p style="padding-left: 90px"><strong>Policy name: rs_xacct_kms_policy</strong></p> 
+<p style="padding-left: 90px"><strong>Note: </strong>Replace <span style="background-color: yellow"><tt>&lt;ARN of kms_key_account_a from Account A&gt;</tt></span> with your KMS key ARN from Account A.</p> 
+<div class="hide-language"> 
+ <pre style="padding-left: 90px"><code class="lang-json">{
+    &quot;Version&quot;: &quot;2012-10-17&quot;,
+    &quot;Statement&quot;: [
+        {
+            &quot;Sid&quot;: &quot;AllowUseOfTheKey&quot;,
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Action&quot;: [
+                &quot;kms:Encrypt&quot;,
+                &quot;kms:Decrypt&quot;,
+                &quot;kms:ReEncrypt*&quot;,
+                &quot;kms:GenerateDataKey*&quot;,
+                &quot;kms:DescribeKey&quot;
+            ],
+            &quot;Resource&quot;: [
+                &quot;&lt;ARN of kms_key_account_a from Account A&gt;&quot;
+            ]
+        },
+        {
+            &quot;Sid&quot;: &quot;AllowAttachmentOfPersistentResources&quot;,
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Action&quot;: [
+                &quot;kms:CreateGrant&quot;,
+                &quot;kms:ListGrants&quot;,
+                &quot;kms:RevokeGrant&quot;
+            ],
+            &quot;Resource&quot;: [
+                &quot;&lt;ARN of kms_key_account_a from Account A&gt;&quot;
+            ],
+            &quot;Condition&quot;: {
+                &quot;Bool&quot;: {
+                    &quot;kms:GrantIsForAWSResource&quot;: true
+                }
+            }
+        }
+    ]
+}</code></pre> 
+</div> 
+<p style="padding-left: 90px">b) Create a new IAM role called <tt>xacct_kms_role_account_a</tt> for the <strong>Amazon Redshift</strong> service with the following IAM policies:</p> 
+<p style="padding-left: 120px">• <tt>rs_xacct_bucket_policy</tt><br /> • <tt>rs_xacct_kms_policy</tt><br /> • <tt>AWSGlueConsoleFullAccess</tt> (this managed policy provides the required permissions for the AWS Glue Data Catalog)</p> 
+<p style="padding-left: 90px">Save the IAM role ARN to be used shortly.</p> 
+<p style="padding-left: 90px">c) Change the trust relationship for the IAM role <tt>xacct_kms_role_account_a</tt> by choosing<strong> Edit trust relationship</strong> and replacing the existing trust policy with the following:</p> 
+<p style="padding-left: 90px"><strong>Note: </strong>Replace <span style="background-color: yellow"><tt>&lt;Account B&gt;</tt></span> with the AWS account ID for Account B.</p> 
+<div class="hide-language"> 
+ <pre style="padding-left: 90px"><code class="lang-json">{
+  &quot;Version&quot;: &quot;2012-10-17&quot;,
+  &quot;Statement&quot;: [
+    {
+      &quot;Effect&quot;: &quot;Allow&quot;,
+      &quot;Principal&quot;: {
+        &quot;Service&quot;: &quot;redshift.amazonaws.com&quot;
+      },
+      &quot;Action&quot;: &quot;sts:AssumeRole&quot;
+    },
+    {
+      &quot;Effect&quot;: &quot;Allow&quot;,
+      &quot;Principal&quot;: {
+        &quot;AWS&quot;: &quot;arn:aws:iam::&lt;Account B&gt;:root&quot;
+      },
+      &quot;Action&quot;: &quot;sts:AssumeRole&quot;
+    }
+  ]
+}</code></pre> 
+</div> 
+<p style="padding-left: 90px">d) Create an AWS Glue service IAM role called <tt>glue_service_role_account_a</tt> with the following policies attached:</p> 
+<p style="padding-left: 120px">• <tt>AWSGlueServiceRole</tt> (AWS managed policy)<br /> • <tt>rs_xacct_bucket_policy</tt> (managed policy created earlier)<br /> • <tt>rs_xacct_kms_policy</tt> (managed policy created earlier)</p> 
+<p style="padding-left: 90px"><strong>Note: </strong>Be sure to update <span style="background-color: yellow"><tt>glue_service_role_account_a</tt></span> with your own IAM role</p> 
+<p>2. Sign in to <strong>Account B</strong>’s AWS console and change the AWS Region to <strong>us-west-2 (Oregon) </strong>if it’s not already selected.</p> 
+<p style="padding-left: 30px">a) Modify the existing IAM policy <tt>rs_xacct_assume_role_policy</tt> and replace the existing JSON policy with the following:</p> 
+<p style="padding-left: 30px"><strong>&nbsp;</strong><strong>Note: </strong>Replace <span style="background-color: yellow"><tt>&lt;ARN for IAM role xacct_kms_role_account_a from Account A&gt;</tt></span>.</p> 
+<div class="hide-language"> 
+ <pre style="padding-left: 30px"><code class="lang-json">{
+    &quot;Version&quot;: &quot;2012-10-17&quot;,
+    &quot;Statement&quot;: [
+        {
+            &quot;Sid&quot;: &quot;Stmt1487639602000&quot;,
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Action&quot;: [
+                &quot;sts:AssumeRole&quot;
+            ],
+            &quot;Resource&quot;: [
+&quot;&lt;ARN for IAM role xacct_kms_role_account_a from Account A&gt;&quot;
+            ]
+        }
+    ]
+}</code></pre> 
+</div> 
+<h4>Perform the Amazon Redshift COPY</h4> 
+<p>1. Log in to the Amazon Redshift cluster from your query tool and create the <tt>customer</tt> table using the DDL following.</p> 
+<div class="hide-language"> 
+ <pre style="padding-left: 30px"><code class="lang-sql">CREATE TABLE customer 
+(
+  c_custkey      INTEGER NOT NULL,
+  c_name         VARCHAR(25) NOT NULL,
+  c_address      VARCHAR(25) NOT NULL,
+  c_city         VARCHAR(10) NOT NULL,
+  c_nation       VARCHAR(15) NOT NULL,
+  c_region       VARCHAR(12) NOT NULL,
+  c_phone        VARCHAR(15) NOT NULL,
+  c_mktsegment   VARCHAR(10) NOT NULL
+);</code></pre> 
+</div> 
+<p>2. Now you should be able to run the COPY statement following successfully.</p> 
+<div class="hide-language"> 
+ <pre style="padding-left: 30px"><code class="lang-sql">copy customer from 's3://rs-xacct-kms-bucket/customer/' 
+iam_role '&lt;ARN for IAM role redshift_role_account_b from Account B,&lt;ARN for IAM role xacct_kms_role_account_a from Account A&gt;'
+gzip
+region 'us-west-2';</code></pre> 
+</div> 
+<p style="padding-left: 30px"><strong>Note: </strong>Replace the IAM role ARNs separated by a comma without any spaces around it.</p> 
+<p>3. Run the sample query following to validate that the data was loaded successfully.</p> 
+<div class="hide-language"> 
+ <pre style="padding-left: 30px"><code class="lang-sql">select * from customer limit 10;</code></pre> 
+</div> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6557" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS323.png" alt="" width="800" height="180" /></p> 
+<h4>Set up AWS Glue Data Catalog table for Redshift Spectrum to query</h4> 
+<p>Let’s now create an AWS Glue crawler in Account A to crawl the same <tt>customer</tt> data and create a table called <strong>customer</strong> in the AWS Glue Data Catalog database <tt>spectrumdb_account_a</tt> in Account A following these steps:</p> 
+<p>Follow the same steps as outlined in Option 1 to create and run a crawler with the following changes:</p> 
+<ol> 
+ <li>This time, create the crawler in <strong>Account A</strong> (as opposed to Account B for Option 1).</li> 
+ <li>Create an AWS Glue Data Catalog database <tt>spectrumdb_account_a</tt> in Account A (as opposed to <tt>spectrumdb_account_b</tt> in Account B), and choose that database for crawler to create the <tt>customer</tt> table.</li> 
+ <li>While providing S3 path, choose the option <strong>Specified path in my account</strong> (unlike <strong>Specified path in another account</strong> chosen for Option 1).</li> 
+ <li>Make sure to use <tt>glue_service_role_account_a</tt> created earlier as the AWS Glue service IAM role.=</li> 
+</ol> 
+<h4>Perform the Redshift Spectrum query<strong><br /> </strong></h4> 
+<p>Now that the <tt>customer</tt> table is created in the AWS Glue Data Catalog, let’s query the table using Redshift Spectrum.</p> 
+<p style="padding-left: 30px">1. Log in to the Amazon Redshift cluster from your query tool and run the statements following. These create an external schema called <tt>spectrumxacct2</tt> for Redshift Spectrum pointing to the AWS Glue Data Catalog database <tt>spectrumdb_account_a</tt> (created earlier from AWS Glue console) in Account A.</p> 
+<div class="hide-language"> 
+ <pre style="padding-left: 30px"><code class="lang-sql">drop schema if exists spectrumxacct2;
+create external schema spectrumxacct2
+from data catalog 
+database 'spectrumdb_account_a' 
+iam_role '&lt;ARN for IAM role redshift_role_account_b from Account B,&lt;ARN for IAM role xacct_kms_role_account_a from Account A&gt;'
+create external database if not exists;</code></pre> 
+</div> 
+<p style="padding-left: 30px"><strong>Note: </strong>Replace the IAM role ARNs separated by a comma without any spaces around it.</p> 
+<p>2. Run the following query, which should run successfully.</p> 
+<div class="hide-language"> 
+ <pre style="padding-left: 30px"><code class="lang-sql">select * from spectrumxacct2.customer limit 10;</code></pre> 
+</div> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6558" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/01/RedshiftKMSS324.png" alt="" width="800" height="180" /></p> 
+<p style="padding-left: 30px"><strong>Note: </strong>Spectrum uses the AWS Glue Data Catalog in Account A, not Account B<em>.</em></p> 
+<h2>Summary</h2> 
+<p>This post shows a step-by-step walkthrough of how to set up a cross-account Amazon Redshift COPY and query using Redshift Spectrum for a sample KMS encrypted dataset in Amazon S3. It demonstrates two solution options to choose from depending on which account’s AWS Glue Catalog you want to use for Redshift Spectrum.</p> 
+<p>If you have questions or suggestions, please leave a comment.</p> 
+<p>&nbsp;</p> 
+<hr /> 
+<h3>About the Author</h3> 
+<p><img class="size-full wp-image-6582 alignleft" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/03/06/sasasim2.png" alt="" width="113" height="138" /><strong>Asim Kumar Sasmal is a Sr. Data Architect – IoT in the Global Specialty Practice of AWS Professional Services. </strong>He helps AWS customers around the globe to design and build data driven solutions by providing expert technical consulting, best practices guidance, and implementation services on AWS platform. He is passionate about working backwards from customer ask, help them to think big, and dive deep to solve real business problems by leveraging the power of AWS platform.<strong><br /> </strong></p>

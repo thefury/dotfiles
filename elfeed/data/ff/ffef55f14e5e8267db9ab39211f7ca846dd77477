@@ -1,0 +1,140 @@
+<p>A key component of enterprise multi-account environments is logging. Centralized logging provides a single point of access to all salient logs generated across accounts and regions, and is critical for auditing, security and compliance. While some customers use the built-in ability to push Amazon CloudWatch Logs directly into Amazon Elasticsearch Service for analysis, others would prefer to move all logs into a centralized Amazon Simple Storage Service (Amazon S3) bucket location for access by several custom and third-party tools. In this blog post, I will show you how to forward existing and any new CloudWatch Logs log groups created in the future to a cross-account centralized logging Amazon S3 bucket.</p> 
+<p>The streaming architecture I use in the destination logging account is a streamlined version of the architecture and AWS CloudFormation templates from the <a href="https://aws.amazon.com/blogs/architecture/central-logging-in-multi-account-environments/">Central logging in Multi-Account Environments</a> blog post by Mahmoud Matouk. This blog post assumes some knowledge of CloudFormation, Python3 and the boto3 AWS SDK. You will need to have or configure an AWS working account and logging account, an IAM access and secret key for those accounts, and a working environment containing Python and the boto3 SDK. (For assistance, see the <a href="https://aws.amazon.com/getting-started/">Getting Started Resource Center</a> and <a href="https://aws.amazon.com/getting-started/tools-sdks/">Start Building with SDKs and Tools</a>.) All CloudFormation templates and Python code used in this article can be found in this <a href="https://github.com/aws-samples/amazon-cloudwatch-log-centralizer">GitHub Repository</a>.</p> 
+<h2>Setting Up the Solution</h2> 
+<p>You need to create or use an existing S3 bucket for storing CloudFormation templates and Python code for an AWS Lambda function. This S3 bucket is referred to throughout the blog post as the <em>&lt;S3 infrastructure-bucket&gt;</em>. Ensure that the bucket does not block new bucket policies or cross-account access by checking the bucket’s <strong>Permissions</strong> tab and the <strong>Public access settings</strong> button.</p> 
+<p>You also need a bucket policy that allows each account that needs to stream logs to access it when we create the AWS Lambda function below. To do so, update your bucket policy to include each new account you create and the <em>&lt;S3 infrastructure-bucket&gt;</em> ARN from the top of the <strong>Bucket policy editor</strong> page to modify this template:</p> 
+<pre>{
+&nbsp;&nbsp;&nbsp; &quot;Version&quot;: &quot;2012-10-17&quot;,
+&nbsp;&nbsp;&nbsp; &quot;Statement&quot;: [
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; {
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;Effect&quot;: &quot;Allow&quot;,
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;Principal&quot;: {
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;AWS&quot;: [
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;03XXXXXXXX85&quot;,
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;29XXXXXXXX02&quot;,
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;13XXXXXXXX96&quot;,
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;37XXXXXXXX30&quot;,
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;86XXXXXXXX95&quot;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ]
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; },
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;Action&quot;: [
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;s3:Get*&quot;,
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;s3:List*&quot;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ],
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;Resource&quot;: [
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;arn:aws:s3:::&lt;S3 infrastructure-bucket&gt;&quot;,
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;arn:aws:s3:::&lt;S3 infrastructure-bucket&gt;/*&quot;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ]
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }
+&nbsp;&nbsp;&nbsp; ]
+}</pre> 
+<p>Clone a local copy of the CloudFormation templates and Python code from the <a href="https://github.com/aws-samples/amazon-cloudwatch-log-centralizer">GitHub repository</a>. Compress the CentralLogging.py and lambda.py into a .zip file for the lambda function we create below and name it AddSubscriptionFilter.zip. Load these local files into the <em>&lt;S3 infrastructure-bucket&gt;</em>. I recommend using folders called /python for the .py files, /lambdas for the AddSubscriptionFilter.zip file and /cfn for the CloudFormation templates.</p> 
+<h2>Multi-Account Configuration and the Central Logging Account</h2> 
+<p>One form of multi-account configuration is the Landing Zone offering, which provides a core logging account for storing all logs for auditing. I use this account configuration as an example in this blog post. Initially, the Landing Zone setup creates several stack sets and resources, including roles, security groups, alarms, lambda functions, a cloud trail stream and an S3 bucket.</p> 
+<p>If you are not using a Landing Zone, create an appropriately named S3 bucket in the account you have chosen as a logging account. This S3 bucket will be referred to later as the <em>&lt;LoggingS3Bucket&gt;</em>. To mimic what the Landing Zone calls its logging bucket, you can use the format aws-landing-zone-logs-<em>&lt;Account Number&gt;</em>–<em>&lt;Region&gt;</em>, or simply pick an appropriate name for the centralized logging location. In a production environment, remember that it is critical to lock down the access to logging resources and the permissions allowed within the account to prevent deletion or tampering with the logs.</p> 
+<div id="attachment_956" style="width: 517px" class="wp-caption alignnone">
+ <img class="size-full wp-image-956" src="https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2018/11/28/stream-logs-1.png" alt="Figure 1 - Initial Landing Zone logging account resources" width="507" height="334" />
+ <p class="wp-caption-text">Figure 1 – Initial Landing Zone logging account resources</p>
+</div> 
+<p>The S3 bucket – aws-landing-zone-logs-<em>&lt;Account Number&gt;</em>–<em>&lt;Region&gt;</em> is the most important resource created by the stack-sets for logging purposes. It contains all of the logs streamed to it from all of the accounts. Initially, the Landing Zone only sends the AWS CloudTrail and AWS Config logs to this S3 bucket.</p> 
+<p>In order to send all of the other CloudWatch Logs that are necessary for auditing, we need to add a destination and streaming mechanism to the logging account.</p> 
+<h2>Logging Account Infrastructure</h2> 
+<p>The additional infrastructure required in the central logging account provides a destination for the log group subscription filters and a stream for log events that are sent from all accounts and appropriate regions to load them into the <em>&lt;LoggingS3Bucket&gt;</em> repository. The selection of these particular AWS resources is important, because Kinesis Data Streams is the only resource currently supported as a destination for cross-account <a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CrossAccountSubscriptions.html">CloudWatch Logs subscription filters</a>.</p> 
+<p>The centralLogging.yml CloudFormation template automates the creation of the entire required infrastructure in the core logging account. Make sure to run it in each of the regions in which you need to centralize logs. The log group subscription filter and destination regions must match in order to successfully stream the logs.</p> 
+<h3>Installation Instructions:</h3> 
+<ol> 
+ <li>Modify the centralLogging.yml template to add your account numbers for all of the accounts you want to stream logs from into the DestinationPolicy where you see the &lt;AccountNumberHere&gt; placeholders. Remove any unused placeholders.</li> 
+ <li>In the same DestinationPolicy, modify the final arn statement, replacing &lt;region&gt; with the region it will be run in (e.g., us-east-1), and the &lt;logging account number&gt; with the account number of the logging account where this template is to be run.</li> 
+ <li>Log in to the core logging account and access the AWS management console using administrator credentials.</li> 
+ <li>Navigate to <strong>CloudFormation</strong> and click the <strong>Create Stack</strong> button.</li> 
+ <li>Select <strong>Specify an Amazon S3 template URL</strong> and enter the Link for the centralLogging.yml template found in the <em>&lt;S3 infrastructure-bucket&gt;</em>.</li> 
+ <li>Enter a stack name, such as CentralizedLogging, and the one parameter called LoggingS3Bucket. Enter in the ARN of the logging bucket: arn:aws:s3::: &lt;LoggingS3Bucket&gt;. This can be obtained by opening the S3 console, clicking on the bucket icon next to this bucket, and then clicking the <strong>Copy Bucket ARN</strong> button.</li> 
+ <li>Skip the next page, acknowledge the creation of IAM resources, and <strong>Create</strong> the stack.</li> 
+ <li>When the stack completes, select the stack name to go to stack details and open the <strong>Outputs</strong>. Copy the value of the DestinationArnExport, which will be needed as a parameter for the script in the next section.</li> 
+</ol> 
+<p>Upon successful creation of this CloudFormation stack, the following new resources will be created:</p> 
+<ul> 
+ <li>Amazon CloudWatch Logs Destination</li> 
+ <li>Amazon Kinesis Stream</li> 
+ <li>Amazon Kinesis Firehose Stream</li> 
+ <li>Two AWS Identity and Access Management (IAM) Roles</li> 
+</ul> 
+<div id="attachment_957" style="width: 646px" class="wp-caption alignnone">
+ <img class="size-full wp-image-957" src="https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2018/11/28/streamlogs-2.png" alt="Figure 2 - New infrastructure required in the centralized logging account" width="636" height="499" />
+ <p class="wp-caption-text">Figure 2 – New infrastructure required in the centralized logging account</p>
+</div> 
+<p>Because the Landing Zone is a multi-account offering, the Log Destination is required to be the destination for all subscription filters. The key feature of the destination is its DestinationPolicy. Whenever a new account is added to the environment, its account number needs to be added to this DestinationPolicy in order for logs to be sent to it from the new account. Add the new account number in the centralLogging.yml CloudFormation template, and run an update in CloudFormation to complete the addition. A sample Destination Policy looks like this:</p> 
+<pre>{
+&nbsp; &quot;Version&quot; : &quot;2012-10-17&quot;,
+&nbsp; &quot;Statement&quot; : [
+&nbsp;&nbsp;&nbsp; {
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;Effect&quot; : &quot;Allow&quot;,
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;Principal&quot; : {
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;AWS&quot; : [
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;03XXXXXXXX85&quot;,
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;29XXXXXXXX02&quot;,
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;13XXXXXXXX96&quot;,
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;37XXXXXXXX30&quot;,
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;86XXXXXXXX95&quot;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ]
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; },
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;Action&quot; : &quot;logs:PutSubscriptionFilter&quot;,
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;Resource&quot; : &quot;arn:aws:logs:&lt;Region&gt;:&lt;LoggingAccountNumber&gt;:destination:CentralLogDestination&quot;
+&nbsp;&nbsp;&nbsp; }
+&nbsp; ]
+}</pre> 
+<p>The Kinesis Stream get records from the Logs Destination and holds them for 48 hours. Kinesis Streams scale by adding shards. The CloudFormation template starts the stream with two shards. You need to monitor this as instances and applications are deployed into the accounts, however, because all CloudWatch log objects will flow through this stream, and it will need to be scaled up at some point. To scale, change the number of shards (ShardCount) in the Kinesis Stream resource (KinesisLoggingStream) to the required number. See the <a href="https://aws.amazon.com/kinesis/data-streams/faqs/">Amazon Kinesis Data Streams FAQ</a> documentation to confirm the capacity and throughput of each shard.</p> 
+<p>Kinesis Firehose provides a simple and efficient mechanism to retrieve the records from the Kinesis Stream and load them into the <em>&lt;LoggingS3Bucket&gt;</em> repository. It uses the CloudFormation template parameter to know where to load the logs. All of the CloudWatch logs loaded by Firehose will be under the prefix /CentralizedAccountsLog. The buffering hints for Firehose suggest that the logs be loaded every 5 minutes or 50 MB. Leave the CompressionFormat UNCOMPRESSED, since the logs are already compressed.</p> 
+<p>There are two AWS Identity and Access Management (IAM) roles created for this infrastructure. The first, CWLtoKinesisRole is used by the destination to allow CloudWatch Logs from all regions to use the destination to put the log object records into the Kinesis Stream, as well as to pass the role. The second, FirehoseDeliveryRole, allows Firehose to get the log object records from the Kinesis Stream, and then to load them into S3 logging bucket.</p> 
+<p>Once you have successfully created this infrastructure, the next step is to add the subscription filters to existing log groups.</p> 
+<h2>Adding Subscription Filters to Existing Log Groups</h2> 
+<p>The next step in the process is to add subscription filters for the Log Destination in the core logging account to all existing log groups. Several log groups are created by the Landing Zone, or you may have created them by using various AWS services or by logging application events. For every new AWS account, you will need to run the init_account_central_logging.py Python script to add the subscription filters to all the existing log groups.</p> 
+<p>The init_account_central_logging.py script takes one parameter, which is the Log Destination ARN. Use the Destination ARN you copied from the stack details output in the previous section as the parameter to the script.</p> 
+<p>The init_account_central_logging.py script first adds this Destination ARN to the AWS Systems Manager Parameter Store so that the core logic that creates the subscription filter can use it. The script then gets a list of all existing log groups, iterates over them, deletes any existing subscription filters (because there can only be one subscription filter per log group and attempting to create another would cause an error), and then adds the new subscription filter to the centralized logging account to the Log Destination.</p> 
+<div id="attachment_958" style="width: 646px" class="wp-caption alignnone">
+ <img class="size-full wp-image-958" src="https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2018/11/28/stream-logs-3-1.png" alt="Figure 3 - Run script to add subscription filters to existing log groups" width="636" height="388" />
+ <p class="wp-caption-text">Figure 3 – Run script to add subscription filters to existing log groups</p>
+</div> 
+<h3>Installation Instructions:</h3> 
+<ol> 
+ <li>Make sure that Python and boto3 are installed and accessible in the client computer – consider loading into a virtual environment to keep dependencies separate.</li> 
+ <li>Set the AWS_PROFILE environment variable to the appropriate AWS account profile.</li> 
+ <li>Log in to the proper account, and obtain administrator or other credentials with appropriate permissions, and add the account access key and secret key to the AWS credentials file.</li> 
+ <li>Set the region and output in the AWS config file.</li> 
+ <li>Download and place two python files into a working directory: init_account_central_logging.py and CentralLogging.py.</li> 
+ <li>Run the script using the command python3 ./init_account_central_logging.py -d &lt;LogDestinationArn&gt;.</li> 
+</ol> 
+<p>Use the AWS Management Console to validate the results. Navigate to CloudWatch Logs and view all of the log groups. Each one should now have a subscription filter named “Logs (CentralLogDestination).”</p> 
+<h2>Automatically Adding Subscription Filters to New Log Groups</h2> 
+<p>The final step to set up the centralized log streaming capability is to run a CloudFormation script to create resources that automatically add subscription filters to new log groups. New log groups are created in accounts by resources (e.g., Lambda functions) and by applications. A subscription filter must be added to every new log group in order to deliver its log events to the logging account,</p> 
+<p>The AddSubscriptionFilter.yml CloudFormation template contains resources to automatically add subscription filters.</p> 
+<p>First, it creates a role that allows it to access the lambda code that is stored in a centralized location – the <em>&lt;S3 infrastructure-bucket&gt;</em>. (Remember that its S3 bucket policy must contain this account number in order to access the lambda code.)</p> 
+<p>Second, the template creates the AddSubscriptionLambda, which reuses the core logic shared by the script in the last section. It retrieves the proper destination from the Parameter Store, deletes any existing subscription filter from the log group, and adds the new subscription filter to the newly created log group. This lambda function is triggered by a CloudWatch event rule.</p> 
+<p>Third, the CloudFormation creates a Lambda Permission, which allows the event trigger to invoke this particular lambda.</p> 
+<p>Finally, the CloudFormation template creates an Amazon CloudWatch Events Rule that acts as a trigger for the lambda. This rule looks for an event coming from CloudTrail that signals the creation of a new log group. For each create log group event found, it invokes the AddSubscriptionLambda.</p> 
+<div id="attachment_959" style="width: 646px" class="wp-caption alignnone">
+ <img class="size-full wp-image-959" src="https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2018/11/28/stream-logs-4-1.png" alt="Figure 4 - Infrastructure to automatically add a subscription filter to a new log group and the log flow to the centralized account" width="636" height="341" />
+ <p class="wp-caption-text">Figure 4 – Infrastructure to automatically add a subscription filter to a new log group and the log flow to the centralized account</p>
+</div> 
+<h3>Installation Instructions:</h3> 
+<p>(<strong>Important note</strong>: This functionality requires that the LogDestination parameter be properly set to the LogDestinationArn in the Parameter Store before the Lambda will run successfully. The script in the previous step sets this parameter, or it can be done manually. Make certain that the destination specified is in this same region.)</p> 
+<ol> 
+ <li>Ensure that the <em>&lt;S3 infrastructure-bucket&gt;</em> has the AddSubscriptionFilter.zip file containing the Python code files lambda.py and CentralLogging.py.</li> 
+ <li>Log in to the appropriate account, and access using administrator credentials. Make sure that the region is set properly.</li> 
+ <li>Navigate to Cloudformation and click the <strong>Create Stack</strong> button.</li> 
+ <li>Select <strong>Specify an Amazon S3 template URL</strong> and enter the Link for the AddSubscriptionFilter.yml template found in &lt;S3 infrastructure-bucket&gt;</li> 
+ <li>Enter a stack name, such as AddSubscription.</li> 
+ <li>Enter the two parameters, the <em>&lt;S3 infrastructure-bucket&gt;</em> name (not ARN) and the folder and file name (e.g., lambdas/AddSubscriptionFilter.zip)</li> 
+ <li>Skip the next page, acknowledge the creation of IAM resources, and <strong>Create</strong> the stack.</li> 
+</ol> 
+<p>In order to test that the automated addition of subscription filters is working properly, use the AWS Management Console to navigate to CloudWatch Logs and click the <strong>Actions</strong> button. Select <strong>Create New Log Group</strong> and enter a random log group name, such as “testLogGroup.” When first created, the log group will not have a subscription filter. After a few minutes, refresh the display and you should see the new subscription filter on the log group. At this point, you can delete the test log group.</p> 
+<h2>New Account Setup</h2> 
+<p>As a reminder, when you add new accounts that you want to have stream log events to the central logging account, you will need to configure the new accounts in two places in order for this functionality to work properly.</p> 
+<p>First, add the account number to the LoggingDestination property DestinationPolicy in the centralLogging.yml template. Then, update the CloudFormation stack.</p> 
+<p>Second, modify the bucket policy for the<em> &lt;S3 infrastructure-bucket&gt;</em>. Select the <strong>Permissions</strong> tab, then the <strong>Bucket Policy</strong> button. Add the new account to allow cross-account access to the lambda code by adding the line “arn:aws:iam::&lt;new account number&gt;:root” to the Principal.AWS list.</p> 
+<h2>Conclusion</h2> 
+<p>Centralized logging is a key component in enterprise multi-account architectures. In this blog post, I have built on the central logging in multi-account environments streaming architecture to automatically subscribe all CloudWatch Logs log groups to send all log events to an S3 bucket in a designated logging account. The solution uses a script to add subscription filters to existing log groups, and a lambda function to automatically place a subscription filter on all new log groups created within the account. This can be used to forward application logs, security logs, VPC flow logs, or any other important logs that are required for audit, security, or compliance purposes.</p> 
+<h3>About the author</h3> 
+<p><img class="alignleft size-thumbnail wp-image-951" src="https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2018/11/28/David-Bailey-150x150.jpg" alt="David Bailey" width="150" height="150" />David Bailey is a Cloud Infrastructure Architect with AWS Professional Services specializing in serverless application architecture, IoT, and artificial intelligence. He has spent decades architecting and developing complex custom software applications, as well as teaching internationally on object-oriented design, expert systems, and neural networks.</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p>

@@ -1,0 +1,157 @@
+<p>Managing database users and access can be a daunting and error-prone task. In the past, database administrators had to determine which groups a user belongs to and which objects a user/group is authorized to use. These lists were maintained within the database and could easily get disjointed from the corporate directory.</p> 
+<p>With <em>federation</em>, you can manage users and groups within the enterprise <em>identity provider</em> (IdP) and pass them to <a href="https://aws.amazon.com/redshift/" target="_blank" rel="noopener">Amazon Redshift</a> at login. In a previous post, <a href="https://aws.amazon.com/blogs/big-data/federate-database-user-authentication-easily-with-iam-and-amazon-redshift/" target="_blank" rel="noopener">Federate Database User Authentication Easily with IAM and Amazon Redshift</a>, I discussed the internals of the federation workflow using Active Directory Federation Service (AD FS) as our identity provider.</p> 
+<p>In this post, I focus on Okta as the identity provider. I provide step-by-step guidance showing how you can set up a trial Okta.com account, build users and groups within your organization’s directory, and enable single sign-on (SSO) into Amazon Redshift. You can do all of this while also maintaining group-level access controls within your data warehouse.</p> 
+<p>The steps in this post are structured into the following sections:</p> 
+<ul> 
+ <li><strong>Identity provider (Okta) configuration</strong> – You set up Okta, which contains your users organized into logical groups.</li> 
+ <li><strong>AWS configuration</strong> – You set up a role that establishes a trust relationship between your identity provider and AWS and a role that Okta uses to access Amazon Redshift.</li> 
+ <li><strong>Identity provider (Okta) advanced configuration</strong> – You finalize the Okta configuration by inputting the roles that you just created. You also inform Okta about which groups are allowed to be passed to Amazon Redshift.</li> 
+ <li><strong>Amazon Redshift server/client setup</strong> – You set up groups within the Amazon Redshift database to match the Okta groups. You also authorize these groups to access certain schemas and tables. Finally, you set up your client tools to use your enterprise credentials and sign in to Amazon Redshift.</li> 
+</ul> 
+<h2>Identity provider (Okta) configuration</h2> 
+<p>In this first step, you set up Okta, add users, and organize them into logical groups. You then add the <em>Amazon Web Services Redshift</em> Okta application.</p> 
+<h3>Step 1: Create an Okta account</h3> 
+<p>If you don’t already have access to an Okta account, you can start a 30-day free trial: <a href="https://www.okta.com/free-trial/" target="_blank" rel="noopener">https://www.okta.com/free-trial/</a>.</p> 
+<h3>Step 2: Set up your Okta directory</h3> 
+<p>Sign in to Okta.com using the following URL, where <tt><span style="background-color: yellow">&lt;prefix&gt;</span></tt> is specific to your account and was created at account setup:</p> 
+<p><tt>https://<span style="background-color: yellow">&lt;prefix&gt;</span>-admin.okta.com/admin/dashboard</tt></p> 
+<p>Navigate to the <strong>Directory</strong> page to add people and groups into Okta that match your organization. Be sure to use lowercase group names because Amazon Redshift expects the group names to be lowercase.</p> 
+<p>In the following example, I added three users and two groups, where one of the users (Jorge) belongs to both the “sales” and “marketing” groups.</p> 
+<p>First, choose <strong>Admin</strong> in the upper-right corner.</p> 
+<p><img class="alignnone size-full wp-image-6696" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/04/FederateRedshiftOkta1.png" alt="" width="657" height="93" /></p> 
+<p>To add users, choose <strong>Add Person</strong>. The following example shows the users that were created.</p> 
+<p><img class="alignnone size-full wp-image-6697" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/04/FederateRedshiftOkta2.png" alt="" width="657" height="325" /></p> 
+<p>To add groups into Okta, choose <strong>Add Group</strong>. The following example shows three groups.</p> 
+<p><img class="alignnone size-full wp-image-6698" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/04/FederateRedshiftOkta3.png" alt="" width="655" height="310" /></p> 
+<h3>Step 3: Add the “Amazon Web Services Redshift” Okta application</h3> 
+<p>Navigate to the <strong>Applications</strong> page. Choose <strong>Add Application</strong>, and search for the <strong>Amazon Web Services Redshift</strong> application. Proceed with the default settings.</p> 
+<p><img class="alignnone size-full wp-image-6699" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/04/FederateRedshiftOkta4.png" alt="" width="611" height="214" /></p> 
+<h3>Step 4: Download the Okta application metadata</h3> 
+<p>Make sure that you have navigated to the <strong>Amazon Web Services Redshift</strong> application’s settings page, which appears as follows.</p> 
+<p><img class="alignnone size-full wp-image-6700" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/04/FederateRedshiftOkta5.png" alt="" width="613" height="215" /></p> 
+<p>Choose <strong>Sign On</strong>, and then choose the <strong>Identity Provider metadata</strong> link to download the metadata file in xml format (for example, metadata.xml).</p> 
+<p><img class="alignnone size-full wp-image-6701" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/04/FederateRedshiftOkta6.png" alt="" width="475" height="428" /></p> 
+<h2>AWS configuration</h2> 
+<p>Next, you set up a role that establishes a trust relationship between the identity provider and AWS. You also create a role that Okta uses to access Amazon Redshift.</p> 
+<h3>Step 5: Create the SAML IAM identity provider</h3> 
+<p>Switching to <a href="https://console.aws.amazon.com/" target="_blank" rel="noopener">AWS Management Console</a>, sign in using your AWS credentials. Then open the <a href="https://console.aws.amazon.com/iam" target="_blank" rel="noopener">AWS Identity and Access Management (IAM)</a> console.</p> 
+<p>On the IAM console, choose <strong>Identity providers</strong>, and then choose <strong>Create Provider</strong>, as shown following.</p> 
+<p><img class="alignnone size-full wp-image-6702" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/04/FederateRedshiftOkta7.png" alt="" width="397" height="361" /></p> 
+<p>Provide a name for your IdP, and upload the metadata file that you downloaded in the previous step.</p> 
+<p><img class="alignnone size-full wp-image-6703" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/04/FederateRedshiftOkta8.png" alt="" width="580" height="241" /></p> 
+<h3>Step 6: Create the IAM SAML 2.0 federation role</h3> 
+<p>On the IAM console, navigate to <strong>Roles</strong> and create a new SAML 2.0 federation role.&nbsp; Reference the IdP that you created in the previous step, and choose <strong>Allow programmatic and AWS Management Console access</strong>.</p> 
+<p><img class="alignnone size-full wp-image-6704" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/04/FederateRedshiftOkta9.png" alt="" width="565" height="388" /></p> 
+<h3>Step 7: Add other permissions to query Amazon Redshift</h3> 
+<p>Choose <strong>Next: Assign Permissions</strong>. Then choose <strong>Create policy</strong>.</p> 
+<p><img class="alignnone size-full wp-image-6705" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/04/FederateRedshiftOkta10.png" alt="" width="656" height="261" /></p> 
+<p>Create the following custom policy, replacing the <tt>region</tt>, <tt>account</tt>, and <tt>cluster</tt> parameters. These permissions allow the role to use Amazon Redshift to query data, create users, and allow users to join groups.</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-json">{
+    &quot;Version&quot;: &quot;2012-10-17&quot;,
+    &quot;Statement&quot;: [{
+        &quot;Effect&quot;: &quot;Allow&quot;,
+           &quot;Action&quot;: [
+                &quot;redshift:CreateClusterUser&quot;,
+                &quot;redshift:JoinGroup&quot;,
+                &quot;redshift:GetClusterCredentials&quot;,
+                &quot;redshift:ListSchemas&quot;,
+                &quot;redshift:ListTables&quot;,
+                &quot;redshift:ListDatabases&quot;,
+                &quot;redshift:ExecuteQuery&quot;,
+                &quot;redshift:FetchResults&quot;,
+                &quot;redshift:CancelQuery&quot;,
+                &quot;redshift:DescribeClusters&quot;,
+                &quot;redshift:DescribeQuery&quot;,
+                &quot;redshift:DescribeTable&quot;],
+           &quot;Resource&quot;: &quot;arn:aws:redshift:<span style="background-color: yellow">&lt;region&gt;</span>:<span style="background-color: yellow">&lt;account&gt;</span>:cluster:<span style="background-color: yellow">&lt;cluster&gt;</span>&quot;}]
+}</code></pre> 
+</div> 
+<p>There are a few important things to note:</p> 
+<ul> 
+ <li>The group membership lasts only for the duration of the user session.</li> 
+ <li>There is no <tt>CreateGroup</tt> permission because groups need to be manually created and granted DB privileges.</li> 
+</ul> 
+<p>The following image shows the summary page for the role.</p> 
+<p><img class="alignnone size-full wp-image-6706" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/04/FederateRedshiftOkta11.png" alt="" width="532" height="519" /></p> 
+<h2>Identity provider (Okta) advanced configuration</h2> 
+<p>In this section, you finalize the Okta configuration by adding the roles that you just created. You also tell Okta which groups are allowed to be passed to Amazon Redshift.</p> 
+<h3>Step 8: Configure the advanced sign-on settings</h3> 
+<p>Switch back to Okta.com. Navigate to the settings page for the Amazon Web Services Redshift application. In the <strong>Sign-On</strong> section, scroll to <strong>Advanced Sign-On Settings</strong>.</p> 
+<p>Enter the previously created IdP and role ARNS, which are globally unique and ensure that Okta will be directed to your AWS account. <strong>Allowed DB Groups</strong> is a list of allowed groups that will be sent to Amazon Redshift in the DBGroup SAML assertion.</p> 
+<p>Don’t use the asterisk (*) wildcard. This will cause the Everyone group to be passed, and Amazon Redshift will complain because it expects the group names to be lowercase.&nbsp; Note that the <tt>${user.username}</tt> is sent in the <strong>DBUser</strong> SAML assertion.</p> 
+<p><img class="alignnone size-full wp-image-6707" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/04/FederateRedshiftOkta12.png" alt="" width="575" height="287" /></p> 
+<h3>Step 9: Authorize users</h3> 
+<p>Authorize users to use the Amazon Web Services Redshift application by selecting their respective groups or individual user accounts. In this example, I authorized users by group.</p> 
+<p><img class="alignnone size-full wp-image-6708" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/04/FederateRedshiftOkta13.png" alt="" width="546" height="379" /></p> 
+<h2>Amazon Redshift server/client setup</h2> 
+<p>Next, you set up groups in the Amazon Redshift database to match the Okta groups. You also authorize these groups to access certain schemas and tables. Finally, you set up your client tools to use your enterprise credentials and sign in to Amazon Redshift.</p> 
+<h3>Step 10: Set up groups</h3> 
+<p>Log in to your Amazon Redshift cluster with an admin account. Create groups that match the IdP group names, and grant the appropriate permissions to tables and schemas.</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-sql">CREATE GROUP sales;
+CREATE GROUP marketing;
+ALTER DEFAULT PRIVILEGES IN SCHEMA sales 
+GRANT ALL on TABLES to GROUP sales; 
+ALTER DEFAULT PRIVILEGES IN SCHEMA marketing 
+GRANT ALL on TABLES to GROUP marketing;</code></pre> 
+</div> 
+<h3>Step 11: Configure the JDBC SQL client</h3> 
+<p>Assuming that the Amazon Redshift JDBC driver is installed, set up a new connection to your cluster using your IdP credentials. In the following example, I am using SQLWorkbenchJ. For the URL, be sure to enter “iam” to instruct the driver to authenticate using IAM. For <strong>Username</strong> and <strong>Password</strong>, enter the values that you set in Okta.</p> 
+<p><img class="alignnone size-full wp-image-6709" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/04/FederateRedshiftOkta14.png" alt="" width="654" height="128" /></p> 
+<p>Enter the extended properties as follows. For <tt>app_id</tt> and <tt>idp_host</tt>, refer to the URL for the application in your web browser:</p> 
+<p><tt>https://<span style="background-color: yellow">&lt;prefix&gt;</span>-admin.okta.com/admin/app/amazon_aws_redshift/instance/<span style="background-color: yellow">&lt;app_id&gt;</span></tt></p> 
+<p><img class="alignnone size-full wp-image-6710" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/04/FederateRedshiftOkta15.png" alt="" width="491" height="224" /></p> 
+<h3>Step 12: Configure the ODBC SQL client</h3> 
+<p>Assuming that the Amazon Redshift ODBC driver is installed, set up a new connection to your cluster using your IdP credentials. In the following example, I modified the <tt>~/Library/ODBC/odbc.ini</tt> file.&nbsp; See the previous instructions for determining the <tt>&lt;app_id&gt;</tt> and <tt>&lt;prefix&gt;</tt> values.</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-code">[ODBC Data Sources]
+Redshift DSN=Installed
+
+[Redshift DSN]
+Driver=/opt/amazon/redshift/lib/libamazonredshiftodbc.dylib
+Host=&lt;endpoint&gt;
+Port=&lt;port&gt;
+Database=&lt;database&gt;
+locale=en-US
+app_id=&lt;app_id&gt;
+plugin_name=okta
+idp_host=&lt;prefix&gt;.okta.com
+iam=1</code></pre> 
+</div> 
+<h3>Step 13: Test user access</h3> 
+<p>You should now be able to sign on with the users created. In our example, <span style="color: #0000ff">jane@example.com</span> has access to the tables in the “sales” schema only. The user <span style="color: #0000ff">john@example.com</span> has access to tables in the “marketing” schema only. And <span style="color: #0000ff">jorge@example.com</span> has access to tables in both schemas. Using the <span style="color: #0000ff">jane@example.com</span> user, you get following results when trying to query data from each of the schemas:</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-sql">select storeid From sales.stores
+
+
+storeid	
+-------
+1234
+2345
+3456
+[…]
+
+
+select * From marketing.campaign
+
+
+An error occurred when executing the SQL command:
+select * From marketing.campaign
+
+[Amazon](500310) Invalid operation: permission denied for schema marketing;
+1 statement failed.
+
+Execution time: 0.16s</code></pre> 
+</div> 
+<h2>Summary</h2> 
+<p>In this post, I provided a step-by-step guide for configuring and using Okta as your Identity Provider (IdP) to enable single sign-on to an Amazon Redshift cluster. I also showed how group membership within your IdP can be passed along, enabling you to manage user access to Amazon Redshift resources from within your IdP.</p> 
+<p>If you have questions or suggestions, please comment below.</p> 
+<p>&nbsp;</p> 
+<hr /> 
+<h3>About the Author</h3> 
+<p><img class="size-full wp-image-6714 alignleft" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/04/rjvgupta.png" alt="" width="113" height="154" /><strong>Rajiv Gupta is a data warehouse specialist solutions architect with Amazon Web Services</strong>.</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p>

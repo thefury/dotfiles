@@ -1,0 +1,267 @@
+<p>Many customers use <a href="https://aws.amazon.com/emr/" target="_blank" rel="noopener">Amazon EMR</a> to run big data workloads, such as Apache Spark and Apache Hive queries, in their development environment. Data analysts and data scientists frequently use these types of clusters, known as <em>analytics EMR clusters</em>. Users often forget to terminate the clusters after their work is done. This leads to idle running of the clusters and in turn, adds up unnecessary costs.</p> 
+<p>To avoid this overhead, you must track the idleness of the EMR cluster and terminate it if it is running idle for long hours. There is the Amazon EMR native IsIdle <a href="https://aws.amazon.com/cloudwatch/" target="_blank" rel="noopener">Amazon CloudWatch</a> metric, which determines the idleness of the cluster by checking whether there’s a YARN job running. However, you should consider additional metrics, such as SSH users connected or Presto jobs running, to determine whether the cluster is idle. Also, when you execute any Spark jobs in Apache Zeppelin, the IsIdle metric remains active (1) for long hours, even after the job is finished executing. In such cases, the IsIdle metric is not ideal in deciding the inactivity of a cluster.</p> 
+<p>In this blog post, we propose a solution to cut down this overhead cost. We implemented a bash script to be installed in the master node of the EMR cluster, and the script is scheduled to run every 5 minutes. The script monitors the clusters and sends a CUSTOM metric EMR-INUSE (0=inactive; 1=active) to CloudWatch every 5 minutes. If CloudWatch receives 0 (inactive) for some predefined set of data points, it triggers an alarm, which in turn executes an <a href="https://aws.amazon.com/lambda/" target="_blank" rel="noopener">AWS Lambda</a> function that terminates the cluster.</p> 
+<h2>Prerequisites</h2> 
+<p>You must have the following before you can create and deploy this framework:</p> 
+<ul> 
+ <li><a href="https://aws.amazon.com/">An AWS account</a></li> 
+ <li><a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html" target="_blank" rel="noopener">An Amazon EC2 key pair</a></li> 
+ <li><a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html" target="_blank" rel="noopener">An IAM user with permissions to create AWS resources</a></li> 
+ <li><a href="https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-overview.html" target="_blank" rel="noopener">A running Amazon EMR cluster</a></li> 
+</ul> 
+<p><strong>Note: </strong>This solution is designed as an additional feature. It can be applied to any existing EMR clusters by executing the scheduler script (explained later in the post) as an EMR step. If you want to implement this solution as a mandatory feature for your future clusters, you can include the EMR step as part of your cluster deployment. You can also apply this solution to EMR clusters that are spun up through AWS CloudFormation, the AWS CLI, and even the AWS Management Console.</p> 
+<h2>Key components</h2> 
+<p>The following are the key components of the solution.</p> 
+<h3>Analytics EMR cluster</h3> 
+<p>Amazon EMR provides a managed Apache Hadoop framework that lets you easily process large amounts of data across dynamically scalable Amazon EC2 instances. Data scientists use analytics EMR clusters for data analysis, machine learning using notebook applications (such as Apache Zeppelin or JupyterHub), and running big data workloads based on Apache Spark, Presto, etc.</p> 
+<h3>Scheduler script</h3> 
+<p>The <tt>schedule_script.sh</tt> is the shell script to be executed as an Amazon EMR step. When executed, it copies the monitoring script from the Amazon S3 artifacts folder and schedules the monitoring script to run every 5 minutes. The S3 location of the monitoring script should be passed as an argument.</p> 
+<p><img class="alignnone size-full wp-image-6850" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/05/01/EMRCloudwatchLambda1.png" alt="" width="800" height="488" /></p> 
+<h3>Monitoring script</h3> 
+<p>The <tt>pushShutDownMetrin.sh</tt> script is a monitoring script that is implemented using shell commands. It should be installed in the master node of the EMR cluster as an Amazon EMR step. The script is scheduled to run every 5 minutes and sends the cluster activity status to CloudWatch. <strong>&nbsp;</strong></p> 
+<h3>JupyterHub API token script</h3> 
+<p>The <tt>jupyterhub_addAdminToken.sh</tt> script is a shell script to be executed as an Amazon EMR step if JupyterHub is enabled on the cluster. In our design, the monitoring script uses REST APIs provided by JupyterHub to check whether the application is in use.</p> 
+<p>To send the request to JupyterHub, you must pass an API token along with the request. By default, the application does not generate API tokens. This script generates the API token and assigns it to the admin user, which is then picked up by the <tt>jupyterhub</tt> module in the monitoring script to track the activity of the application.</p> 
+<h3>Custom CloudWatch metric</h3> 
+<p>All Amazon EMR clusters send data for several metrics to CloudWatch. Metrics are updated every 5 minutes, automatically collected, and pushed to CloudWatch. For this use case, we created the Amazon EMR metric <tt>EMR-INUSE</tt>. This metric represents the active status of the cluster based on the module checks implemented in the monitoring script. The metric is set to 0 when the cluster is inactive and 1 when active.</p> 
+<h3>Amazon CloudWatch</h3> 
+<p>CloudWatch is a monitoring service that you can use to set high-resolution alarms to take automated actions. In this case, CloudWatch triggers an alarm if it receives 0 continuously for the configured number of hours.</p> 
+<h3>AWS Lambda</h3> 
+<p>Lambda is a serverless technology that lets you run code without provisioning or managing servers. With Lambda, you can run code for virtually any type of application or backend service—all with zero administration. You can set up your code to automatically trigger from other AWS services. In this case, the triggered CloudWatch alarm mentioned earlier signals Lambda to terminate the cluster.</p> 
+<h2>Architectural diagram</h2> 
+<p>The following diagram illustrates the sequence of events when the solution is enabled, showing what happens to the EMR cluster that is spun up via AWS CloudFormation.</p> 
+<p><strong>&nbsp;<img class="alignnone size-full wp-image-6851" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/05/01/EMRCloudwatchLambda2.png" alt="" width="741" height="411" /></strong></p> 
+<p>The diagram shows the following steps:</p> 
+<ol> 
+ <li>The AWS CloudFormation stack is launched to spin up an EMR cluster.</li> 
+ <li>The Amazon EMR step is executed (installs the <tt>pushShutDownMetric.sh</tt> and then schedules it as a cron job to run every 5 minutes).</li> 
+ <li>If the EMR cluster is active (executing jobs), the master node sets the <tt>EMR-INUSE</tt> metric to 1 and sends it to CloudWatch.</li> 
+ <li>If the EMR cluster is inactive, the master node sets the <tt>EMR-INUSE</tt> metric to 0 and sends it to CloudWatch.</li> 
+ <li>On receiving 0 for a predefined number of data points, CloudWatch triggers a CloudWatch alarm.</li> 
+ <li>The CloudWatch alarm sends notification to AWS Lambda to terminate the cluster.</li> 
+ <li>AWS Lambda executes the Lambda function.</li> 
+ <li>The Lambda function then deletes all the stack resources associated with the cluster.</li> 
+ <li>Finally, the EMR cluster is terminated, and the Stack ID is removed from AWS CloudFormation.</li> 
+</ol> 
+<h2>Modules in the monitoring script</h2> 
+<p>Following are the different activity checks that are implemented in the monitoring script (<tt>pushShutDownMetric.sh</tt>). The script is designed in a modular fashion so that you can easily include new modules without modifying the core functionality.</p> 
+<h3>ActiveSSHCheck</h3> 
+<p>The <tt>ActiveSSHCheck</tt> module checks whether there are any active SSH connections to the master node. If there is an active SSH connection, and it’s idle for less than 10 minutes, the function sets the <tt>EMR-INUSE</tt> metric to 1 and pushes it to CloudWatch.</p> 
+<h3>YARNCheck</h3> 
+<p>Apache Hadoop YARN is the resource manager of the EMR Hadoop ecosystem. All the Spark Submits and Hive queries reach YARN initially. It then schedules and processes these jobs. The <tt>YARNCheck</tt> module checks whether there are any running jobs in YARN or jobs completed within last 5 minutes. If it finds any, the function sets the <tt>EMR-INUSE</tt> metric to 1 and pushes it to CloudWatch.The checks are performed by calling REST APIs exposed by YARN.</p> 
+<p>The API to fetch the running jobs is <a href="http://localhost:8088/ws/v1/cluster/apps?state=RUNNING" target="_blank" rel="noopener"><tt>http://localhost:8088/ws/v1/cluster/apps?state=RUNNING</tt></a>.</p> 
+<p>The API to fetch the completed jobs is</p> 
+<p><a href="http://localhost:8088/ws/v1/cluster/apps?state=FINISHED" target="_blank" rel="noopener"><tt>http://localhost:8088/ws/v1/cluster/apps?state=FINISHED</tt></a>.</p> 
+<h3>PRESTOCheck</h3> 
+<p>Presto is an open-source distributed query engine for running interactive analytic queries. It is included in EMR release version 5.0.0 and later.The <tt>PRESTOCheck</tt> module checks whether there are any running Presto queries or if any queries have been completed within last 5 minutes. If there are some, the function sets the <tt>EMR-INUSE</tt> metric to 1 and pushes it to CloudWatch. These checks are performed by calling REST APIs exposed by the Presto server.</p> 
+<p>The API to fetch the Presto jobs is <a href="http://localhost:8889/v1/query" target="_blank" rel="noopener"><tt>http://localhost:8889/v1/query</tt></a>.</p> 
+<h3>ZeppelinCheck</h3> 
+<p>Amazon EMR users use Apache Zeppelin as a notebook for interactive data exploration. The <tt>ZeppelinCheck</tt> module checks whether there are any jobs running or if any have been completed within the last 5 minutes. If so, the function sets the <tt>EMR-INUSE</tt> metric to 1 and pushes it to CloudWatch. These checks are performed by calling the REST APIs exposed by Zeppelin.</p> 
+<p>The API to fetch the list of notebook IDs is <a href="http://localhost:8890/api/notebook" target="_blank" rel="noopener"><tt>http://localhost:8890/api/notebook</tt></a>.</p> 
+<p>The API to fetch the status of each cell inside each notebook ID is <a href="http://localhost:8890/api/notebook/job/$notebookID" target="_blank" rel="noopener"><tt>http://localhost:8890/api/notebook/job/$notebookID</tt></a>.</p> 
+<h3>JupyterHubCheck</h3> 
+<p>Jupyter Notebook is an open-source web application that you can use to create and share documents that contain live code, equations, visualizations, and narrative text. JupyterHub allows you to host multiple instances of a single-user Jupyter notebook server.The <tt>JupyterHubCheck</tt> module checks whether any Jupyter notebook is currently in use.</p> 
+<p>The function uses REST APIs exposed by JupyterHub to fetch the list of Jupyter notebook users and gathers the data about individual notebook servers. From the response, it extracts the last activity time of the servers and checks whether any server was used in the last 5 minutes. If so, the function sets the EMR-INUSE metric to 1 and pushes it to CloudWatch. The <tt>jupyterhub_addAdminToken.sh</tt> script needs to be executed as an EMR step before enabling the scheduler script.</p> 
+<p>The API to fetch the list of notebook users is <tt>https://localhost:9443/hub/api/users -H &quot;Authorization: token $admin_token&quot;</tt>.</p> 
+<p>The API to fetch individual server information is <tt>https://localhost:9443/hub/api/users/$user -H &quot;Authorization: token $admin_token</tt>.</p> 
+<p>If any one of these checks fails, the cluster is considered to be inactive, and the monitoring script sets the <tt>EMR-INUSE</tt> metric to 0 and pushes it to CloudWatch.</p> 
+<p><strong>Note: </strong></p> 
+<p>The scheduler script schedules the monitoring script (<tt>pushShutDownMetric.sh</tt>) to run every 5 minutes. Internal cron jobs that run for a very few minutes are not considered in calibrating the <tt>EMR-INUSE</tt> metric.</p> 
+<h2>Deploying each component</h2> 
+<p>Follow the steps in this section to deploy each component of the proposed design.</p> 
+<h3>Step 1. Create the Lambda function and SNS subscription</h3> 
+<p>The Lambda function and the SNS subscription are the core components of the design. You must set up these components initially, and they are common for every cluster. The following are the AWS resources to be created for these components:</p> 
+<ul> 
+ <li>Execution role for the Lambda function</li> 
+ <li>Terminate Idle EMR Lambda function</li> 
+ <li>SNS topic and Lambda subscription</li> 
+</ul> 
+<p>For one-step deployment, use <a href="https://s3.amazonaws.com/emr-shutdown-blogartifacts/Cloudformation/lambda.json" target="_blank" rel="noopener">this AWS CloudFormation template</a> to launch and configure the resources in a single go.</p> 
+<p>The following parameters are available in the template.</p> 
+<table border="1" cellpadding="10"> 
+ <tbody> 
+  <tr style="background-color: #000000"> 
+   <td width="117"><strong><span style="color: #ffffff">Parameter</span></strong></td> 
+   <td width="276"><strong><span style="color: #ffffff">Default</span></strong></td> 
+   <td width="264"><strong><span style="color: #ffffff">Description</span></strong></td> 
+  </tr> 
+  <tr> 
+   <td width="117"><tt>s3Bucket</tt></td> 
+   <td width="276"><tt>emr-shutdown-blogartifacts</tt></td> 
+   <td width="264">The name of the S3 bucket that contains the Lambda file</td> 
+  </tr> 
+  <tr> 
+   <td width="117"><tt>s3Key</tt></td> 
+   <td width="276"><tt>EMRTerminate.zip</tt></td> 
+   <td width="264">The Amazon S3 key of the Lambda file</td> 
+  </tr> 
+ </tbody> 
+</table> 
+<p>For manual deployment, follow these steps on the AWS Management Console.</p> 
+<h4>Execution role for the Lambda function</h4> 
+<ol> 
+ <li>Open the&nbsp;<u><a href="https://console.aws.amazon.com/iam/" target="_blank" rel="noopener">AWS Identity and Access Management (IAM) console</a></u>and choose&nbsp;<strong>Policies</strong>,&nbsp;<strong>Create policy</strong>.</li> 
+ <li>Choose the&nbsp;<strong>JSON</strong> tab, paste the following policy text, and then choose <strong>Review policy</strong>.</li> 
+</ol> 
+<div class="hide-language"> 
+ <pre style="padding-left: 30px"><code class="lang-json">{
+    &quot;Version&quot;: &quot;2012-10-17&quot;,
+    &quot;Statement&quot;: [
+        {
+            &quot;Action&quot;: [
+                &quot;s3:ListAllMyBuckets&quot;,
+                &quot;s3:HeadBucket&quot;,
+                &quot;s3:ListObjects&quot;,
+                &quot;s3:GetObject&quot;,
+                &quot;cloudformation:ListStacks&quot;,
+                &quot;cloudformation:DeleteStack&quot;,
+                &quot;cloudformation:DescribeStacks&quot;,
+                &quot;cloudformation:ListStackResources&quot;,
+                &quot;elasticmapreduce:TerminateJobFlows&quot;
+            ],
+            &quot;Resource&quot;: &quot;*&quot;,
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Sid&quot;: &quot;GenericAccess&quot;
+        },
+        {
+            &quot;Action&quot;: [
+                &quot;logs:CreateLogGroup&quot;,
+                &quot;logs:CreateLogStream&quot;,
+                &quot;logs:PutLogEvents&quot;
+            ],
+            &quot;Resource&quot;: &quot;arn:aws:logs:*:*:*&quot;,
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Sid&quot;: &quot;LogAccess&quot;
+        }
+    ]
+}</code></pre> 
+</div> 
+<ol start="3"> 
+ <li>For&nbsp;<strong>Name</strong>, enter <tt>TerminateEMRPolicy</tt> and choose <strong>Create policy</strong>.</li> 
+ <li>Choose&nbsp;<strong>Roles</strong>,&nbsp;<strong>Create role</strong>.</li> 
+ <li>Under&nbsp;<strong>Choose the service that will use this role</strong>, choose <strong>Lambda</strong>, and then choose <strong>Next:</strong> <strong>Permissions</strong>.</li> 
+ <li>For&nbsp;<strong>Attach permissions policies</strong>, choose the arrow next to <strong>Filter policies</strong> and choose <strong>Customer managed</strong> in the drop-down list.</li> 
+ <li>Attach the <tt>TerminateEMRPolicy</tt> policy that you just created, and choose <strong>Review</strong>.</li> 
+ <li>For <strong>Role name</strong>, enter <tt>TerminateEMRLambdaRole</tt> and then choose <strong>Create role</strong>.</li> 
+</ol> 
+<h4>Terminate idle EMR – Lambda function</h4> 
+<p>I created a deployment package to use with this function.</p> 
+<ol> 
+ <li>Open the&nbsp;<a href="https://console.aws.amazon.com/lambda" target="_blank" rel="noopener">Lambda console</a>and choose&nbsp;<strong>Create function</strong>.</li> 
+ <li>Choose <strong>Author from scratch</strong>, and provide the details as shown in the following screenshot:</li> 
+</ol> 
+<ul> 
+ <li><strong>Name:</strong> <tt>lambdaTerminateEMR</tt></li> 
+ <li><strong>Runtime:</strong> Python 2.7</li> 
+ <li><strong>Role:</strong> Choose an existing role</li> 
+ <li><strong>Existing role:</strong> <tt>TerminateEMRLambdaRole</tt></li> 
+</ul> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6852" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/05/01/EMRCloudwatchLambda3.png" alt="" width="800" height="298" /></p> 
+<ol start="3"> 
+ <li>Choose <strong>Create function</strong>.</li> 
+ <li>In the <strong>Function code</strong> section, for <strong>Code entry type</strong>, choose <strong>Upload a file from Amazon S3</strong>, and for <strong>Runtime</strong>, choose <strong>Python 2.7</strong>.</li> 
+</ol> 
+<p>The Lambda function S3 link URL is</p> 
+<p><a href="https://s3.amazonaws.com/emr-shutdown-blogartifacts/EMRTerminate.zip" target="_blank" rel="noopener"><tt>s3://emr-shutdown-blogartifacts/EMRTerminate.zip</tt></a>.</p> 
+<p>Link to the function: <u><a href="https://s3.amazonaws.com/emr-shutdown-blogartifacts/EMRTerminate.zip" target="_blank" rel="noopener">https://s3.amazonaws.com/emr-shutdown-blogartifacts/EMRTerminate.zip</a></u></p> 
+<p>This Lambda function is triggered by a CloudWatch alarm. It parses the input event, retrieves the <tt>JobFlowId</tt>, and deletes the AWS CloudFormation stack of the corresponding <tt>JobFlowId</tt>.</p> 
+<h4>SNS topic and Lambda subscription</h4> 
+<p>For setting the CloudWatch alarm in the further stages, you must create an Amazon SNS topic that notifies the preceding Lambda function to execute. Follow these steps to create an SNS topic and configure the Lambda endpoint.</p> 
+<ol> 
+ <li>Navigate to the Amazon SNS console, and choose <strong>Create topic</strong>.</li> 
+ <li>Enter the <strong>Topic name</strong> and <strong>Display name</strong>, and choose <strong>Create topic</strong>.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6853" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/05/01/EMRCloudwatchLambda4.png" alt="" width="800" height="280" /></p> 
+<ol start="3"> 
+ <li>The topic is created and displayed in the <strong>Topics</strong></li> 
+ <li>Select the topic and choose <strong>Actions</strong>, <strong>Subscribe to topic</strong>.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6854" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/05/01/EMRCloudwatchLambda5.png" alt="" width="800" height="297" /></p> 
+<ol start="5"> 
+ <li>In the <strong>Create subscription</strong>, choose the <strong>AWS Lambda </strong> Choose <strong>lambdaterminateEMR</strong> as the endpoint, and choose <strong>Create subscription</strong>.</li> 
+</ol> 
+<h3>Step 2. Execute the JupyterHub API token script as an EMR step</h3> 
+<p>This step is required only when JupyterHub is enabled in the cluster.</p> 
+<p>Navigate to the EMR cluster to be monitored, and execute the scheduler script as an EMR step.</p> 
+<p><strong>Command</strong>: <tt>s3://emr-shutdown-blogartifacts/jupyterhub_addAdminToken.sh</tt></p> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6855" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/05/01/EMRCloudwatchLambda6.png" alt="" width="800" height="321" /></p> 
+<p>This script generates an API token and assigns it to the admin user. It is then picked up by the jupyterhub module in the monitoring script to track the activity of the application.</p> 
+<h3>Step 3. Execute the scheduler script as an EMR step</h3> 
+<p>Navigate to the EMR cluster to be monitored and execute the scheduler script as an EMR step.</p> 
+<p><strong>Note</strong>:</p> 
+<p>Ensure that termination protection is disabled in the cluster. The termination protection flag causes the Lambda function to fail.</p> 
+<p><strong>Command</strong>: <tt>s3://emr-shutdown-blogartifacts/schedule_script.sh</tt></p> 
+<p><strong>Parameter: </strong><tt>s3://emr-shutdown-blogartifacts/pushShutDownMetrin.sh</tt></p> 
+<p><img class="alignnone size-full wp-image-6856" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/05/01/EMRCloudwatchLambda7.png" alt="" width="800" height="317" /></p> 
+<p>The step function copies the <tt>pushShutDownMetric.sh</tt> script to the master node and schedules it to run every 5 minutes.</p> 
+<p>The <tt>schedule_script.sh</tt> is at <a href="https://s3.amazonaws.com/emr-shutdown-blogartifacts/schedule_script" target="_blank" rel="noopener">https://s3.amazonaws.com/emr-shutdown-blogartifacts/schedule_script</a>.sh.</p> 
+<p>The <tt>pushShutDownMetrin.sh</tt> is at <u><a href="https://s3.amazonaws.com/emr-shutdown-blogartifacts/pushShutDownMetrin.sh" target="_blank" rel="noopener">https://s3.amazonaws.com/emr-shutdown-blogartifacts/pushShutDownMetrin.sh</a></u>.</p> 
+<h3>Step 4. Create a CloudWatch alarm</h3> 
+<p>For single-step deployment, use <a href="https://s3.amazonaws.com/emr-shutdown-blogartifacts/Cloudformation/lambda.json" target="_blank" rel="noopener">this AWS CloudFormation template</a> to launch and configure the resources in a single go.</p> 
+<p>The following parameters are available in the template.</p> 
+<table border="1" cellpadding="10"> 
+ <tbody> 
+  <tr style="background-color: #000000"> 
+   <td width="180"><strong><span style="color: #ffffff">Parameter</span></strong></td> 
+   <td width="241"><strong><span style="color: #ffffff">Default</span></strong></td> 
+   <td width="236"><strong><span style="color: #ffffff">Description</span></strong></td> 
+  </tr> 
+  <tr> 
+   <td width="180"><tt>AlarmName</tt></td> 
+   <td width="241"><tt>TerminateIDLE-EMRAlarm</tt></td> 
+   <td width="236">The name for the alarm.</td> 
+  </tr> 
+  <tr> 
+   <td width="180"><tt>EMRJobFlowID</tt></td> 
+   <td width="241">Requires input</td> 
+   <td width="236">The <tt>Jobflowid</tt> of the cluster.</td> 
+  </tr> 
+  <tr> 
+   <td width="180"><tt>EvaluationPeriod</tt></td> 
+   <td width="241">Requires input</td> 
+   <td width="236">The idle timeout value—input should be in data points (1 data point equals 5 minutes). For example, to terminate the cluster if it is idle for 20 minutes, the input should be 4.</td> 
+  </tr> 
+  <tr> 
+   <td width="180"><tt>SNSSubscribeTopic</tt></td> 
+   <td width="241">Requires input</td> 
+   <td width="236">The Amazon Resource Name (ARN) of the SNS topic to be triggered on the alarm.</td> 
+  </tr> 
+ </tbody> 
+</table> 
+<p>&nbsp;</p> 
+<p>The AWS CloudFormation CLI command is as follows:</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-code">aws cloudformation create-stack --stack-name EMRAlarmStack \
+      --template-body s3://emr-shutdown-blogartifacts/Cloudformation/alarm.json \
+      --parameters AlarmName=TerminateIDLE-EMRAlarm,EMRJobFlowID=&lt;Input&gt;,                 EvaluationPeriod=4,SNSSubscribeTopic=&lt;Input&gt;
+</code></pre> 
+</div> 
+<p>For manual deployment, follow these steps to create the alarm.</p> 
+<ol> 
+ <li>Open the Amazon CloudWatch console and choose <strong>Alarms</strong>.</li> 
+ <li>Choose <strong>Create Alarm</strong>.</li> 
+ <li>On the <strong>Select Metric</strong> page, under <strong>Custom Metrics</strong>, choose <strong>EMRShutdown/Cluster-Metric</strong>.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6857" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/05/01/EMRCloudwatchLambda8.png" alt="" width="800" height="448" /></p> 
+<ol start="4"> 
+ <li>Choose the <strong>isEMRUsed </strong>metric of the EMR <strong>JobFlowId</strong>, and then choose <strong>Next</strong>.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6858" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/05/01/EMRCloudwatchLambda9.png" alt="" width="800" height="678" /></p> 
+<ol start="5"> 
+ <li>Define the alarm as required. In this case, the alarm is set to send notification to the SNS topic <tt>shutDownEMRTest</tt> when CloudWatch receives the <tt>IsEMRUsed</tt> metric as 0 for every data point in the last 2 hours.</li> 
+</ol> 
+<p style="padding-left: 30px"><img class="alignnone size-full wp-image-6859" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/05/01/EMRCloudwatchLambda10.png" alt="" width="800" height="671" /></p> 
+<ol start="6"> 
+ <li>Choose <strong>Create Alarm</strong>.</li> 
+</ol> 
+<h2>Summary</h2> 
+<p>In this post, we focused on building a framework to cut down the additional cost that you might incur due to the idle running of an EMR cluster. The modules implemented in the shell script, the tracking of the execution status of the Spark scripts, and the Hive/Presto queries using the lightweight REST API calls make this approach an efficient solution.</p> 
+<p>If you have questions or suggestions, please comment below.</p> 
+<p>&nbsp;</p> 
+<hr /> 
+<h3>About the Author</h3> 
+<p><img class="size-full wp-image-6860 alignleft" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/05/01/rpkrish.png" alt="" width="113" height="156" /><strong>Praveen Krishnamoorthy Ravikumar is an associate big data consultant with Amazon Web Services</strong>.</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p>

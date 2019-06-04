@@ -1,0 +1,1 @@
+Multi modules of MailSherlock MSR35 and MSR45 lead to a CSRF vulnerability. It allows attacker to elevate privilege of specific account via useradmin/cf_new.cgi?chief=&amp;wk_group=full&amp;cf_name=test&amp;cf_account=test&amp;cf_email=&amp;cf_acl=Management&amp;apply_lang=&amp;dn= without any authorizes.

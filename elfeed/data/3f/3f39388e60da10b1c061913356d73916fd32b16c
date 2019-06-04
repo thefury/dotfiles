@@ -1,0 +1,55 @@
+<p>We are excited to announce additional hands-on guides to help you learn and integrate Vault as your secrets management solution. Several pre-existing guides have also been updated.</p>
+
+<p><strong>What&#39;s New?</strong></p>
+
+<ul>
+<li><a href="https://learn.hashicorp.com/vault/day-one/autounseal-transit">Auto-Unseal with Transit Secrets Engine</a> guide demonstrates the Transit seal configuration introduced in Vault 1.1.</li>
+<li><a href="https://learn.hashicorp.com/vault/identity-access-management/oidc-auth">OpenID Connect (OIDC) Auth Method</a> guide demonstrates OIDC support which was introduced in Vault 1.1.</li>
+</ul>
+
+<p>Learn right in your web browser with the following Katacoda interactive scenarios which have recently been added:</p>
+
+<ul>
+<li><a href="https://www.katacoda.com/hashicorp/scenarios/vault-agent">Vault Agent</a> walks through the basic workings of Vault Agent Auto-Auth and Caching.</li>
+<li><a href="https://www.katacoda.com/hashicorp/scenarios/vault-auto-unseal">Vault Auto-Unseal</a> walks through how to setup auto-unseal with the Transit secrets engine.</li>
+</ul>
+
+<p><br></p>
+
+<h2><a href="https://learn.hashicorp.com/vault/day-one/autounseal-transit">Auto-Unseal with Transit Secrets Engine</a></h2>
+
+<p>In addition to AliCloud KMS, Amazon KMS, Azure Key Vault, and Google Cloud KMS, Vault 1.1 added support for the Transit Secrets Engine to auto-unseal your Vault.</p>
+
+<p><img src="https://s3-us-west-1.amazonaws.com/education-yh/screenshots/transit-auto-unseal.png" height="340"></p>
+
+<p>This guide walks you through the steps necessary to configure Transit Auto-Unseal.</p>
+
+<p>If you don&#39;t have a Vault environment to perform the tasks described in this guide, try the <a href="https://www.katacoda.com/hashicorp/scenarios/vault-auto-unseal">Vault Auto-Unseal</a> Katacoda interactive tutorial in your web browser.</p>
+
+<h2><a href="https://learn.hashicorp.com/vault/identity-access-management/oidc-auth">OpenID Connect (OIDC) Auth Method</a></h2>
+
+<p>Vault clients must first authenticate with Vault to acquire a valid token. Vault 1.1 introduced support for OpenID Connect (OIDC) as an auth method which is provided by many authentication services such as Auth0.</p>
+
+<p><img src="https://s3-us-west-1.amazonaws.com/education-yh/screenshots/vault-oidc-6.png" height="340"></p>
+
+<p>This guide walks through the configuration of the OIDC auth method using <strong><a href="https://auth0.com/">Auth0</a></strong> as its OIDC provider.</p>
+
+<p><strong>NOTE:</strong> Refer to the <a href="https://github.com/hashicorp/vault-guides/tree/master/identity/oidc-auth">Vault OpenID Demo</a> for an example using Google OAuth.</p>
+
+<h2><a href="https://www.katacoda.com/hashicorp/scenarios/vault-agent">Katacoda Scenario: Vault Agent</a></h2>
+
+<p>Vault Agent was first introduced in Vault 0.11 as a client daemon to automate the authentication and token lifecycle management. Vault 1.1 introduced its caching mechanism to further improve the efficiency of token and lease management.</p>
+
+<p><img src="https://s3-us-west-1.amazonaws.com/education-yh/screenshots/vault-caching-3.png" height="360"></p>
+
+<p>This Katacoda scenario demonstrates both Auto-Auth and Caching of Vault Agent using the <code>approle</code> auth method. If you don&#39;t have a Vault environment, try the Katacoda interactive tutorial today!</p>
+
+<h2><a href="https://www.katacoda.com/hashicorp/scenarios/vault-auto-unseal">Katacoda Scenario: Vault Auto-Unseal</a></h2>
+
+<p>If you don&#39;t have a Vault environment to experiment with Transit Auto-Unseal, try [this]((https://www.katacoda.com/hashicorp/scenarios/vault-auto-unseal) interactive tutorial in your web browser. </p>
+
+<p><img src="https://s3-us-west-1.amazonaws.com/education-yh/screenshots/transit-auto-unseal-2.png" height="200"></p>
+
+<p>It is designed to demonstrate the overall workflow on both ends.</p>
+
+<p>You can find many other educational resources, demo code, and interactive experiences at <a href="https://learn.hashicorp.com/vault/">HashiCorp Learn</a> or attend a training event with one of our <a href="https://www.hashicorp.com/training">training partners</a>.</p>

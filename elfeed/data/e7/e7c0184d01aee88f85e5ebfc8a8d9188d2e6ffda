@@ -1,0 +1,51 @@
+<p>We <a href="https://press.aboutamazon.com/news-releases/news-release-details/aws-announces-four-new-capabilities-make-it-easier-build-iot">announced</a> <a href="https://aws.amazon.com/iot-things-graph/" title="">AWS IoT Things Graph</a> last November and described it as a tool to let you build IoT applications visually. Today I am happy to let you know that the service is now available and ready for you to use!</p> 
+<p><img style="float: right;padding-left: 10px;padding-bottom: 10px" src="https://media.amazonwebservices.com/blog/2019/tg_booga.png" />As you will see in a moment, you can represent your business logic in a <strong>flow</strong> composed of devices and services. Each web service and each type of device (sensor, camera, display, and so forth) is represented in Things Graph as a <strong>model</strong>. The models hide the implementation details that are peculiar to a particular brand or model of device, and allow you to build flows that can evolve along with your hardware. Each model has a set of <strong>actions</strong> (inputs), <strong>events</strong> (outputs), and <strong>states</strong> (attributes). Things Graph includes a set of predefined models, and also allows you to define your own. You can also use <strong>mappings</strong> as part of your flow to convert the output from one device into the form expected by other devices. After you build your flow, you can deploy it to the AWS Cloud or an <a href="https://aws.amazon.com/greengrass/">AWS IoT Greengrass</a>-enabled device for local execution. The flow, once deployed, orchestrates interactions between locally connected devices and web services.</p> 
+<p><span style="text-decoration: underline"><strong>Using AWS IoT Things Graph</strong></span><br /> Let’s take a quick walk through the <a href="https://us-east-1.console.aws.amazon.com/thingsgraph/home">AWS IoT Things Graph Console</a>!</p> 
+<p>The first step is to make sure that I have models which represent the devices and web services that I plan to use in my flow. I click <strong>Models</strong> in the console navigation to get started:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/tg_nav_1.png" width="310" height="304" /></p> 
+<p>The console outlines the three steps that I must follow to create a model, and also lists my existing models:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/tg_models_main_1.png" width="800" height="864" /></p> 
+<p>The presence of <code>aws/examples</code> in the URN for each of the devices listed above indicates that they are predefined, and part of the public AWS IoT Things Graph namespace. I click on <strong>Camera</strong> to learn more about this model; I can see the <strong>Properties</strong>, <strong>Actions</strong>, and <strong>Events</strong>:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/tg_model_camera_1.png" width="800" height="501" /></p> 
+<p>The model is defined using <a href="https://graphql.org/">GraphQL</a>; I can view it, edit it, or upload a file that contains a model definition. Here’s the definition of the Camera:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/tg_camera_def_1.png" width="900" height="683" /></p> 
+<p>This model defines an abstract Camera device. The model, in turn, can reference definitions for one or more actual devices, as listed in the <strong>Devices</strong> section:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/tg_devices_1.png" width="900" height="421" /></p> 
+<p>Each of the devices is also defined using GraphQL. Of particular interest is the use of MQTT topics &amp; messages to define actions:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/tg_rpi_cam_def_1.png" width="756" height="370" /></p> 
+<p>Earlier, I mentioned that models can also represent web services. When a flow that references a model of this type is deployed, activating an action on the model invokes a <a href="https://docs.aws.amazon.com/greengrass/latest/developerguide/lambda-functions.html">Greengrass Lambda</a> function. Here’s how a web service is defined:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/tg_lambda_fun_mod_def_1.png" width="753" height="461" /></p> 
+<p>Now I can create a flow. I click <strong>Flows</strong> in the navigation, and click <strong>Create flow</strong>:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/tg_flows_1.png" width="900" height="399" /></p> 
+<p>I give my flow a name and enter a description:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/tg_demo_flow_1.png" width="700" height="427" /></p> 
+<p>I start with an empty canvas, and then drag nodes (<strong>Devices</strong>, <strong>Services</strong>, or <strong>Logic</strong>) to it:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/tg_flow_canvas_empty_1.png" width="900" height="503" /></p> 
+<p>For this demo (which is fully explained in the <a href="https://docs.aws.amazon.com/thingsgraph/latest/ug/iot-tg-whatis.html">AWS IoT Things Graph User Guide</a>), I’ll use a <strong>MotionSensor</strong>, a <strong>Camera</strong>, and a <strong>Screen</strong>:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/tg_flow_step1_2.png" width="900" height="221" /></p> 
+<p>I connect the devices to define the flow:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/tg_flow_step2_1.png" width="900" height="173" /></p> 
+<p>Then I configure and customize it. There are lots of choices and settings, so I’ll show you a few highlights, and refer you to the <a href="https://docs.aws.amazon.com/thingsgraph/latest/ug/iot-tg-whatis.html">User Guide</a> for more info. I set up the <strong>MotionSensor</strong> so that a change of state initiates this flow:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/tg_flow_setup_ms_1.png" width="350" height="601" /></p> 
+<p>I also (not shown) configure the <strong>Camera</strong> to perform the <strong>Capture</strong> action, and the <strong>Screen</strong> to display it. I could also make use of the predefined <strong>Services</strong>:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/tg_services_1.png" width="350" height="432" /></p> 
+<p>I can also add <strong>Logic</strong> to my flow:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/tg_logic_1.png" width="350" height="324" /></p> 
+<p>Like the models, my flow is ultimately defined in GraphQL (I can view and edit it directly if desired):</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/tg_flow_graphql_1.png" width="600" height="516" /></p> 
+<p>At this point I have defined my flow, and I click <strong>Publish</strong> to make it available for deployment:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/tg_pub_butt_1.png" width="440" height="204" /></p> 
+<p>The next steps are:</p> 
+<p><strong>Associate</strong> – This step assigns an actual AWS IoT Thing to a device model. I select a <strong>Thing</strong>, and then choose a device model, and repeat this step for each device model in my flow:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/tg_assoc_1.png" width="700" height="483" /></p> 
+<p><strong>Deploy</strong> – I create a Flow Configuration, target it at the Cloud or Greengrass, and use it to deploy my flow (read <a href="https://docs.aws.amazon.com/thingsgraph/latest/ug/iot-tg-sysdeploy-depconfig.html">Creating Flow Configurations</a> to learn more).</p> 
+<p><span style="text-decoration: underline"><strong>Things to Know</strong></span><br /> I’ve barely scratched the surface here; <a href="https://aws.amazon.com/iot-things-graph/" title="">AWS IoT Things Graph</a> provides you with a lot of power and flexibility and I’ll leave you to discover more on your own!</p> 
+<p>Here are a couple of things to keep in mind:</p> 
+<p><strong>Pricing</strong> – Pricing is based on the number of steps executed (for cloud deployments) or deployments (for edge deployments), and is detailed on the <a href="https://aws.amazon.com/iot-things-graph/pricing/">AWS IoT Things Graph Pricing</a> page.</p> 
+<p><strong>API Access</strong> – In addition to console access, you can use the <a href="https://docs.aws.amazon.com/thingsgraph/latest/APIReference/Welcome.html">AWS IoT Things Graph API</a> to build your models and flows.</p> 
+<p><strong>Regions</strong> – <span title="">AWS IoT Things Graph</span> is available in the <span title="">US East (N. Virginia)</span>, <span title="">US West (Oregon)</span>, <span title="">Europe (Ireland)</span>, <span title="">Asia Pacific (Sydney)</span>, and <span title="">Asia Pacific (Tokyo)</span> Regions.</p> 
+<p>— <a href="https://twitter.com/jeffbarr">Jeff</a>;</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p><div class="feedflare">
+<a href="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?a=TEQEnjhjVSQ:JPn9bYQO3ws:yIl2AUoC8zA"><img src="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?d=yIl2AUoC8zA" border="0"></img></a> <a href="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?a=TEQEnjhjVSQ:JPn9bYQO3ws:dnMXMwOfBR0"><img src="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?d=dnMXMwOfBR0" border="0"></img></a> <a href="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?a=TEQEnjhjVSQ:JPn9bYQO3ws:7Q72WNTAKBA"><img src="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?d=7Q72WNTAKBA" border="0"></img></a>
+</div><img src="http://feeds.feedburner.com/~r/AmazonWebServicesBlog/~4/TEQEnjhjVSQ" height="1" width="1" alt=""/>

@@ -1,0 +1,73 @@
+<p><em>Guest post by AWS Serverless Hero <a href="https://aws.amazon.com/developer/community/heroes/forrest-brazeal/">Forrest Brazeal</a>. Forrest is a senior cloud architect at <a href="https://www.trek10.com/">Trek10</a>, Inc., host of the <a href="https://www.trek10.com/blog/category/think-faas/">Think FaaS</a> serverless podcast at Trek10, and a regular speaker at workshops and events in the serverless community.</em></p> 
+<p>Events and serverless go together like baked beans and barbecue. The serverless mindset says to focus on code and configuration that provide business value. It turns out that much of the time, this means working with events: structured data corresponding to things that happen in the outside world. Rather than maintaining long-running server tasks that chew up resources while polling, I can create serverless applications that do work only in response to event triggers.</p> 
+<p>I have lots of options when working with events in AWS: <a href="https://aws.amazon.com/kinesis/streams/" title="">Amazon Kinesis Data Streams</a>, <a href="https://aws.amazon.com/sns/" title="">Amazon Simple Notification Service (SNS)</a>, <a href="https://aws.amazon.com/sqs/" title="">Amazon Simple Queue Service (SQS)</a>, and more, depending on my requirements. Lately, I’ve been using a service more often that has the word ‘event’ right in the name: <a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/WhatIsCloudWatchEvents.html">Amazon CloudWatch Events</a>.</p> 
+<h3><strong>CloudWatch Events</strong>: The best-kept secret in serverless event processing</h3> 
+<p>I first knew CloudWatch as the service that <a href="https://docs.aws.amazon.com/lambda/latest/dg/monitoring-functions-logs.html">collects my Lambda logs</a> and lets me <a href="https://docs.aws.amazon.com/lambda/latest/dg/with-scheduled-events.html">run functions on a schedule</a>. But CloudWatch Events also lets me publish my own custom events using the CloudWatch API. It has similar pricing and delivery guarantees to SNS, and supports a <a href="https://docs.aws.amazon.com/AmazonCloudWatchEvents/latest/APIReference/API_PutTargets.html">whole bunch of AWS services</a> as targets.</p> 
+<p>Best of all, I don’t even have to provision the event bus—it’s just there in the CloudWatch console. I can publish an event now, using the boto3 AWS SDK for Python:</p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-bash">
+import boto3
+cw = boto3.client('events')
+cw.put_events(
+    Entries=[
+        {
+            'Source': 'my.app.event',
+            'DetailType': 'MY_EVENT_TYPE',
+            'Detail': '{&quot;my_data&quot;:&quot;As a JSON string&quot;}'
+        }
+    ]
+)
+</code></pre> 
+</div> 
+<p>In short, CloudWatch Events gives me a fully managed event pipe that supports an arbitrary number of consumers, where I can drop any kind of JSON string that I want. And this is super useful for building serverless apps.</p> 
+<h3>Event-driven architectures in action</h3> 
+<p>I build cloud-native solutions for clients at <a href="https://trek10.com/">Trek10</a> daily. I frequently use event-driven architectures as a powerful way to migrate legacy systems to serverless, enable easier downstream integrations, and more. Here are just a couple of my favorite patterns:<br /> • Strangling legacy databases<br /> • Designing event-sourced applications</p> 
+<h3>Strangling legacy databases</h3> 
+<p>The “strangler pattern” hides a legacy system behind a wrapper API, while gradually migrating users to the new interface. Trek10 has <a href="https://www.trek10.com/blog/making-legacy-databases-into-event-sources-for-serverless/">written about this before</a>. Streaming changes to the cloud as events is a great way to open up reporting and analytics use cases while taking load off a legacy database. The following diagram shows writing a legacy database to events.</p> 
+<p><a href="https://d2908q01vomqb2.cloudfront.net/da4b9237bacccdf19c0760cab7aec4a8359010b0/2019/04/24/stranglinglegacydatabases.png"><img class="alignnone size-large wp-image-28648" src="https://d2908q01vomqb2.cloudfront.net/da4b9237bacccdf19c0760cab7aec4a8359010b0/2019/04/24/stranglinglegacydatabases-1024x273.png" alt="" width="1024" height="273" /></a></p> 
+<p>This pattern can also work the other way: I can write new data to CloudWatch Events, consume it into a modern data source, and create a second consumer that syncs the data back to my legacy system.</p> 
+<h3>Designing event-sourced applications</h3> 
+<p>Event sourcing simply means treating changes in the system state as events, publishing them on a ledger or bus where they can be consumed by different downstream applications.</p> 
+<p>Using CloudWatch Events as a centralized bus, I can make a sanitized record of events available as shown in the following event validation flow diagram.</p> 
+<p><a href="https://d2908q01vomqb2.cloudfront.net/da4b9237bacccdf19c0760cab7aec4a8359010b0/2019/04/24/designingevent.png"><img class="alignnone size-large wp-image-28649" src="https://d2908q01vomqb2.cloudfront.net/da4b9237bacccdf19c0760cab7aec4a8359010b0/2019/04/24/designingevent-1024x406.png" alt="" width="1024" height="406" /></a></p> 
+<p>The validation function ensures that only events that match my application’s standards get tagged as “valid” and are made available to downstream consumers. The default bus handles lots of events (remember, service logs go here!), so it’s important to set up rules that only match the events that I care about.</p> 
+<p>CloudWatch Events simplifies these patterns by providing a single bus where I can apply filters and subscribe consumers, all without having to provision or maintain any infrastructure. And that’s just the beginning.</p> 
+<h3>Use case: Multi-account event processing with CloudWatch Events</h3> 
+<p>CloudWatch Events gets most interesting when I start connecting multiple AWS accounts. It’s easy to <a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/CloudWatchEvents-CrossAccountEventDelivery.html">set up a trust relationship between CloudWatch Event buses in different accounts</a>, using filtering rules to choose which events get forwarded.</p> 
+<p>As an example, imagine a widget processing system for a large enterprise, AnyCompany. AnyCompany has many different development teams, each using their own AWS account. Some services are producing information about widgets as they check into warehouses or travel across the country. Others need that data to run reports or innovate new products.</p> 
+<p>Suppose that Service A produces information about new widgets, Service B wants to view aggregates about widgets in real time, and Service C needs historical data about widgets for reporting. The full event flow might look like the following diagram.</p> 
+<p><a href="https://d2908q01vomqb2.cloudfront.net/da4b9237bacccdf19c0760cab7aec4a8359010b0/2019/04/24/multieventprocessing.png"><img class="alignnone size-large wp-image-28650" src="https://d2908q01vomqb2.cloudfront.net/da4b9237bacccdf19c0760cab7aec4a8359010b0/2019/04/24/multieventprocessing-1024x887.png" alt="" width="1024" height="887" /></a></p> 
+<p>1. Service A publishes the new widget event to CloudWatch Events in their AWS account with the following event body:</p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-bash">{
+            'Source': 'cwi.servicea',
+            'DetailType': 'NEW_WIDGET',
+            'Detail': '{&quot;widget_id&quot;:&quot;abc123&quot;}'
+}
+</code></pre> 
+</div> 
+<p>2. A filtering rule forwards events tagged with <code>cwi.servicea</code> to the central event processing account. Using CloudFormation, they could define the rule as follows:</p> 
+<div class="hide-language"> 
+ <pre class="unlimited-height-code"><code class="lang-bash">CentralForwardingRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Rule for sending events to central account
+      EventPattern:
+        source:
+          - cwi.servicea
+      Targets:
+        - Arn: !Sub arn:aws:events:${CENTRAL_ACCOUNT_REGION}:${CENTRAL_ACCOUNT_ID}:event-bus/default
+          Id: CentralTarget
+          RoleArn: &lt;IAM ROLE WITH ACCESS TO PUT CW EVENTS&gt; 
+</code></pre> 
+</div> 
+<p>3. The event is validated according to their standards.</p> 
+<p>4. The valid event is republished on the central event bus with a new source, <code>valid.cw.servicea</code>. This is important because, to avoid infinite loops, an individual event can only be forwarded one time.</p> 
+<p>5. A filtering rule forwards the valid event to Service B’s AWS account, where it updates a DynamoDB table connected to an AWS AppSync API.</p> 
+<p>6. A second rule forwards the same event to the Service C account, where it flows through Kinesis Data Firehose to an Amazon S3 bucket for analysis using Amazon Athena.</p> 
+<p>What CloudWatch Events provides here is a decoupled system that uses mostly “plug-and-play” services, and yet opens up flexibility for future innovation.</p> 
+<h3>Taking full advantage of the cloud</h3> 
+<p>The biggest reason I love CloudWatch Events? It’s a fantastically cloud-native service. There’s little code required, and no operational responsibilities beyond watching AWS service limits. I don’t even have to deploy anything to start using it. And yet, under the hood, I’m using a powerful piece of AWS infrastructure that can support complex distributed applications without breaking a sweat.</p> 
+<p>That’s pretty close to the platonic ideal of serverless apps. Anytime I’m cooking up an event-driven application, I make sure to consider what CloudWatch Events can bring to the table.</p><div class="feedflare">
+<a href="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?a=G5mQTnAFdq0:05NTpjR2alA:yIl2AUoC8zA"><img src="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?d=yIl2AUoC8zA" border="0"></img></a> <a href="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?a=G5mQTnAFdq0:05NTpjR2alA:dnMXMwOfBR0"><img src="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?d=dnMXMwOfBR0" border="0"></img></a> <a href="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?a=G5mQTnAFdq0:05NTpjR2alA:7Q72WNTAKBA"><img src="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?d=7Q72WNTAKBA" border="0"></img></a>
+</div><img src="http://feeds.feedburner.com/~r/AmazonWebServicesBlog/~4/G5mQTnAFdq0" height="1" width="1" alt=""/>

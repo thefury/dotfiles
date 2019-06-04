@@ -1,0 +1,36 @@
+<p>Version 3 of the <a href="https://github.com/aws/aws-sdk-ruby">AWS SDK for Ruby</a> is available now as a preview release. This version modularizes the monolithic SDK into service specific gems. Aside from gem packaging differences, version 3 interfaces are backwards compatible with version 2.</p> 
+<p>You can install individual gems like so:</p> 
+<pre>$ gem install aws-sdk-s3 --version 1.0.0.rc1</pre> 
+<p>You can install everything using the <tt>aws-sdk</tt> gem:</p> 
+<pre>$ gem install aws-sdk --version 3.0.0.rc1</pre> 
+<p>To see a complete list of gems, checkout the project README for a list of <a href="https://github.com/aws/aws-sdk-ruby/tree/code-generation#supported-services" target="_blank">supported services and gems</a>.</p> 
+<h2>Motivation</h2> 
+<p>Modularization allows us to make some long requested changes to the SDK. Some of these changes were not reasonable when we shipped a single monolithic gem with 75+ services. Some of the primary motivating factors for breaking up the monolith include:</p> 
+<ul> 
+ <li>To provide better versioning information. When 75+ services share a single gem, it is difficult to communicate when a change is meaningful to a user. We can now use strict <a href="http://semver.org/">semantic versioning</a> for each gem.</li> 
+ <li>To improve our ability to deliver AWS API updates continuously. The number of new services and updates has been significantly increasing the frequency with which we update. We want to avoid situations where one update is blocked by an unrelated service. We can now continuously deliver updates per service gem.</li> 
+ <li>Remove the usage of Ruby `autoload` statements. When you require a service gem, such as aws-sdk-ec2, all of the code is loaded and ready to use. This should eliminate a large number of thread safety issues that users encounter due to the use of <tt>autoload</tt>.</li> 
+ <li>A large amount of the dynamic runtime has been replaced with code generation. This allows users to reason better about what code is doing, receive better stack traces, improve performance, etc.</li> 
+</ul> 
+<h2>What Has Changed?</h2> 
+<p>Our intent for the modularization is to keep SDK interfaces backwards compatible. <b>You may need to modify your gem dependency on the AWS SDK for Ruby.</b> The <tt>aws-sdk</tt> and <tt>aws-sdk-core</tt> gems have been bumped to version 3.0 to protect users from package level changes.</p> 
+<p>* Every service has a gem, such as <tt>aws-sdk-s3</tt>.<br /> * The <tt>aws-sdk-core</tt> gem now only contains shared utilities.<br /> * The <tt>aws-sdk-resources</tt> is obsolete. Service gems contain both client and resource interfaces.<br /> * The <tt>aws-sdk</tt> gem now has a dependency on 75+ service gems.</p> 
+<p>Here is a diagram showing the dependencies of the <tt>aws-sdk</tt> gem across its major versions.</p> 
+<p><a href="https://d2908q01vomqb2.cloudfront.net/0716d9708d321ffb6a00818614779e779925365c/2016/12/05/gem-diagram.png" rel="attachment wp-att-1584"><img class="alignnone wp-image-1584 size-full" src="https://d2908q01vomqb2.cloudfront.net/0716d9708d321ffb6a00818614779e779925365c/2016/12/05/gem-diagram.png" alt="gem-diagram" width="644" height="282" /></a></p> 
+<h2>Why Bump to Version 3?</h2> 
+<p>The version 2 <tt>aws-sdk-core</tt> gem includes code that defines 75+ service modules and shared utilities. It is important to prevent a service specific gem, such as <tt>aws-sdk-s3</tt> and the core gem from both defining the same interfaces.</p> 
+<p>While we have worked hard to ensure full backwards compatibility in the service interfaces, a small number of private internal interfaces have been removed or changed. For users that have relied on these un-documented interfaces, this will prevent unexpected breaks with a gem update. Some of these changes include:</p> 
+<ul> 
+ <li>Removed the internal runtime methods <tt>Aws.add_service</tt> and <tt>Aws.service_added</tt>. These methods were used by the runtime to detect when a service was autoloaded.</li> 
+ <li>Removed the internal <tt>Aws::Signers</tt> module and the various signature classes therein. These classes were marked with <tt>@api private</tt>. They are now available as separate gems: 
+  <ul> 
+   <li><tt>aws-sigv4</tt></li> 
+   <li><tt>aws-sigv2</tt></li> 
+  </ul> </li> 
+</ul> 
+<h2>Migrating Code From Version 2 to Version 3</h2> 
+<p>Migrating should be very simple. <b>If you depend on <tt>aws-sdk</tt>, then you do not need to change anything.</b> If you depend on <tt>aws-sdk-resources</tt> or <tt>aws-sdk-core</tt>, replace these with a dependency on one of the following:</p> 
+<p>* <tt>aws-sdk ~&gt; 3.0</tt><br /> * Service specific gems, such as <tt>aws-sdk-s3 ~&gt; 1.0</tt></p> 
+<p>You will also need to replace your require statements. You should no longer call <tt>require &quot;aws-sdk-resources&quot;</tt> or <tt>require &quot;aws-sdk-core&quot;</tt>. A <a href="https://aws.amazon.com/blogs/developer/aws-sdk-for-ruby-modularization-version-3/">follow-up blog post</a> provides detailed instructions on upgrading.</p> 
+<h2>Questions?</h2> 
+<p>Join us in our <a href="https://gitter.im/aws/aws-sdk-ruby">Gitter channel</a> with your questions and feedback. The modularized released is currently published as a preview gem (rc1). We would love for you to try things out and to share feedback for these are GA.</p>

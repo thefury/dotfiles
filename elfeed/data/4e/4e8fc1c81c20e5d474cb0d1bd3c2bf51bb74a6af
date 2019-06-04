@@ -1,0 +1,125 @@
+<p><a href="https://aws.amazon.com/codepipeline/">AWS CodePipeline</a> is a fully managed continuous delivery service that helps you automate your release pipelines for fast and reliable application and infrastructure updates. Now that AWS CodePipeline supports cross-region actions, you can deploy your application across multiple regions from a single pipeline. Deploying your application to multiple regions can improve both latency and availability for your application.</p> 
+<p><strong>Other AWS services</strong></p> 
+<p><a href="https://aws.amazon.com/codedeploy/">AWS CodeDeploy</a> is a fully managed deployment service that automates software deployments to a variety of compute services such as Amazon EC2, AWS Lambda, and your on-premises servers.</p> 
+<p><a href="https://aws.amazon.com/cloudformation/">AWS CloudFormation</a> provides a common language for you to describe and provision all the infrastructure resources in your cloud environment.</p> 
+<p><a href="https://aws.amazon.com/s3/">Amazon S3</a> has a simple web service interface that you can use to store and retrieve any amount of data, at any time, from anywhere on the web.</p> 
+<p><strong>Key AWS CodePipeline concepts</strong></p> 
+<p><strong>Stage:</strong> AWS CodePipeline breaks up your release workflow into a series of stages. For example, there might be a build stage, where code is built and tests are run. There are also deployment stages, where code updates are deployed to runtime environments. You can label each stage in the release process for better tracking, control, and reporting (for example “Source,” “Build,” and “Staging”).</p> 
+<p><strong>Action:</strong> Every pipeline stage contains at least one&nbsp;action, which is some kind of task performed on the artifact. Pipeline actions occur in a specified order, in sequence or in parallel, as determined in the configuration of the stage.</p> 
+<p>For more information, see <a href="https://docs.aws.amazon.com/codepipeline/latest/userguide/concepts.html#concepts-how-it-works">How AWS CodePipeline Works</a> in the AWS CodePipeline User Guide.</p> 
+<p>In this blog post, you will learn how to:</p> 
+<ol> 
+ <li>Create a continuous delivery pipeline using AWS CodePipeline and provisioned by AWS CloudFormation.</li> 
+ <li>Set up pipeline actions to execute in an AWS Region that is different from the region where the pipeline was created.</li> 
+ <li>Deploy a sample application to multiple regions using an AWS CodeDeploy action in the pipeline.</li> 
+</ol> 
+<p><strong>High-level deployment architecture</strong></p> 
+<p><img class="alignnone wp-image-2782" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/11/23/1-1.jpg" alt="" width="594" height="528" /></p> 
+<p>The deployment process can be summarized as follows:</p> 
+<ol> 
+ <li>The latest application code is uploaded into an Amazon S3 bucket. Any new revision uploaded to the bucket<br /> triggers a&nbsp;pipeline execution.</li> 
+ <li>For each AWS CodeDeploy action in the pipeline, the application code from the S3 bucket is replicated to the<br /> artifact&nbsp;store of the region that is configured for that action.</li> 
+ <li>Each AWS CodeDeploy action deploys the latest revision of the application from its artifact store to Amazon<br /> EC2&nbsp;instances in the region.</li> 
+</ol> 
+<p>In this blog post, we set our primary region to us-west-2 region. The secondary regions are set to us-east-1 and ap-southeast-2.</p> 
+<p><strong>Note:</strong> The resources created by the AWS CloudFormation template might result in charges to your account. The cost depends on how long you keep the AWS CloudFormation stack and its resources running.</p> 
+<p>We will walk you through the following steps for creating a multi-region deployment pipeline:</p> 
+<ol> 
+ <li>Set up resources to which you will deploy your application using AWS CodeDeploy.</li> 
+ <li>Set up artifact stores for AWS CodePipeline in Amazon S3.</li> 
+ <li>Provision AWS CodePipeline with AWS CloudFormation.</li> 
+ <li>View deployments performed by the pipeline in the AWS Management Console.</li> 
+ <li>Validate the deployments.</li> 
+</ol> 
+<p><strong>Getting started</strong></p> 
+<p><strong>Step 1</strong>. As part of this process of setting up resources, you install the AWS CodeDeploy agent on the instances. The AWS CodeDeploy agent is a software package that enables an instance to be used in AWS CodeDeploy deployments. There are two tasks in this step:</p> 
+<ul> 
+ <li>Create Amazon EC2 instances and install the AWS CodeDeploy agent.</li> 
+ <li>Create an application in AWS CodeDeploy.</li> 
+</ul> 
+<p>The AWS CloudFormation template automates both tasks. We will launch the AWS CloudFormation template in each of the three regions (us-west-2, us-east-1, and ap-southeast-2).</p> 
+<p><strong>Note:</strong> Before you begin, you must have an instance key pair to enable SSH access to the Amazon EC2 instance for that region. For more information, see <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html">Amazon EC2 Key Pairs</a>.</p> 
+<p>To create the EC2 instances and an AWS CodeDeploy application, in the AWS CloudFormation console, launch the following AWS CloudFormation templates in each region (us-west-2, us-east-1, and ap-southeast-2). For information about how to launch AWS CloudFormation from the AWS Management Console, see <a href="https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-using-console.html">Using the AWS CloudFormation Console</a>.</p> 
+<ul> 
+ <li><a href="https://github.com/aws-samples/aws-codepipeline-cross-region-continuous-deployment/blob/master/cfn-templates/code-deploy/codedeploy-us-west-2.json">us-west-2 template</a></li> 
+ <li><a href="https://github.com/aws-samples/aws-codepipeline-cross-region-continuous-deployment/blob/master/cfn-templates/code-deploy/codedeploy-ap-southeast-2.json">ap-southeast-2 template</a></li> 
+ <li><a href="https://github.com/aws-samples/aws-codepipeline-cross-region-continuous-deployment/blob/master/cfn-templates/code-deploy/codedeploy-us-east-1.json">us-east-1 template</a></li> 
+</ul> 
+<p>On the&nbsp;<strong>Specify Details</strong> page, do the following:</p> 
+<ol> 
+ <li>In&nbsp;<strong>Stack name</strong>, enter a name for the stack (for example,&nbsp;USEast1CodeDeploy).</li> 
+ <li>In&nbsp;<strong>ApplicationName</strong>, enter a name for the application (for example,&nbsp;CrossRegionActionSupport).</li> 
+ <li>In <strong>DeploymentGroupName</strong>, enter a name for the deployment group (for example,&nbsp;CrossRegionActionSupportDeploymentGroup).</li> 
+ <li>In&nbsp;<strong>EC2KeyPairName</strong>, if you already have a key pair to use with Amazon EC2 instances in that region, choose an existing key pair, and then select your key pair. For more information, see <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html">Amazon EC2 Key Pairs</a>.</li> 
+ <li>In&nbsp;<strong>EC2TagKeyName</strong>, enter Name.</li> 
+ <li>In&nbsp;<strong>EC2TagValue</strong>, enter&nbsp;NVirginiaCrossRegionInstance.</li> 
+ <li>Choose&nbsp;<strong>Next</strong>.</li> 
+</ol> 
+<p><img class="alignnone size-full wp-image-2794" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/11/23/2-copy.png" alt="" width="2834" height="1022" /></p> 
+<p>It could take several minutes for AWS CloudFormation to create the resources on your behalf. You can watch the progress messages on the&nbsp;<strong>Events</strong>&nbsp;tab in the console. When the stack has been created, you will see a CREATE_COMPLETE message in the&nbsp;<strong>Status</strong>&nbsp;column on the&nbsp;<strong>Overview</strong>&nbsp;tab.</p> 
+<p><img class="alignnone size-full wp-image-2795" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/11/23/3.png" alt="" width="2858" height="954" /></p> 
+<p>You should see new EC2 instances running in each of the three regions (us-west-2, us-east-1, and ap-southeast-2).</p> 
+<p><img class="alignnone size-full wp-image-2796" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/11/23/4.png" alt="" width="2842" height="736" /> <img class="alignnone size-full wp-image-2797" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/11/23/5.png" alt="" width="2840" height="768" /> <img class="alignnone size-full wp-image-2798" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/11/23/6.png" alt="" width="2826" height="792" /></p> 
+<p><strong>Step 2</strong>.&nbsp;&nbsp;Set up artifact stores for AWS CodePipeline. AWS CodePipeline uses Amazon S3 buckets as an artifact store. These S3 buckets are regional and versioned. All of the artifacts are copied to the same region in which the pipeline action is configured to execute.</p> 
+<p>To create the artifact stores&nbsp;by using the AWS CloudFormation console, launch this AWS CloudFormation <a href="https://github.com/aws-samples/aws-codepipeline-cross-region-continuous-deployment/blob/master/cfn-templates/cross-region-artifact-store-creation.yaml">template</a> in each region (us-west-2, us-east-1, and ap-southeast-2).</p> 
+<p><img class="alignnone size-full wp-image-2799" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/11/23/7-copy.png" alt="" width="2780" height="1062" /></p> 
+<p>On the&nbsp;<strong>Specify Details</strong>&nbsp;page, do the following:</p> 
+<ol> 
+ <li>In&nbsp;<strong>Stack&nbsp;name</strong>, enter a name for the stack (for example,&nbsp;artifactstore).</li> 
+ <li>In&nbsp;<strong>ArtifactStoreBucketNamePrefix</strong>, enter a prefix string of up to 30 characters. Use only lowercase letters, numbers, periods, and hyphens (for example,&nbsp;useast1).</li> 
+ <li>Choose&nbsp;<strong>Next</strong>.</li> 
+</ol> 
+<p>It might take several minutes for AWS CloudFormation to create the resources on your behalf. You can watch the progress messages on the&nbsp;<strong>Events</strong>&nbsp;tab in the console. When the stack has been created, you will see a CREATE_COMPLETE message in the&nbsp;<strong>Status</strong>&nbsp;column on the&nbsp;<strong>Overview</strong>&nbsp;tab.</p> 
+<p><img class="alignnone size-full wp-image-2800" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/11/23/8-copy.png" alt="" width="2818" height="514" /></p> 
+<p>Now, copy the Amazon S3 bucket names created in each region. You need the bucket names in later steps.</p> 
+<p><strong>Note:</strong> All Amazon S3 buckets, including the bucket used by the Source action in the pipeline, must be version-enabled to track versions that are being uploaded and processed by AWS CodePipeline.</p> 
+<p><strong>Step 3</strong>.&nbsp;Provision AWS CodePipeline with AWS CloudFormation. We will create a new pipeline in AWS CodePipeline with an Amazon S3 bucket for its Source action and AWS CodeDeploy for its Deploy action. Using AWS CloudFormation, we will provision a new Amazon S3 bucket for the Source action and then provision a new pipeline in AWS CodePipeline.</p> 
+<p>To provision a new S3 bucket&nbsp;in the AWS CloudFormation console, launch this AWS CloudFormation <a href="https://github.com/aws-samples/aws-codepipeline-cross-region-continuous-deployment/blob/master/cfn-templates/source-bucket-creation.yaml">template</a> in our primary region, us-west-2.</p> 
+<p><img class="alignnone size-full wp-image-2801" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/11/23/9-copy.png" alt="" width="2770" height="738" /></p> 
+<p>On the <strong>Specify Details</strong> page, do the following:</p> 
+<ol> 
+ <li>In <strong>Stack name</strong>, enter a name for the stack (for example, code-pipeline-us-west2-source-bucket).</li> 
+ <li>In <strong>SourceCodeBucketNamePrefix</strong>, enter a prefix string of up to 30 characters. Use only lowercase letters, numbers, periods, and hyphens (for example, uswest2).</li> 
+ <li>Choose <strong>Next</strong>.</li> 
+</ol> 
+<p>It might take several minutes for AWS CloudFormation to create the resources on your behalf. You can watch the progress messages on the&nbsp;<strong>Events</strong>&nbsp;tab in the console. When the stack has been created, you will see a CREATE_COMPLETE message in the&nbsp;<strong>Status</strong>&nbsp;column on the&nbsp;<strong>Overview</strong>&nbsp;tab.</p> 
+<p>Download the sample app from <a href="https://github.com/aws-samples/aws-codepipeline-cross-region-continuous-deployment/blob/master/s3-app-linux.zip">s3-app-linux.zip</a> and upload it to the source code bucket.</p> 
+<p><img class="alignnone size-full wp-image-2802" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/11/23/10.png" alt="" width="2646" height="1008" /></p> 
+<p><strong>To provision a new pipeline in AWS CodePipeline</strong></p> 
+<p>In the AWS CloudFormation console, launch this AWS CloudFormation template in our primary region, us-west-2.</p> 
+<p>On the&nbsp;<strong>Specify Details</strong>&nbsp;page, do the following:</p> 
+<ol> 
+ <li>In <strong>Stack name</strong>, enter a name for the stack (for example, CrossRegionCodePipeline).</li> 
+ <li>In <strong>ApplicationName</strong>, enter a name for the application (for example,&nbsp;CrossRegionActionSupport).</li> 
+ <li>In <strong>APSouthEast2ArtifactStoreBucket</strong>, enter cross-region-artifact-store-bucket-ap-southeast-2 or enter the name you provided in step 2 for the S3 bucket created in ap-southeast-2.</li> 
+ <li>In <strong>DeploymentGroupName</strong>, enter a name for the deployment group (for example,&nbsp;CrossRegionActionSupportDeploymentGroup).</li> 
+ <li>In <strong>S3SourceBucketName</strong>, enter code-pipeline-us-west-2-source-bucket or enter the name you provided in step 3.</li> 
+ <li>In <strong>USEast1ArtifactStoreBucket</strong>, enter cross-region-artifact-store-bucket-us-east-1 or enter the name you provided in step 2 for the S3 bucket created in us-east-1.</li> 
+ <li>In <strong>USWest2ArtifactStoreBucket</strong>, enter cross-region-artifact-store-bucket-us-west-2 or enter the name you provided in step 2 for the S3 bucket created in us-west-2.</li> 
+ <li>In <strong>S3SourceBucketKey</strong>, enter s3-app-linux.zip.</li> 
+ <li>Choose <strong>Next</strong>.</li> 
+</ol> 
+<p><img class="alignnone size-full wp-image-2803" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/11/23/11-copy.png" alt="" width="2790" height="1484" /></p> 
+<p>It might take several minutes for AWS CloudFormation to create the resources on your behalf. You can watch the progress messages on the&nbsp;<strong>Events</strong>&nbsp;tab in the console. When the stack has been created, you will see a CREATE_COMPLETE message in the&nbsp;<strong>Status</strong>&nbsp;column on the&nbsp;<strong>Overview</strong>&nbsp;tab.</p> 
+<p><img class="alignnone size-full wp-image-2804" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/11/23/12-copy.png" alt="" width="2806" height="1058" /></p> 
+<p><strong>Step 4.</strong>&nbsp;View deployments performed by our pipeline in the AWS Management Console.</p> 
+<ol> 
+ <li>In the Amazon S3 console, navigate to source bucket and copy the version ID (for example, in the following screenshot, kTtNtrHIhMt4.cX6YZHZ5lawDVy3R4Aj).&nbsp;<img class="alignnone size-full wp-image-2805" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/11/23/13.png" alt="" width="2646" height="1008" /></li> 
+ <li>Go to the AWS CodePipeline console and open the pipeline we just executed. Notice that the version ID is the same across the source S3 bucket, the source action, and all three CodeDeploy actions across three regions (us-west-2, us-east-1, and ap-southeast-2) in the pipeline.&nbsp;<img class="alignnone size-full wp-image-2806" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/11/23/14.png" alt="" width="816" height="509" /></li> 
+ <li>We can see that the deployment actions ran successfully across all three regions.&nbsp;<img class="alignnone size-full wp-image-2807" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/11/23/15.png" alt="" width="929" height="579" /></li> 
+</ol> 
+<p><strong>Step 5</strong>. To validate the deployments, in a browser, type the public IP address of the Amazon EC2 instances provisioned through AWS CodeDeploy in step 1. You should see a deployment page like the one shown here.&nbsp;<img class="alignnone size-full wp-image-2808" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/11/23/16.png" alt="" width="2874" height="666" /> <img class="alignnone size-full wp-image-2809" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/11/23/17.png" alt="" width="2848" height="704" /> <img class="alignnone size-full wp-image-2810" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/11/23/18.png" alt="" width="1252" height="457" /></p> 
+<p><strong>Conclusion</strong></p> 
+<p>You have now created a multi-region deployment pipeline in AWS CodePipeline without having to worry about the mechanics of copying code across regions. AWS CodePipeline abstracted the copying of the code in the background using the artifact stores in each region. You can now upload new source code changes to the Amazon S3 source bucket in the primary region and changes will be deployed automatically to other regions in parallel using AWS CodeDeploy actions configured to execute in each region. Cross-region actions are very powerful and are not limited to deploy actions alone. They can also be used with build and test actions.</p> 
+<p><strong>Wrapping up</strong></p> 
+<p>After you’ve finished exploring your pipeline and its associated resources, you can do the following:</p> 
+<ul> 
+ <li>Extend the setup. Add more stages and actions to your pipeline in AWS CodePipeline. For complete AWS CloudFormation sample code, see the GitHub repository.</li> 
+ <li>Delete the stack&nbsp;in AWS CloudFormation. This deletes the pipeline, its resources, and the stack itself. This is the option to choose if you no longer want to use the pipeline or any of its resources. Cleaning up resources you’re no longer using is important because you don’t want to continue to be charged.</li> 
+</ul> 
+<p><strong>To delete the CloudFormation stack</strong></p> 
+<ul> 
+ <li>Delete the Amazon S3 buckets used as the artifact stores in AWS CodePipeline in the source and destination regions. Although the buckets were created as part of the AWS CloudFormation stack, Amazon S3 does not allow AWS CloudFormation to delete buckets that contain objects. To delete the buckets, open the&nbsp;<a href="https://console.aws.amazon.com/s3/">Amazon S3 console</a>, choose the buckets you created in this setup, and then delete them. For more information, see&nbsp;<a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/delete-or-empty-bucket.html">Delete or Empty a Bucket</a>.</li> 
+ <li>Follow the steps in the AWS CloudFormation User Guide to&nbsp;<a href="https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-console-delete-stack.html">delete a stack</a>.</li> 
+</ul> 
+<p>If you have questions about this blog post, start a new thread on the <a href="https://forums.aws.amazon.com/forum.jspa?forumID=197&amp;start=0">AWS CodePipeline forum</a> or contact <a href="https://console.aws.amazon.com/support/home?#">AWS Support</a>.</p>

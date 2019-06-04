@@ -1,0 +1,58 @@
+<p>Steve McCurry is a Senior Product Manager for CloudWatch</p> 
+<p>This is the second in a series of two blog posts that demonstrate how to use the new CloudWatch<br /> snapshot graphs feature. You can find the first post <a href="https://aws.amazon.com/blogs/devops/reduce-time-to-resolution-with-amazon-cloudwatch-snapshot-graphs-and-alerts/">here</a>.</p> 
+<p>A key challenge for any DevOps team is to provide sufficient monitoring visibility on service<br /> health. Although <a href="https://aws.amazon.com/cloudwatch/">CloudWatch dashboards</a> are a powerful tool for monitoring your systems and<br /> applications, the dashboards are accessible only to users with permissions to the AWS<br /> Management Console. You can now use a new CloudWatch feature, snapshot graphs, to create<br /> dashboards that contain CloudWatch graphs and are available outside of the AWS Management<br /> Console. You can display CloudWatch snapshot graphs on your internal wiki pages or TV-based<br /> dashboards. You can integrate them with chat applications and ticketing and bug tracking tools.</p> 
+<p><span id="more-2700"></span></p> 
+<p>This blog post shows you how to embed CloudWatch snapshot graphs into your websites using a<br /> lightweight, embeddable widget written in JavaScript.</p> 
+<h2>Snapshot graphs overview</h2> 
+<p>CloudWatch snapshot graphs are images of CloudWatch charts that are useful for building<br /> custom dashboards or integrating with tools outside of AWS. Although the images are static,<br /> they can be refreshed frequently to create a live dashboard experience.</p> 
+<p>CloudWatch dashboards and charts provide flexible, interactive visualizations that can be used to<br /> create unified operational views across your AWS resources and metrics. However, maybe you<br /> want to display CloudWatch charts on a TV screen for team-level visibility, take snapshots of<br /> charts for auditing in ticketing systems and bug tracking tools, or share snapshots in chat<br /> applications to collaborate on an issue. For these use cases and more, snapshot graphs are an<br /> ideal tool for integrating CloudWatch charts with your webpages and third-party applications.</p> 
+<p>Snapshot graphs are available through the <a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_GetMetricWidgetImage.html">CloudWatch API</a>, which you can use through the<br /> <a href="https://aws.amazon.com/tools/">AWS SDKs</a> or CLI. The charts you request through the API are represented as JSON. To copy<br /> the JSON definition of the graph and use it in the API request, open the Amazon CloudWatch<br /> console. You’ll find the JSON on the <strong>Source</strong> tab of the <strong>Metrics</strong> page, as shown here.</p> 
+<p><img class="alignnone wp-image-2662" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/09/21/Screen-Shot-2018-09-21-at-2.10.29-PM.png" alt="" width="696" height="420" /></p> 
+<p>All of the features of the CloudWatch line and stacked graphs are available in snapshot graphs,<br /> including vertical and horizontal annotations.</p> 
+<h2>Embedding a snapshot graph in your webpage</h2> 
+<p>In this demonstration, we will set up monitoring for an EC2 instance and embed a CloudWatch<br /> snapshot graph for CPUUtilization in a website outside of the AWS Management Console. The<br /> embeddable widget can be configured to support any CloudWatch line or stacked chart. This<br /> demonstration involves these steps:</p> 
+<ol> 
+ <li>Create an EC2 instance to monitor.</li> 
+ <li>Create the Lambda function that calls CloudWatch <a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_GetMetricWidgetImage.html">GetMetricWidgetImage</a>.</li> 
+ <li>Create an API Gateway endpoint that proxies requests to the Lambda function.</li> 
+ <li>Embed the widget into a website and configure it for the API Gateway request.</li> 
+</ol> 
+<p>The code for this solution is available from the <a href="https://github.com/aws-samples/aws-cloudwatch-building-dashboard-outside-aws-console">SnapshotWidgetDemo</a> GitHub repo.</p> 
+<p>The embeddable JavaScript widget will communicate with CloudWatch through a gateway in<br /> Amazon API Gateway and an AWS Lambda backend. The advantage of using API Gateway is<br /> the additional flexibility you have to secure the endpoint and create fine-grained access control.<br /> For example, you can block access to the endpoint from outside of your corporate network.<br /> <a href="https://aws.amazon.com/route53/">Amazon Route 53</a> could be an alternative solution.</p> 
+<p>The end goal is to have a webpage running on your local machine that displays a CloudWatch<br /> snapshot graph displaying live metric data from a sample EC2 instance. The sample code<br /> includes a basic webpage containing the embed code.</p> 
+<p>The JavaScript widget requests a snapshot graph from an API Gateway endpoint. API Gateway<br /> proxies the request to a Lambda function that calls the new CloudWatch API service,<br /> <a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_GetMetricWidgetImage.html">GetMetricWidgetImage</a>. The retrieved snapshot graph is returned in binary and displayed on the<br /> website in an IMG HTML tag.</p> 
+<p>Here is what the end-to-end solution looks like:</p> 
+<p><img class="alignnone wp-image-2702" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/10/01/solutionA.png" alt="" width="558" height="130" /></p> 
+<h3>Server setup</h3> 
+<ol> 
+ <li>Download the <a href="https://github.com/aws-samples/aws-cloudwatch-building-dashboard-outside-aws-console">repository</a>.</li> 
+ <li>Navigate to ./server and run <strong>npm install</strong></li> 
+ <li>From the server folder, run <strong>zip -r snapshotwidgetdemo.zip ./*</strong></li> 
+ <li>Upload <strong>snapshotwidgetdemo.zip</strong> to any S3 bucket.</li> 
+ <li>Upload <strong>./server/apigateway-lambda.json</strong> to any S3 bucket.</li> 
+ <li>Navigate to the AWS CloudFormation console and choose <strong>Create Stack</strong>. 
+  <ul> 
+   <li>Point the new stack to the S3 location in step 5.</li> 
+   <li>During setup, you will be asked for the Lambda S3 bucket name from step 4.</li> 
+  </ul> </li> 
+</ol> 
+<p>The AWS CloudFormation script will create all the required server-side components described in<br /> the previous section.</p> 
+<h3>Client setup</h3> 
+<ol> 
+ <li>Navigate to ./client and run <strong>npm install</strong></li> 
+ <li>Edit ./demo/index.html to replace the following placeholders with your values.<br /> a. &lt;YOUR_INSTANCE_ID&gt; You can find the instance ID in the AWS<br /> CloudFormation stack output.<br /> b. &lt;YOUR_API_GATEWAY_URL&gt; You can find the full URL in the AWS<br /> CloudFormation stack output.<br /> c. &lt;YOUR_API_KEY&gt; The API gateway requires a key. The key reference but <strong>not</strong><br /> <strong>the key itself</strong> appears in theAWS CloudFormation stack output. To retrieve the<br /> key value, go to the <strong>Keys</strong> tab of the Amazon API Gateway console.</li> 
+ <li>Build the component using WebPack <strong>./node_modules/.bin/webpack –config</strong><br /> <strong>webpack.config.js</strong></li> 
+ <li>Server the demo webpage on localhost<strong> ./node_modules/.bin/webpack-dev-server —</strong><br /> <strong>open</strong></li> 
+</ol> 
+<p>The browser should open at index.html automatically. The page contains one embedded snapshot<br /> graph with the CPU utilization of your EC2 instance.</p> 
+<p><img class="alignnone wp-image-2703" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/10/01/ec2-chart.png" alt="" width="445" height="393" /></p> 
+<h3>Troubleshooting</h3> 
+<p>If you don’t see anything on the webpage, use the browser console tools to check for console<br /> error messages.</p> 
+<p>If you still can’t debug the problem, go to the Amazon API Gateway console. On the <strong>Logs</strong> tab,<br /> make sure that <strong>Enable CloudWatch Logs</strong> is selected, as shown here:</p> 
+<p><img class="alignnone wp-image-2704" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/10/01/trouble1.png" alt="" width="624" height="294" /></p> 
+<p>To check the Lambda logs, in the CloudWatch console, choose the Logs tab, and then search for<br /> the name of your Lambda function.</p> 
+<p><img class="alignnone wp-image-2706" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2018/10/01/trouble2.png" alt="" width="597" height="136" /></p> 
+<h2>Summary</h2> 
+<p>This blog post provided a solution for embedding CloudWatch snapshot graphs into webpages<br /> and wikis outside of the AWS Management Console. To read the other blog post in this series<br /> about CloudWatch snapshot graphs, see <a href="https://aws.amazon.com/blogs/devops/reduce-time-to-resolution-with-amazon-cloudwatch-snapshot-graphs-and-alerts/">Reduce Time to Resolution with Amazon CloudWatch</a><br /> Snapshot Graphs and Alerts.</p> 
+<p>For more information, see the <a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_GetMetricWidgetImage.html">snapshot graphs API documentation</a> or visit our <a href="https://aws.amazon.com/cloudwatch/">home page</a> to<br /> learn more about how Amazon CloudWatch achieves monitoring visibility for your cloud<br /> resources and applications.</p> 
+<p>It would be great to hear your feedback.</p>

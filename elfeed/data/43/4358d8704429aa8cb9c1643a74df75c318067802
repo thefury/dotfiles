@@ -1,0 +1,66 @@
+<p>Terraform is a tool for provisioning and managing infrastructure, particularly useful for multi-cloud infrastructure deployments.  Many organizations adopting a cloud operating model use Terraform to provision infrastrastructure.  One approach organizations take is a  “lift and shift” of existing on-premises deployments into the cloud.  However, this strategy doesn’t take into account how organizations can leverage the unique cost-saving benefits of the cloud, such as ephemeral work loads or auto-scaling machines that adapt to use. Terraform has features including modules, Sentinel policies, and automated policy enforcement that organizations can use to take advantage of these benefits and optimize cost savings and management. </p>
+
+<h2>Codification Through Modules</h2>
+
+<p>To begin controlling costs organizations can codify infrastructure components into modules.  Modules are packaged terraform configurations that can be quickly reused and modified through variables.   Modules facilitate cost savings by allowing organizations to build operational best practices into reusable templates.  This allows operators provisioning infrastructure to work quickly without sacrificing quality of production.  Through these codified best practices organizations control cloud spend and prevent costly and unwieldy non-standardized solutions.  </p>
+
+<p><img src="https://www.datocms-assets.com/2885/1556822291-modules.png" alt="">
+A look at modules in the Terraform Enterprise UI. </p>
+
+<h2>Cost Sensitive Policy as Code</h2>
+
+<p><a href="https://www.hashicorp.com/sentinel">Sentinel</a> is a policy as code framework that allows users to codify guardrails. In the context of Terraform Enterprise, Sentinel enables organizations to codify guardrails around infrastructure provisioning.   You might think of software applications like factories and infrastructure costs like utility costs in those factories.  As the factories get more complex it becomes difficult to manage and understand the utility costs, so Sentinel helps organizations attack that challenge in a programmatic, easy to administer fashion.  By writing cost sensitive Sentinel policies organizations are able to better manage costs even as applications become more complex.  There are many cost-sensitive axes one could write sentinel policies for, but the main ones we’ve identified are machine size and machine lifespan.  </p>
+
+<h3>Limiting Machine Size</h3>
+
+<p>Businesses adopting the cloud frequently run into “Cloud Waste” or unused cloud. Writing Sentinel policies that control machine size is a common approach to preventing cloud waste and optimizing costs.  To write these policies, you create a list of allowed machine types and write a policy that prevents machine types outside of that list from being provisioned.  Here is an example limiting machine size in Google Cloud: </p>
+
+<p>```hcl
+import &quot;tfplan&quot;</p>
+
+<p>allowed<em>machine</em>types = [
+  &quot;n1-standard-1&quot;,
+  &quot;n1-standard-2&quot;,
+  &quot;n1-standard-4&quot;,
+  &quot;n1-standard-8&quot;,
+]</p>
+
+<p>main = rule {
+  all tfplan.resources.google<em>compute</em>instance as <em>, instances {
+    all instances as _, r {
+      r.applied.machine</em>type in allowed<em>machine</em>types
+    }
+  }
+}</p>
+
+<p>```
+You can see that only machines smaller than n1-standard-16 (i.e. n1-standard-1 through n1-standard-8) are allowed to be provisioned.  </p>
+
+<h3>Environment Right-Sizing</h3>
+
+<p>Terraform and Sentinel can also help save costs by controlling what infrastructure is used for development/test environments.  Often times development and test environments use the same infrastructure as production ones, while bearing much lighter or more infrequent loads.  There are a few ways to achieve this result.  One possibility is tagging resources as “prod/dev/test” and then creating a sentinel policy like the one above that limits machine size based on those tags.  Another option is to create a ‘promotion’ variable in your terraform configuration that corresponds to the ideal set of infrastructure for that environment.  For example, setting that variable to “prod” would correspond to a map of large, high performing compute/storage while setting it to “dev” correspond to smaller, lower performing ones.    </p>
+
+<p>```hcl
+import &quot;tfplan&quot;</p>
+
+<p>main = rule {
+  all tfplan.resources.aws_instance as _, instances {
+    all instances as _, r {
+      (length(r.applied.tags) else 0) &gt; 0
+    }
+  }
+}
+```
+This policy enforces that all AWS resources must be tagged.  </p>
+
+<h2>Limiting Machine Lifespan</h2>
+
+<p>Another cost saving strategy is limiting the lifespan of machines by ensuring that unused machines are shut down.  A basic method for achieving that result is to set a TTL (Time to Live) variable for your Terraform configurations and then setting up a mechanism to check those TTL’s and queue destroys of configurations that have expired.  We have two resources that go into more depth on this strategy.  The first is an open source reaper bot, which is available <a href="https://github.com/AdamCavaliere/TFE_WorkspaceReaper/">here</a>.  The second, is <a href="https://www.hashicorp.com/resources/lower-aws-cloud-costs-terraform-lambda">this guide</a>, which walks through how to get the same reaper bot functionality using AWS lambda functions. </p>
+
+<h2>Automated Workflows</h2>
+
+<p>On top of codified infrastructure and enforcement of cost-sensitive policies, Terraform provides for automation that removes manual effort and reduces risk. Terraform Enterprise can be called via API within a deployment pipeline, and the guardrails of Sentinel policy as code are automatically applied to applicable infrastructure. This automation means fewer operators focused on infrastructure and more operators working on an organization&#39;s core business.  </p>
+
+<h2>Conclusion</h2>
+
+<p>Terraform Enterprise users can realize cost savings by ensuring provisioned machines are right-sized for their loads, creating maps of infrastructure sizes fit for respective environments, and destroying unused resources.  For more help getting started with Sentinel review our <a href="https://www.hashicorp.com/resources/writing-and-testing-sentinel-policies-for-terraform-enterprise">guide</a>, <a href="https://www.terraform.io/docs/enterprise/sentinel/index.html">docs</a>, and <a href="https://github.com/hashicorp/terraform-guides/tree/master/governance">example policies</a>.   </p>

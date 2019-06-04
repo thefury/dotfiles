@@ -1,0 +1,100 @@
+<p>We’re excited to announce support for generating Ruby SDKs from Amazon API Gateway. The Ruby SDKs you generated are compatible with Ruby 1.9 and later. Generated SDKs have first-class support for API keys, custom or <a title="undefined" href="https://aws.amazon.com/iam/" target="null">AWS Identity and Access Management (IAM)</a> authentication, automatic and configurable retries, exception handling, and all privileges of <code>aws-sdk-core</code> <a title="gem 3.0" href="https://rubygems.org/gems/aws-sdk-core" target="_blank" rel="noopener noreferrer">version 3</a> has as well. In this blog post, we’ll walk through how to create an example API and generate a Ruby SDK from that API. We also explore various features of the generated SDK. In this post, we assume you have some familiarity with <a title="undefined" href="http://docs.aws.amazon.com/apigateway/latest/developerguide/welcome.html" target="null">API Gateway</a> concepts.</p> 
+<h2>Creating an example API</h2> 
+<p>To start, let’s create an sample API by using the API Gateway console.<br /> Open the API Gateway console, choose&nbsp;<strong>Create API</strong>, and then choose <strong>Example API</strong>. Then choose <strong>Import</strong>&nbsp;to create the example API.</p> 
+<p><a href="https://d2908q01vomqb2.cloudfront.net/0716d9708d321ffb6a00818614779e779925365c/2017/11/09/ruby_apig_create-1.png"><img class="alignnone size-full wp-image-3207" src="https://d2908q01vomqb2.cloudfront.net/0716d9708d321ffb6a00818614779e779925365c/2017/11/09/ruby_apig_create-1.png" alt="" width="1667" height="822" /></a></p> 
+<p>This simple, example API has four straightforward operations:</p> 
+<ul type="disc"> 
+ <li>A GET on the API root resource that returns HTML describing the API</li> 
+ <li>A GET on the /pets resource that returns a list of Pets</li> 
+ <li>A POST on the /pets resource that creates a new Pet</li> 
+ <li>A GET on the /pets/{petId} resource that returns a specific Pet by ID</li> 
+</ul> 
+<p>You can find more information about this example in the <a title="undefined" href="http://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-create-api-from-example.html" target="null">API Gateway documentation</a>.</p> 
+<h2>Deploying the API</h2> 
+<p>Next, let’s deploy our API to a stage.<br /> From <strong>Actions</strong> choose <strong>Deploy API</strong>.</p> 
+<p><a href="https://d2908q01vomqb2.cloudfront.net/0716d9708d321ffb6a00818614779e779925365c/2017/11/09/deploy-1.png"><img class="alignnone size-full wp-image-3208" src="https://d2908q01vomqb2.cloudfront.net/0716d9708d321ffb6a00818614779e779925365c/2017/11/09/deploy-1.png" alt="" width="868" height="568" /></a></p> 
+<p>On the stage deployment page, name the stage <strong>Test</strong>, and then choose <strong>Deploy</strong>.<br /> <a href="https://d2908q01vomqb2.cloudfront.net/0716d9708d321ffb6a00818614779e779925365c/2017/11/09/stage.png"><img class="alignnone size-full wp-image-3210" src="https://d2908q01vomqb2.cloudfront.net/0716d9708d321ffb6a00818614779e779925365c/2017/11/09/stage.png" alt="" width="594" height="395" /></a></p> 
+<p>After deploying, the&nbsp;<strong>SDK Generation</strong>&nbsp;tab is available. For <strong>Platform</strong>, choose&nbsp;<strong>Ruby</strong>.<br /> For <strong>Service Name</strong>, type <strong>Pet</strong>.</p> 
+<p>Choose <strong>Generate SDK</strong>, and then extract the downloaded SDK package.</p> 
+<p><a href="https://d2908q01vomqb2.cloudfront.net/0716d9708d321ffb6a00818614779e779925365c/2017/11/09/ruby-1.png"><img class="alignnone size-full wp-image-3209" src="https://d2908q01vomqb2.cloudfront.net/0716d9708d321ffb6a00818614779e779925365c/2017/11/09/ruby-1.png" alt="" width="1706" height="592" /></a></p> 
+<p>The following are the configuration options available for the Ruby platform:</p> 
+<ul type="disc"> 
+ <li><strong>Service Name</strong> – Used to generate the Ruby gem namespace for your APIs.</li> 
+ <li><strong>Ruby Gem Name</strong> – The name of the Ruby gem your generated SDK code will be placed under. If you don’t provide a name, this defaults to the service name in lowercase, with the “sdk” suffix.</li> 
+ <li><strong>Ruby Gem Version</strong> – The version number for the generated Ruby gem. If you don’t provide a version number, this defaults to 1.0.0 if not provided.</li> 
+</ul> 
+<p>These are basic Ruby gem configuration options. You can customize your Ruby gemspec in the generated SDK gem later.</p> 
+<h2>Using the generated Ruby SDK gem</h2> 
+<p>Navigate to the location of your downloaded SDK gem. The directory structure looks like the following.</p> 
+<p><a href="https://d2908q01vomqb2.cloudfront.net/0716d9708d321ffb6a00818614779e779925365c/2017/11/09/struct.png"><img class="alignnone size-full wp-image-3200" src="https://d2908q01vomqb2.cloudfront.net/0716d9708d321ffb6a00818614779e779925365c/2017/11/09/struct.png" alt="" width="683" height="362" /></a></p> 
+<p><strong>Note</strong><br /> <code>/features</code> and <code>/spec</code> directories are currently left empty for integration and unit tests that you can add to the SDK. The generated SDK is fully documented for operations and shapes in the source code.</p> 
+<h2>Exploring the SDK</h2> 
+<p>Let’s explore the SDK by building a Ruby gem from the generated source, as follows.</p> 
+<pre><code class="lang-bash"># change to /pet-sdk directory
+cd pet-sdk
+
+# build the generated gem
+gem build pet-sdk.gemspec
+# then you can see pet-sdk-1.0.0.gem is available
+</code></pre> 
+<p>Then, install the gem, as follows.</p> 
+<pre><code class="lang-bash">gem install pet-sdk-1.0.0.gem
+</code></pre> 
+<p>Finally, create the client.</p> 
+<pre><code class="lang-ruby">require 'pet-sdk'
+
+client = Pet::Client.new
+</code></pre> 
+<h3>Features in the client</h3> 
+<p>Now you have your own client that includes multiple features from the official <a title="undefined" href="https://github.com/aws/aws-sdk-ruby" target="null">AWS SDK for Ruby</a>. These include default exponential backoff retries, HTTP wire logging options, configurable timeouts, and more.</p> 
+<p>For example:</p> 
+<pre><code class="lang-ruby">require 'pet-sdk'
+client = Pet::Client.new(
+  http_wire_trace: true,
+  retry_limit: 5,
+  http_read_timeout: 50
+ )
+</code></pre> 
+<h3>Making API calls</h3> 
+<p>Let’s see all the API methods that are available and use your SDK’s built-in parameter validators to make a successful API call:</p> 
+<pre><code class="lang-ruby">client.operation_names
+# =&gt; [:create_pet, :get_api_root, :get_pet, :get_pets]
+
+# get me all my pets
+resp = client.get_pets
+</code></pre> 
+<p>You should see a response like the following.<br /> <a href="https://d2908q01vomqb2.cloudfront.net/0716d9708d321ffb6a00818614779e779925365c/2017/11/10/Screen-Shot-2017-11-09-at-4.29.12-PM.png"><img class="alignnone size-full wp-image-3219" src="https://d2908q01vomqb2.cloudfront.net/0716d9708d321ffb6a00818614779e779925365c/2017/11/10/Screen-Shot-2017-11-09-at-4.29.12-PM.png" alt="" width="569" height="135" /></a></p> 
+<pre><code class="lang-ruby"># I want the cat
+client.get_pet
+# ArgumentError: missing required parameter params[:pet_id]
+
+# providing :pet_id
+client.get_pet(pet_id: 2)
+# ArgumentError: expected params[:pet_id] to be a String, got value 2 (class: Fixnum) instead.
+
+# fix the value type
+resp = client.get_pet(pet_id: &quot;2&quot;)
+</code></pre> 
+<p>Now you can see a correct response like the following.<br /> <a href="https://d2908q01vomqb2.cloudfront.net/0716d9708d321ffb6a00818614779e779925365c/2017/11/10/Screen-Shot-2017-11-09-at-4.29.22-PM.png"><img class="alignnone size-full wp-image-3220" src="https://d2908q01vomqb2.cloudfront.net/0716d9708d321ffb6a00818614779e779925365c/2017/11/10/Screen-Shot-2017-11-09-at-4.29.22-PM.png" alt="" width="921" height="46" /></a>If you have some familiarity with the AWS SDK for Ruby, you should find the experience similar to using an AWS service client.</p> 
+<h2>Generate a Ruby SDK from an API</h2> 
+<p>In addition to using the API Gateway console to generate a Ruby SDK, the <code>get_sdk</code> API is <a title="undefined" href="http://docs.aws.amazon.com/sdk-for-ruby/v3/api/Aws/APIGateway/Client.html#get_sdk-instance_method" target="null">available</a> in all of the AWS SDKs and tools, including the AWS SDK for Ruby.</p> 
+<p>For this example, we assume that you have some familiarity with the AWS SDK for Ruby. You can find a quick introduction to the SDK for Ruby <a title="undefined" href="https://github.com/aws/aws-sdk-ruby/blob/master/README.md" target="null">here</a>.</p> 
+<pre><code class="lang-ruby">require 'aws-sdk-apigateway'
+
+client = Aws::ApiGateway::Client.new(region: 'us-west-2')
+resp = client.get_sdk({
+  rest_api_id: MY_REST_API_ID, # required
+  stage_name: DEPLOY_STAGE_NAME, # required
+  sdk_type: &quot;ruby&quot;, # required
+  parameters: {
+    &quot;service.name&quot; =&gt; &quot;PetStore&quot;, # required
+    &quot;ruby.gem-name&quot; =&gt; &quot;pet&quot;,
+    &quot;ruby.gem-version&quot; =&gt; &quot;0.0.1&quot;
+  },
+})
+
+</code></pre> 
+<h2>Final thoughts</h2> 
+<p>This post highlights how to generate a Ruby client SDK for an API in API Gateway, and how to call the API using the generated SDK in an application. For more information about using a generated SDK, see your&nbsp;<code>README.md</code>&nbsp;file in the uncompressed generated SDK gem folder. Details of example usage of your API are also generated in source file documentation blocks.</p> 
+<h2>Feedback</h2> 
+<p>Please share your questions, comments, and issues with us on <a title="Github" href="https://github.com/aws/aws-sdk-ruby" target="null">GitHub</a>. Feel free to open a support ticket with <a title="AWS Support" href="https://console.aws.amazon.com/support/home" target="null">AWS Support</a> if you find an issue with your API model. You can also catch us in our <a title="Gitter" href="https://gitter.im/aws/aws-sdk-ruby" target="null">Gitter</a> channel.</p>

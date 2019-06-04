@@ -1,0 +1,32 @@
+<p>AWS Config rules give you the power to perform <a href="https://aws.amazon.com/blogs/aws/aws-config-rules-dynamic-compliance-checking-for-cloud-resources/">Dynamic Compliance Checking on your Cloud Resources</a>. Building on the <a href="https://aws.amazon.com/blogs/aws/track-aws-with-config/">AWS Resource Configuration Tracking</a> provided by <a href="https://aws.amazon.com/config/" title="">AWS Config</a>, you can use a combination of predefined and custom rules to continuously and dynamically check that all changes made to your AWS resources are compliant with the conditions specified in the rules, and to take action (either automatic or manual) to remediate non-compliant resources.</p> 
+<p>You can currently select from 84 different predefined rules, with more in the works. These are managed rules that are refined and updated from time to time. Here are the rules that match my search for <strong>EC2</strong>:</p> 
+<p><img class="aligncenter size-medium" src="https://media.amazonwebservices.com/blog/2019/config_ec2_managed_rules_1.png" width="900" height="636" /></p> 
+<p>Custom rules are built upon <a href="https://aws.amazon.com/lambda/" title="">AWS Lambda</a> functions, and can be run periodically or triggered by a configuration change. Rules can optionally be configured to execute a remediation action when a noncompliant resource is discovered. There are many built-in actions, and the option to write your own action using <a href="https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-ssm-docs.html">AWS Systems Manager documents</a> as well:</p> 
+<p><img class="size-medium aligncenter" src="https://media.amazonwebservices.com/blog/2019/config_remediation_action_1.png" width="800" height="434" /></p> 
+<p><span style="text-decoration: underline"><strong>New Pay-Per-Use Pricing</strong></span><br /> Today I am happy to announce that we are switching to a new, pay-per-use pricing model for AWS Config rules. Effective August 1<sup>st</sup>, 2019 you will be charged based on the number of rule evaluations that you run each month. Here is the new pricing for AWS Public Regions:</p> 
+<table style="border: 2px solid black;border-collapse: collapse;margin-left: auto;margin-right: auto"> 
+ <tbody> 
+  <tr style="border-bottom: 1px solid black;background-color: #e0e0e0"> 
+   <td style="border-right: 1px solid black;padding: 4px"><strong>Rule Evaluations Per Month</strong></td> 
+   <td style="border-right: 1px solid black;padding: 4px"><strong>Price Per Evaluation</strong></td> 
+  </tr> 
+  <tr style="border-bottom: 1px solid black"> 
+   <td style="border-right: 1px solid black;padding: 4px;text-align: center">0-100,000</td> 
+   <td style="border-right: 1px solid black;padding: 4px;text-align: center">$0.0010</td> 
+  </tr> 
+  <tr style="border-bottom: 1px solid black"> 
+   <td style="border-right: 1px solid black;padding: 4px;text-align: center">100,001-500,000</td> 
+   <td style="border-right: 1px solid black;padding: 4px;text-align: center">$0.0008</td> 
+  </tr> 
+  <tr> 
+   <td style="border-right: 1px solid black;padding: 4px;text-align: center">500,001 and above</td> 
+   <td style="border-right: 1px solid black;padding: 4px;text-align: center">$0.0005</td> 
+  </tr> 
+ </tbody> 
+</table> 
+<p>You will no longer pay for active config rules, which can grow costly when used across multiple accounts and regions. You will continue to pay for configuration items recorded, and any additional costs such as use of S3 storage, SNS messaging, and the invocation of Lambda functions.</p> 
+<p>The pricing works in conjunction with <a href="https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/consolidated-billing.html">AWS Consolidated Billing</a>, and is designed to provide almost all AWS customers with a significant reduction in their Config Rules bill. The new model will let you expand globally and cost-effectively, and will probably encourage you to make even more use of AWS Config rules!</p> 
+<p>— <a href="https://twitter.com/jeffbarr">Jeff</a>;</p> 
+<p>&nbsp;</p><div class="feedflare">
+<a href="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?a=eq8l5p2aZeU:9La0lNwZU5g:yIl2AUoC8zA"><img src="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?d=yIl2AUoC8zA" border="0"></img></a> <a href="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?a=eq8l5p2aZeU:9La0lNwZU5g:dnMXMwOfBR0"><img src="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?d=dnMXMwOfBR0" border="0"></img></a> <a href="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?a=eq8l5p2aZeU:9La0lNwZU5g:7Q72WNTAKBA"><img src="http://feeds.feedburner.com/~ff/AmazonWebServicesBlog?d=7Q72WNTAKBA" border="0"></img></a>
+</div><img src="http://feeds.feedburner.com/~r/AmazonWebServicesBlog/~4/eq8l5p2aZeU" height="1" width="1" alt=""/>

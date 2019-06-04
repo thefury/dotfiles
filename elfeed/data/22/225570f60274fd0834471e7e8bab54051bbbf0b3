@@ -1,0 +1,179 @@
+<p><em>This post has been translated into </em><a href="https://aws.amazon.com/jp/blogs/news/build-and-run-streaming-applications-with-apache-flink-and-amazon-kinesis-data-analytics-for-java-applications/"><em>Japanese</em></a><em>.</em></p> 
+<p>Stream processing facilitates the collection, processing, and analysis of real-time data and enables the continuous generation of insights and quick reactions to emerging situations. This capability is useful when the value of derived insights diminishes over time. Hence, the faster you can react to a detected situation, the more valuable the reaction is going to be. Consider, for instance, a streaming application that analyzes and blocks fraudulent credit card transactions while they occur. Compare that application to a traditional batch-oriented approach that identifies fraudulent transactions at the end of every business day and generates a nice report for you to read the next morning.</p> 
+<p>It is quite common for the value of insights to diminish over time. Therefore, using stream processing can substantially improve the value of your analytics application. However, building and operating a streaming application that continuously receives and processes data is much more challenging than operating a traditional batch-oriented analytics application.</p> 
+<p>In this post, we discuss how you can use <a href="https://flink.apache.org/" target="_blank" rel="noopener">Apache Flink</a> and <a href="https://aws.amazon.com/kinesis/data-analytics/" target="_blank" rel="noopener">Amazon Kinesis Data Analytics for Java Applications</a> to address these challenges. We explore how to build a reliable, scalable, and highly available streaming architecture based on managed services that substantially reduce the operational overhead compared to a self-managed environment. We particularly focus on how to prepare and run Flink applications with Kinesis Data Analytics for Java Applications. To this end, we use an exemplary scenario that includes <a href="https://github.com/aws-samples/amazon-kinesis-analytics-taxi-consumer" target="_blank" rel="noopener">source code and AWS CloudFormation templates</a>. You can follow along with this example using your own AWS account or adapt the code according to your specific requirements.<span id="more-6746"></span></p> 
+<h2>Challenges of running streaming applications</h2> 
+<p>When you build a streaming application, the downstream systems naturally rely on a continuous and timely generation of output. Accordingly, there are much higher requirements on the availability of the streaming application. There is also much less time to address operational issues compared to a traditional batch-based approach. In a batch-processing scenario, when a job that runs once at the end of a business day fails, you can often restart the failed job and still complete the computation by the next morning, when the results are needed. In contrast, when a streaming application fails, downstream systems that consume the output might be affected within minutes, or even sooner, when the expected output no longer arrives in time.</p> 
+<p>Moreover, in case of failure, you can’t simply delete all intermediate results and restart a failed processing job, as it is commonly done in the batch-processing case. The output of a streaming job is continuously consumed by downstream systems. Output that has already been consumed cannot easily be retracted. Therefore, the entire processing pipeline is much more sensitive to duplicates that are introduced by an application that is restarted on failure. Furthermore, the computations of a streaming application often rely on some kind of internal state that can be corrupted or even lost when the application fails.</p> 
+<p>Last but not least, streaming applications often deal with a varying amount of throughput. Therefore, scaling the application according to the current load is highly desirable. When the load increases, the infrastructure that supports the streaming application must scale to keep the application from becoming overloaded, falling behind, and producing results that are no longer relevant. On the other hand, when the load decreases, the infrastructure should scale in again to remain cost effective by not provisioning more resources than are needed.</p> 
+<h2>A reliable and scalable streaming architecture based on Flink and Kinesis Data Analytics for Java Applications</h2> 
+<p>Apache Flink is an open-source project that is tailored to stateful computations over unbounded and bounded datasets. Flink addresses many of the challenges that are common when analyzing streaming data by supporting different APIs (including Java and SQL), rich time semantics, and state management capabilities. It can also recover from failures while maintaining exactly-once processing semantics. Therefore, Flink is well suited for analyzing streaming data with low latency.</p> 
+<p>In this post, we illustrate how to deploy, operate, and scale a Flink application with Kinesis Data Analytics for Java Applications. We use a scenario to analyze the telemetry data of a taxi fleet in New York City in near-real time to optimize the fleet operation. In this scenario, every taxi in the fleet is capturing information about completed trips. The tracked information includes the pickup and drop-off locations, number of passengers, and generated revenue. This information is ingested into a Kinesis data stream as a simple JSON blob. From there, the data is processed by a Flink application, which is deployed to Kinesis Data Analytics for Java Applications. This application identifies areas that are currently requesting a high number of taxi rides. The derived insights are finally persisted into <a href="https://aws.amazon.com/elasticsearch-service/" target="_blank" rel="noopener">Amazon Elasticsearch Service</a>, where they can be accessed and visualized using <a href="https://aws.amazon.com/elasticsearch-service/the-elk-stack/kibana/" target="_blank" rel="noopener">Kibana</a>.</p> 
+<p>This scenario leads to the following architecture, which is separated into three stages for the ingestion, processing, and presentation of data.</p> 
+<p><img class="alignnone size-full wp-image-6747" style="margin: 20px 0px 20px 0px" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/FlinkKinesisforJava1.png" alt="" width="800" height="314" /></p> 
+<p>Separating the different aspects of the infrastructure is a common approach in this domain and has several benefits over a more tightly coupled architecture.</p> 
+<p>First, the Kinesis data stream serves as a buffer that decouples the producers from the consumers. Taxis can persist the events that they generate into the data stream regardless of the condition of, for instance, the processing layer, which might be currently recovering from a node failure. Likewise, the derived data remains available through Kibana even if the ingestion or processing layer is currently unavailable due to some operational issues. Last but not least, all components can be scaled independently and can use infrastructure that is specifically tailored according to their individual requirements.</p> 
+<p>This architecture also allows you to experiment and adopt new technologies in the future. Multiple independent applications can concurrently consume the data stored in the Kinesis data stream. You can then test how a new version of an existing application performs with a copy of the production traffic. But you can also introduce a different tool and technology stack to analyze the data, again without affecting the existing production application. For example, it is common to persist the raw event data to <a href="https://aws.amazon.com/s3/" target="_blank" rel="noopener">Amazon S3</a> by adding a <a href="https://aws.amazon.com/kinesis/data-firehose/" target="_blank" rel="noopener">Kinesis Data Firehose</a> delivery stream as a second consumer to the Kinesis data stream. This facilitates long-term archiving of the data, which you can then use to evaluate ad hoc queries or analyze historic trends.</p> 
+<p>All in all, separating the different aspects of the architecture into ingestion, processing, and presentation nicely decouples different components, making the architecture more robust. It furthermore allows you to choose different tools for different purposes and gives you a lot of flexibility to change or evolve the architecture over time.</p> 
+<p>For the rest of this post, we focus on using Apache Flink and Kinesis Data Analytics for Java Applications to identify areas that currently request a high number of taxi rides. We also derive the average trip duration to the New York City airports. But with this architecture, you also have the option to consume the incoming events using other tools, such as Apache Spark Structured Streaming and Kinesis Data Firehose, instead of, or in addition to, what is described here.</p> 
+<h2>Let’s kick the tires!</h2> 
+<p>To see the described architecture in action, execute the following AWS CloudFormation template in your own AWS account. The template first builds the Flink application that analyzes the incoming taxi trips, including the Flink Kinesis Connector that is required to read data from a Kinesis data stream. It then creates the infrastructure and submits the Flink application to Kinesis Data Analytics for Java Applications.</p> 
+<p><a href="https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=kinesis-analytics-taxi-consumer&amp;templateURL=https://s3.amazonaws.com/aws-bigdata-blog/artifacts/kinesis-analytics-taxi-consumer/cfn-templates/kinesis-analytics-taxi-consumer.yml" target="_blank" rel="noopener"><img class="alignnone size-full wp-image-3705" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2017/11/15/LaunchStack.png" alt="" width="107" height="20" /></a></p> 
+<p>The entire process of building the application and creating the infrastructure takes about 20 minutes. After the AWS CloudFormation stack is created, the Flink application has been deployed as a Kinesis Data Analytics for Java application. It then waits for events in the data stream to arrive. Checkpointing is enabled so that the application can seamlessly recover from failures of the underlying infrastructure while Kinesis Data Analytics for Java Applications manages the checkpoints on your behalf. In addition, automatic scaling is configured so that Kinesis Data Analytics for Java Applications automatically allocates or removes resources and scales the application (that is, it adapts its parallelism) in response to changes in the incoming traffic.</p> 
+<p>To populate the Kinesis data stream, we use a Java application that replays a <a href="https://registry.opendata.aws/nyc-tlc-trip-records-pds/" target="_blank" rel="noopener">public dataset</a> of historic taxi trips made in New York City into the data stream. The Java application has already been downloaded to an Amazon EC2 instance that was provisioned by AWS CloudFormation. You just need to connect to the instance and execute the JAR file to start ingesting events into the stream.</p> 
+<p>You can obtain all of the following commands, including their correct parameters, from the output section of the AWS CloudFormation template that you executed previously.</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-bash">$ ssh ec2-user@&laquo;Replay instance DNS name&raquo;
+
+java -jar amazon-kinesis-replay-1.0-SNAPSHOT.jar -streamName &laquo;Kinesis data stream name&raquo; -streamRegion &laquo;AWS region&raquo; -speedup 3600</code></pre> 
+</div> 
+<p>The speedup parameter determines how much faster the data is ingested into the Kinesis data stream relative to the actual occurrence of the historic events. With the given parameters, the Java application ingests an hour of historic data within one second. This results in a throughput of roughly 13k events and 6 MB of data per second, which completely saturates the Kinesis data stream (more on this later).</p> 
+<p>You can then go ahead and inspect the derived data through the Kibana dashboard that has been created. Or you can create your own visualizations to explore the data in Kibana.</p> 
+<p><code>https://&laquo;Elasticsearch endpoint&raquo;/_plugin/kibana/app/kibana#/dashboard/nyc-tlc-dashboard</code></p> 
+<p>The prepared Kibana dashboard contains a heatmap and a line graph. The heatmap visualizes locations where taxis are currently requested, and it shows that the highest demand for taxis is Manhattan. Moreover, the JFK and LaGuardia airports are also spots on the map where substantially more rides are requested compared to their direct neighborhoods. The line graph visualizes the average trip duration to these two airports. The following image shows how it steadily increases throughout the day until it abruptly drops in the evening.</p> 
+<p><img class="alignnone size-full wp-image-6748" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/FlinkKinesisforJava2.png" alt="" width="800" height="414" /></p> 
+<p>For this post, the Elasticsearch cluster is configured to accept connections from the IP address range specified as a parameter of the AWS CloudFormation template. For production workloads, it’s much more desirable to further tighten the security of your Elasticsearch domain, for instance, by <a href="https://aws.amazon.com/blogs/database/get-started-with-amazon-elasticsearch-service-use-amazon-cognito-for-kibana-access-control/" target="_blank" rel="noopener">using Amazon Cognito for Kibana access control</a>.</p> 
+<h2>Scaling the architecture to increase its throughput</h2> 
+<p>For this post, the Kinesis data stream was deliberately underprovisioned so that the Java application is completely saturating the data stream. When you closely inspect the output of the Java application, you’ll notice that the “replay lag” is continuously increasing. This means that the producer cannot ingest events as quickly as it is required according to the specified speedup parameter.</p> 
+<p>You can dive deeper into the metrics of the data stream by accessing it through an <a href="https://console.aws.amazon.com/cloudwatch/home#dashboards:" target="_blank" rel="noopener">Amazon CloudWatch Dashboard</a>. You can then see that the WriteProvisionedThroughputExceeded metric is slightly increased: Roughly 0.4 percent of the records are not accepted into the stream as the respective requests are throttled. In other terms, the data stream is underprovisioned, in particular as the producer pauses the ingestion of new events when too many events are in flight.</p> 
+<p><img class="alignnone size-full wp-image-6749" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/FlinkKinesisforJava3.png" alt="" width="662" height="290" /></p> 
+<p>To increase the throughput of the data stream, you can simply <a href="https://docs.aws.amazon.com/kinesis/latest/APIReference/API_UpdateShardCount.html" target="_blank" rel="noopener">update the number of shards</a> from 6 to 12 with a couple of clicks on the console and through an API call, respectively. For production environments, you might even want to automate this procedure. For details on how to automatically scale a Kinesis data stream, see the blog post <a href="https://aws.amazon.com/blogs/big-data/scaling-amazon-kinesis-data-streams-with-aws-application-auto-scaling/" target="_blank" rel="noopener">Scaling Amazon Kinesis Data Streams with AWS Application Auto Scaling</a>.</p> 
+<p><img class="alignnone size-full wp-image-6750" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/FlinkKinesisforJava4.png" alt="" width="661" height="291" /></p> 
+<p>When the scaling operation of the stream finishes, you can observe how the “replay lag” decreases and more events are ingested into the stream.</p> 
+<p>However, as a direct result, more events need to be processed. So now the Kinesis Data Analytics for Java application becomes overloaded and can no longer keep up with the increased number of incoming events. You can observe this through the millisBehindLatest metric, which is published to CloudWatch. The metric reports the time difference between the oldest record currently read by the Kinesis Data Analytics for Java application and the latest record in the stream according to the ingestion time in milliseconds. So it indicates how much behind the processing is from the tip of the stream.</p> 
+<p><img class="alignnone size-full wp-image-6751" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/FlinkKinesisforJava5.png" alt="" width="660" height="288" /></p> 
+<p>As these metrics show, 10 minutes after the scaling operation finishes, processing is already more than 3 minutes behind the latest event in the stream. Even worse, it steadily keeps falling behind, continuously widening this gap.</p> 
+<p>However, in contrast to Kinesis Data Streams, Kinesis Data Analytics for Java Applications natively supports auto scaling. After a couple of minutes, you can see the effect of the scaling activities in the metrics. The millisBehindLatest metric starts to decrease until it reaches zero, when the processing has caught up with the tip of the Kinesis data stream.</p> 
+<p><img class="alignnone size-full wp-image-6752" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/FlinkKinesisforJava6.png" alt="" width="660" height="290" /></p> 
+<p>However, notice how the millisBehindLatest metric spikes just before it starts to decline. This is caused by the way that scaling a Kinesis Data Analytics for Java application works today. To scale a running application, the internal state of the application is persisted into a so-called <em>savepoint</em>. This savepoint is exposed as a snapshot by Kinesis Data Analytics for Java Applications. Subsequently, the running instance of the application is terminated, and a new instance of the same application with more resources and a higher parallelism is created. The new instance of the application then populates its internal state from the snapshot and resumes the processing from where the now terminated instance left off.</p> 
+<p>Accordingly, the scaling operation causes a brief interruption of the processing, which explains the spike in metric. However, this operation is transparent to the producers and consumers. Producers can continue to write to the Kinesis data stream because they are nicely decoupled from the application. Likewise, consumers can still use Kibana to view their dashboards, although they might not see the latest data because it hasn’t yet been processed.</p> 
+<p>Let’s step back for a moment and review what you just did: You created a fully managed, highly available, scalable streaming architecture. You ingested and analyzed up to 25k events per second. You doubled the throughput of the architecture by scaling the Kinesis data stream and the Kinesis Data Analytics for Java application with a couple of clicks. You did all this while the architecture remained fully functional and kept receiving and processing events, not losing a single event. You also could have <a href="https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-createupdatedomains.html#es-createdomains-configure-cluster" target="_blank" rel="noopener">scaled the Elasticsearch cluster</a> as seamlessly as the other components. But we’ll leave that as an exercise for the interested reader.</p> 
+<p>Try to imagine what it would have taken you to build something similar from scratch.</p> 
+<h2>Prepare Flink applications for Kinesis Data Analytics for Java Applications</h2> 
+<p>Now that you have seen the streaming application in action, let’s look at what is required to deploy and run a Flink application with Kinesis Data Analytics for Java Applications.</p> 
+<p>Similar to other deployment methods, the Flink application is first built and packaged into a fat JAR, which contains all the necessary dependencies for the application to run. The resulting fat JAR is then uploaded to Amazon S3. The location of the fat JAR on S3 and some additional configuration parameters are then used to create an application that can be executed by Kinesis Data Analytics for Java Applications. So instead of logging in to a cluster and directly submitting a job to the Flink runtime, you upload the respective fat JAR to S3. You then create a Kinesis Data Analytics for Java application that you can interact with using API calls, the console, and the AWS CLI, respectively.</p> 
+<h3>Adapt the Flink configuration and runtime parameters</h3> 
+<p>To obtain a valid Kinesis Data Analytics for Java application, the fat JAR of the Flink application must include certain dependencies. When you use Apache Maven to build your Flink application, you can simply add another dependency to the .pom file of your project.</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-xml">&lt;!—pom.xml -&gt;
+&lt;project&gt;
+    ...
+    &lt;dependencies&gt;
+        ...
+        &lt;dependency&gt;
+            &lt;groupId&gt;com.amazonaws&lt;/groupId&gt;
+            &lt;artifactId&gt;aws-kinesisanalytics-runtime&lt;/artifactId&gt;
+            &lt;version&gt;1.0.1&lt;/version&gt;
+        &lt;/dependency&gt;
+    &lt;/dependencies&gt;
+    ...
+&lt;/project&gt;</code></pre> 
+</div> 
+<p>You can then specify parameters that are passed to the resulting Kinesis Data Analytics for Java application when it is created or updated. These parameters are basically key-value pairs that are contained in a property map that is part of a property group.</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-json">&quot;ApplicationConfiguration&quot;: {
+    &quot;EnvironmentProperties&quot;: {
+        &quot;PropertyGroups&quot;: [
+            {
+                &quot;PropertyGroupId&quot;: &quot;FlinkApplicationProperties&quot;,
+                &quot;PropertyMap&quot;: {
+                    &quot;InputStreamName&quot;: &quot;...&quot;,
+                    ...
+                }
+            }
+        ]
+    },
+    ...
+}</code></pre> 
+</div> 
+<p>You can then obtain the values of these parameters in the application code from the Kinesis Data Analytics for Java Applications runtime. For example, the following code snippet gets the name of the Kinesis data stream that the application should connect to from the FlinkApplicationProperties property group.</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-js">Map&lt;String, Properties&gt; applicationProperties = KinesisAnalyticsRuntime.getApplicationProperties();
+
+Properties flinkProperties = applicationProperties.get(&quot;FlinkApplicationProperties&quot;);
+
+String kinesisStreamName = flinkProperties.getProperty(&quot;InputStreamName&quot;);</code></pre> 
+</div> 
+<p>You use the same mechanism to configure other properties for the Kinesis Data Analytics for Java application (for example, checkpointing and the parallelism of the application) that are usually specified as a parameter or configuration option directly to the Flink runtime.</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-json">&quot;ApplicationConfiguration&quot;: {
+    &quot;FlinkApplicationConfiguration&quot;: {
+        &quot;CheckpointConfiguration&quot;: {
+            &quot;ConfigurationType&quot;: &quot;DEFAULT&quot;
+        },
+        &quot;MonitoringConfiguration&quot;: {
+            &quot;ConfigurationType&quot;: &quot;CUSTOM&quot;,
+            &quot;MetricsLevel&quot;: &quot;TASK&quot;,
+            &quot;LogLevel&quot;: &quot;INFO&quot;
+        },
+        &quot;ParallelismConfiguration&quot;: {
+            &quot;ConfigurationType&quot;: &quot;DEFAULT&quot;
+        }
+    },
+    ...
+}</code></pre> 
+</div> 
+<p>With this configuration, the checkpointing and parallelism settings are left at their default. This enables checkpointing and auto scaling and sets the initial parallelism of the Kinesis Data Analytics for Java application to one. Moreover, the log level is increased to INFO and CloudWatch metrics are collected for every subtask of the application.</p> 
+<h3>Build the Flink Kinesis Connector</h3> 
+<p>When you are building a Flink application that reads data from a Kinesis data stream, you might notice that the Flink Kinesis Connector is not available from Maven central. You actually need to build it yourself. The following steps build the connector for any recent Apache Flink release. However, because Kinesis Data Analytics for Java Applications is based on Flink 1.6.2, you can use this specific version for now.</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-bash">$ wget -qO- https://github.com/apache/flink/archive/release-1.6.2.zip | bsdtar -xf-
+
+$ cd flink-release-1.6.2
+
+$ mvn clean package -B -DskipTests -Dfast -Pinclude-kinesis -pl flink-connectors/flink-connector-kinesis</code></pre> 
+</div> 
+<p>Note that the connector has already been built and stored on S3 by the AWS CloudFormation template. You can simply download the JAR file of the connector from there and put it in your local Maven repository using the following Maven command:</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-bash">$ mvn install:install-file -Dfile=flink-connector-kinesis_2.11-1.6.2.jar -DpomFile flink-connector-kinesis_2.11-1.6.2.pom.xml</code></pre> 
+</div> 
+<h3>Integrate the Flink Elasticsearch sink with Amazon Elasticsearch Service</h3> 
+<p>Beginning with the 1.6 release, Apache Flink comes with an Elasticsearch connector that supports the Elasticsearch APIs over HTTP. Therefore, it can natively talk to the endpoints that are provided by Amazon Elasticsearch Service.</p> 
+<p>You just need to decide how to authenticate requests against the public endpoint of the Elasticsearch cluster. You can whitelist individual IPs for access to the cluster. However, the recommended way of authenticating against the Amazon Elasticsearch Service endpoint is to add authentication information to AWS requests using IAM credentials and the <a href="https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html" target="_blank" rel="noopener">Signature Version 4 signing process</a>.</p> 
+<p>To extend the Flink Elasticsearch connector, which is not aware of the AWS specific signing process, you can use the <a href="https://github.com/inreachventures/aws-signing-request-interceptor" target="_blank" rel="noopener">open-source aws-signing-request-interceptor</a>, which is available from Maven central. You just need to add an interceptor to the Elasticsearch sink that is called just before the request is sent to the Amazon Elasticsearch Service endpoint. The interceptor can then sign the request using the permission of the role that has been configured for the Kinesis Data Analytics for Java application.</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-js">final List&lt;HttpHost&gt; httpHosts = Arrays.asList(HttpHost.create(&quot;https://...&quot;)));
+
+ElasticsearchSink.Builder&lt;T&gt; esSinkBuilder = new ElasticsearchSink.Builder&lt;&gt;(
+    httpHosts,
+    new ElasticsearchSinkFunction&lt;T&gt;() {
+      ...
+    }
+);
+
+final Supplier&lt;LocalDateTime&gt; clock = () -&gt; LocalDateTime.now(ZoneOffset.UTC);
+final AWSCredentialsProvider credentialsProvider = new DefaultAWSCredentialsProviderChain();
+final AWSSigner awsSigner = new AWSSigner(credentialsProvider, &quot;eu-west-1&quot;, &quot;es&quot;, clock);
+
+esSinkBuilder.setRestClientFactory(
+    restClientBuilder -&gt; restClientBuilder.setHttpClientConfigCallback(
+        callback -&gt; callback.addInterceptorLast(new AWSSigningRequestInterceptor(awsSigner))
+    )
+);
+
+esSinkBuilder.build();</code></pre> 
+</div> 
+<p>Note that the actual <a href="https://github.com/aws-samples/amazon-kinesis-analytics-taxi-consumer/blob/master/src/main/java/com/amazonaws/samples/kaja/taxi/consumer/utils/AmazonElasticsearchSink.java" target="_blank" rel="noopener">code in the GitHub repository</a> is a bit more sophisticated because you need to obtain a serializable request interceptor. But the basic approach to sign requests remains the same.</p> 
+<h3>Monitor and debug the Flink application</h3> 
+<p>When running a Kinesis Data Analytics for Java application, you don’t get direct access to the cluster that runs Flink. This is because the underlying infrastructure is completely managed by the service. You merely interact with the service through an API. However, you can still obtain metrics and logging information through CloudWatch and CloudWatch Logs, respectively.</p> 
+<p>The Kinesis Data Analytics for Java application exposes a lot of operational metrics, ranging from metrics for the entire application down to metrics for individual processes of operators of the application. You can control which level of detail is adequate or required for your purposes. In fact, the metrics used in the previous section were all obtained through CloudWatch.</p> 
+<p>In addition to operational metrics, you can configure the Kinesis Data Analytics for Java application to write messages to CloudWatch Logs. This capability seamlessly integrates with common logging frameworks, such as <a href="https://logging.apache.org/log4j/" target="_blank" rel="noopener">Apache Log4j</a> and the <a href="https://www.slf4j.org/" target="_blank" rel="noopener">Simple Logging Facade for Java (SLF4J)</a>. So it is useful for debugging and identifying the cause of operational issues.</p> 
+<p>To enable logging for your Kinesis Data Analytics for Java application, just specify an existing CloudWatch log stream as a <a href="https://docs.aws.amazon.com/kinesisanalytics/latest/java/cloudwatch-logs.html" target="_blank" rel="noopener">logging option</a> when you start the application, as follows:</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-js">final Logger LOG = LoggerFactory.getLogger(...);
+
+LOG.info(&quot;Starting to consume events from stream {}&quot;, flinkProperties.getProperty(&quot;InputStreamName&quot;));
+</code></pre> 
+</div> 
+<p>After the log messages are persisted into CloudWatch Logs, you can easily query and analyze them through <a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/AnalyzingLogData.html" target="_blank" rel="noopener">CloudWatch Logs Insights</a><img class="alignnone size-full wp-image-6753" style="margin: 20px 0px 20px 0px;border: 1px solid #cccccc" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/FlinkKinesisforJava7.png" alt="" width="800" height="241" /></p> 
+<h2>Conclusion</h2> 
+<p>In this post, you not only built a reliable, scalable, and highly available streaming application based on Apache Flink and Kinesis Data Analytics for Java Applications. You also scaled the different components while ingesting and analyzing up to 25k events per second in near-real time. In large parts, this scenario was enabled by using managed services, so you didn’t need to spend time on provisioning and configuring the underlying infrastructure.</p> 
+<p>The sources of the application and the AWS CloudFormation template used in this post are <a href="https://github.com/aws-samples/amazon-kinesis-analytics-taxi-consumer" target="_blank" rel="noopener">available from GitHub</a> for your reference. You can dive into all the details of the Flink application and the configuration of the underlying services. I’m curious to see what you will build when you can focus on analyzing data in a streaming fashion rather than spending time on managing and operating infrastructure.</p> 
+<p>&nbsp;</p> 
+<hr /> 
+<h3>About the Author</h3> 
+<p><img class="size-full wp-image-6758 alignleft" src="https://d2908q01vomqb2.cloudfront.net/b6692ea5df920cad691c20319a6fffd7a4a766b8/2019/04/11/shausma.png" alt="" width="113" height="148" /><strong>Steffen Hausmann is a specialist solutions architect with AWS</strong>.</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p> 
+<p>&nbsp;</p>

@@ -1,0 +1,181 @@
+<p><em>Eduardo Arango is a Software engineer at Sylabs Inc. Currently a PhD student on Computer science, on Cloud computing architecture. His areas of research are High Performance Computing, Linux containers, Distributed Systems, and cloud computing. Eduardo is a software engineer at Sylabs inc, the company behind the Singularity OSS project, working on quality assurance and the test infrastructure for the singularity project, Nomad integration with Singularity runtime,  and also a Singularity OSS maintainer. LinkedIn: https://www.linkedin.com/in/eduardo-arango</em></p>
+
+<p>Containers are changing the software packaging and distribution paradigm. <a href="https://www.sylabs.io/singularity/">Singularity</a> takes this to the next level by offering a simple platform designed around container mobility, reproducibility, security, and performance. Singularity was designed to solve problems associated with root-owned daemons and root-level privileges within containers on multi-tenant environments. Before Singularity, these concerns prevented the system administrators and architects charged with building trusted HPC environments for scientists from installing container platforms.</p>
+
+<p>Singularity blocks privilege escalation within the container; if a user wants to be root inside the container, it must be root outside the container. This usage paradigm mitigates many of the security concerns that exist with containers on multi-tenant shared resources. You can directly call programs inside the container from outside the container, fully incorporating pipes, standard IO, filesystem access, X11, and MPI. The Singularity runtime facilitates cohesion between applications that require direct integration with the host operating system (e.g., GPUs, infiniband, other specialized interconnects), and the services that require isolation when making use of host resources (e.g., network or CPU utilization).</p>
+
+<p>Our goal at <a href="https://www.sylabs.io/">Sylabs</a> is to extend the reach of Singularity by providing access to services that can handle more demanding artificial intelligence, machine learning, and other advanced analytic workloads. With Singularity, enterprise users have direct access to an entire solutions ecosystem that simplifies the process of moving applications, workloads, and computing environments across a single infrastructure or across hybrid environments. Singularity enables the power of AI, machine, and deep learning to deliver on our goal and provide unique enterprise-grade services.</p>
+
+<p>Nomad’s performance characteristics and scalability make it well-suited to orchestrate <a href="https://www.hashicorp.com/resources/end-to-end-production-nomad-citadel">high performance analytical workloads</a>. Nomad’s <a href="https://www.nomadproject.io/docs/drivers/index.html">task driver subsystem</a> allows users to leverage these characteristics for both Docker-based and legacy/non-containerized workloads. The task driver subsystem was refactored in the 0.9 release to enable users to contribute new task drivers as <a href="https://www.nomadproject.io/docs/drivers/external/index.html#task-driver-plugins">external plugins</a>. The <a href="https://github.com/sylabs/nomad-driver-singularity">Singularity task driver plugin for Nomad</a> is the first such community contribution! This integration enables data scientists and other users to run analytical workloads that combine the benefits of the two systems. Released under the MPL-2 open source license, the v1.0-alpha release of the Singularity plugin for Nomad is now available. We look forward to community feedback.</p>
+
+<h2>Getting Started</h2>
+
+<p>To compile the task driver, run <code>make build</code> after cloning the repo. This will build the binary for the Nomad task driver plugin. After the build step, copy the task driver binary to the Nomad <a href="https://www.nomadproject.io/docs/configuration/index.html#plugin_dir">plugin dir</a>, which by default is located under <nomad-data-dir>/plugins/. See the Nomad <code>-data-dir</code> and <code>-plugin-dir</code> flags for more information.</p>
+
+<p>After starting the Nomad agent, we can check that the singularity task driver status:  </p>
+
+<p>```
+$ nomad-driver-singularity&gt; nomad node status -self
+ID = 27dc426e
+Name = linux-345w
+Class = <none>
+DC = dc1
+Drain = false
+Eligibility = eligible
+Status = ready
+Uptime = 17h8m0s
+Driver Status = exec,java,mock<em>driver,qemu,raw</em>exec,singularity</p>
+
+<p>Node Events
+Time                        Subsystem     Message
+2019-04-05T10:17:48-05:00   Cluster       Node registered</p>
+
+<p>Allocated Resources
+CPU              Memory       Disk
+0/33600 MHz      0 B/16 GiB   0 B/369 GiB</p>
+
+<p>Allocation Resource Utilization
+CPU              Memory
+0/33600 MHz      0 B/16 GiB</p>
+
+<p>Host Resource Utilization
+CPU               Memory            Disk
+1539/33600 MHz    7.2 GiB/16 GiB    10 GiB/380 GiB</p>
+
+<p>Device Resource Utilization
+nvidia/gpu/Quadro M620[GPU-0173e955-9436-1b06-0e11-4b0134af1e92] 574 / 1999 MiB</p>
+
+<p>Allocations</p>
+
+<p>No allocations placed
+```</p>
+
+<p>We will notice that the “singularity” driver is in the <code>Driver Status</code> field in the output above.</p>
+
+<p>As the task driver is healthy, we can start planning our first job:</p>
+
+<p>```
+$ nomad-driver-singularity&gt; nomad plan examples/example.hcl
++ Job: &quot;example1&quot;
++ Task Group: &quot;wild-cow&quot; (1 create)
++ Task: &quot;mooo&quot; (forces create)</p>
+
+<p>Scheduler dry-run:
+- All tasks successfully allocated.</p>
+
+<p>Job Modify Index: 0
+```</p>
+
+<p>To submit the job with version verification run:</p>
+
+<p><code>
+nomad job run -check-index 0 examples/example.hcl
+</code>  </p>
+
+<p>Running the job with the check-index flag ensures that it will only be executed if the server-side version matches the job modify index returned. If the index has changed, another user has modified the job and the plan&#39;s results are potentially invalid.</p>
+
+<p>In the project repo, we can find a working example under <a href="https://github.com/sylabs/nomad-driver-singularity/blob/master/examples/example.hcl">examples/example.hcl</a>:</p>
+
+<p>```hcl
+job &quot;example1&quot; {</p>
+
+<pre><code>datacenters = [&quot;dc1&quot;]
+type = &quot;batch&quot;
+group &quot;wild-cow&quot; {
+
+    count = 1
+
+    task &quot;mooo&quot; {
+
+        driver = &quot;singularity&quot;
+
+        // You can pass env vars to the runtime
+        env {
+            SINGULARITYENV_FOO = &quot;var&quot;  
+        }
+
+        config {
+
+            // For this example we are enabling debug and verbose
+            // options to retrieve logs via alloc logs
+            debug = true
+            verbose = true
+
+            // This example runs an image from the sylabs container
+            // library with the canonical example of lolcow
+            image = &quot;library://sylabsed/examples/lolcow:latest&quot;
+
+            // command can be run, exec or test
+            command = &quot;run&quot;  
+        }
+    }
+}
+</code></pre>
+
+<p>}
+```</p>
+
+<p>Lets run the example job to make that cow mooooo:</p>
+
+<p>```
+$ nomad-driver-singularity&gt; nomad run examples/example.hcl</p>
+
+<p>==&gt; Monitoring evaluation &quot;f237d718&quot;
+        Evaluation triggered by job &quot;example1&quot;
+        Allocation &quot;4dca7d9d&quot; created: node &quot;27dc426e&quot;, group &quot;wild-cow&quot;
+        Evaluation status changed: &quot;pending&quot; -&gt; &quot;complete&quot;
+==&gt; Evaluation &quot;f237d718&quot; finished with status &quot;complete”
+```</p>
+
+<p>We can check how everything is going with the <code>nomad job status</code> command:</p>
+
+<p>```
+nomad-driver-singularity&gt; nomad job status
+ID        Type   Priority Status   Submit Date
+example1  batch  50       running  2019-04-05T10:24:09-05:00
+$ nomad-driver-singularity&gt; nomad job status example1
+ID            = example1
+Name          = example1
+Submit Date   = 2019-04-05T10:24:09-05:00
+Type          = batch
+Priority      = 50
+Datacenters   = dc1
+Status        = running
+Periodic      = false
+Parameterized = false</p>
+
+<p>Summary</p>
+
+<p>Task Group  Queued Starting Running Failed Complete Lost</p>
+
+<p>wild-cow   0      1        0       0       0       0</p>
+
+<p>Allocations</p>
+
+<p>ID       Node ID    Task Group   Version   Desired   Status   Created    Modified</p>
+
+<p>4dca7d9d 27dc426e   wild-cow    0         run       pending  1m13s ago   1m13s ago
+```</p>
+
+<p>And the end result - a happy and opinionated cow!</p>
+
+<p>```
+$ nomad-driver-singularity&gt; nomad logs 4dca7d9d mooo</p>
+
+<p>^<strong>^
+  (oo)_</strong>____
+   (__)\       )\/\
+      ||----w  |
+      ||      ||
+```</p>
+
+<p>The example above demonstrates the Singularity task driver plugin for HashiCorp Nomad with the canonical lolcow example. See the <a href="https://www.nomadproject.io/docs/drivers/external/singularity.html">official documentation</a> on the Nomad website for additional details.</p>
+
+<p>Singularity continues to experience widespread support from a growing community of users. We are proud to say that the Singularity container runtime and image format is trusted to run over 1 million jobs each day by users in academia, government, and a rapidly growing enterprise segment.</p>
+
+<h3>Appendix:</h3>
+
+<ul>
+<li><p><a href="https://www.sylabs.io/2018/11/our-hashiconf-2018-presentation-singularity-containers-for-enterprise-performance-computing-epc/">https://www.sylabs.io/2018/11/our-hashiconf-2018-presentation-singularity-containers-for-enterprise-performance-computing-epc/</a></p></li>
+<li><p><a href="https://www.hashicorp.com/resources/singularity-containers-enterprise-performance-computing">https://www.hashicorp.com/resources/singularity-containers-enterprise-performance-computing</a></p></li>
+</ul>

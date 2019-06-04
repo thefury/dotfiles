@@ -1,0 +1,113 @@
+<p>You’ve told us that you want to encrypt data once with AWS Key Management Service (AWS KMS) and decrypt that data with <a href="https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#master_keys" rel="noopener noreferrer" target="_blank">customer master keys</a> (CMKs) that you specify, often with CMKs in different AWS Regions. Doing this saves you compute resources and helps you to enable secure and efficient high-availability schemes.</p> 
+<p>The AWS Crypto Tools team has introduced the AWS Encryption SDK for C so you can achieve these goals. The new tool also adds more options for language and platform support and is fully interoperable with the implementations in <a href="https://github.com/aws/aws-encryption-sdk-java" rel="noopener noreferrer" target="_blank">Java</a> and <a href="https://github.com/aws/aws-encryption-sdk-python" rel="noopener noreferrer" target="_blank">Python</a>. </p> 
+<p>The <a href="https://docs.aws.amazon.com/encryption-sdk/latest/developer-guide/introduction.html" rel="noopener noreferrer" target="_blank">AWS Encryption SDK</a> is a client-side encryption library that helps make it easier for you to implement encryption best practices in your applications. You can use it with master keys from multiple sources, including AWS KMS CMKs. The AWS Encryption SDK doesn’t require AWS KMS or any other AWS service.</p> 
+<p>You can use AWS KMS APIs directly to encrypt data keys using multiple CMKs, but the AWS Encryption SDK provides tools to make working with multiple CMKs even easier, with everything you need stored in the Encryption SDK’s portable <a href="https://docs.aws.amazon.com/encryption-sdk/latest/developer-guide/concepts.html#message" rel="noopener noreferrer" target="_blank">encrypted message</a> format. The AWS Encryption SDK for C uses the concept of <a href="https://docs.aws.amazon.com/encryption-sdk/latest/developer-guide/concepts.html#keyring" rel="noopener noreferrer" target="_blank"><i>keyrings</i></a>, which makes it easy to work with ciphertexts encrypted under multiple CMKs.</p> 
+<p>In this post, I will walk you through an example using the new AWS Encryption SDK for C. I’ll focus on some highlights from example code in the context of what an example application deployment might look like. You can find the complete <a href="https://github.com/aws/aws-encryption-sdk-c/tree/master/examples" rel="noopener noreferrer" target="_blank">example code</a> in this <a href="https://github.com/aws/aws-encryption-sdk-c/" rel="noopener noreferrer" target="_blank">GitHub repository</a>. As always, we welcome your comments and your contributions. </p> 
+<h2>Example scenario</h2> 
+<p>To add some context around the example code, assume that you have a data processing application deployed both in US West (Oregon) us-west-2 and EU Central (Frankfurt) eu-central-1. For added durability, this example application creates and encrypts data in us-west-2 before it’s copied to the eu-central-1 Region. You have assurance that you could decrypt that data in us-west-2 if needed, but you want to mitigate the case where the decryption service in us-west-2 is unavailable. So how do you ensure you can decrypt your data in the eu-central-1 region when you need to? </p> 
+<p>In this example, your data processing application uses the AWS Encryption SDK and AWS KMS to generate a 256-bit data key to encrypt content locally in us-west-2. The AWS Encryption SDK for C deletes the plaintext data key after use, but an encrypted copy of that data key is included in the encrypted message that the AWS Encryption SDK returns. This prevents you from losing the encrypted copy of the data key, which would make your encrypted content unrecoverable. The data key is encrypted under the AWS KMS CMKs in each of the two regions in which you might want to decrypt the data in the future.</p> 
+<p>A best practice is to plan to decrypt data using in-region data keys and CMKs. This reduces latency and simplifies the permissions and auditing properties of the decryption operation. The latency impact from the cross-region API calls occur only during the encryption operation.</p> 
+<p>In this scenario, the AWS KMS CMK key policy permissions look like this:</p> 
+<ul> 
+ <li>To encrypt data, the AWS identity used by the data processing application in us-west-2 needs <span style="font-family: courier">kms:GenerateDataKey</span> permission on the us-west-2 CMK and <span style="font-family: courier">kms:Encrypt</span> permission on the eu-central-1 CMK. You can specify these permissions in a key policy or IAM policy. This will let the application create a data key in us-west-2 and encrypt the data key under CMKs in both AWS Regions.</li> 
+ <li>To decrypt data, the AWS identity used by the data processing application in us-west-2 needs <span style="font-family: courier"><a href="https://docs.aws.amazon.com/kms/latest/APIReference/API_Decrypt.html" rel="noopener noreferrer" target="_blank">kms:Decrypt</a></span> permissions on the CMK in us-west-2 or the CMK in eu-central-1.</li> 
+</ul> 
+<h2>Encryption path</h2> 
+<p>First, define variables for the Amazon Resource Names (ARNs) of your CMKs in us-west-2 and eu-central-1. In the Encryption SDK for C, to encrypt, you can identify a CMK by its CMK ARN or the Alias ARN that is mapped to the CMK ARN.</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-text">
+const char *KEY_ARN_US_WEST_2 = &quot;arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab&quot;;
+
+const char *KEY_ARN_EU_CENTRAL_1 = &quot;arn:aws:kms:eu-central-1:111122223333:key/0987dcba-09fe-87dc-65ba-ab0987654321&quot;;      
+     
+</code></pre> 
+</div> 
+<p>Now, use the CMK ARNs to create a keyring. In the Encryption SDK, a keyring is used to generate, encrypt, and decrypt data keys under multiple master keys. You’ll create a KMS keyring configured to use multiple CMKs. </p> 
+<div class="hide-language"> 
+ <pre><code class="lang-text">
+struct aws_cryptosdk_keyring *kms_keyring=Aws::Cryptosdk::KmsKeyring::Builder().Build(KEY_ARN_US_WEST_2, { KEY_ARN_EU_CENTRAL_1 });
+</code></pre> 
+</div> 
+<p>When the AWS Encryption SDK uses this keyring to encrypt data, it calls <span style="font-family: courier"><a href="https://docs.aws.amazon.com/kms/latest/APIReference/API_GenerateDataKey.html" rel="noopener noreferrer" target="_blank">GenerateDataKey</a></span> on the first CMK that you specify, and <span style="font-family: courier"><a href="https://docs.aws.amazon.com/kms/latest/APIReference/API_Encrypt.html" rel="noopener noreferrer" target="_blank">Encrypt</a></span> on each of the remaining CMKs that you specify. The result is a plaintext data key generated in us-west-2, an encryption of the data key using the CMK in us-west-2, and an encryption of the data key using the CMK in eu-central-1.</p> 
+<p>The plaintext data key that AWS KMS generated in us-west-2 is protected under a TLS session using only cipher suites that support forward-secrecy. The process of sending that same plaintext data key to the AWS KMS endpoint in eu-central-1 for encryption is also protected under a similar TLS session.</p> 
+<p>The Encryption SDK uses the data key to encrypt your data, and it stores the encrypted data keys with your encrypted content. The result is an encrypted message that can be decrypted using the CMK in us-west-2 or the CMK in eu-central-1.</p> 
+<p>Now that you understand what’s going to happen after you create the keyring, I’ll return to the code sample. Next, you need to create an <a href="https://docs.aws.amazon.com/encryption-sdk/latest/developer-guide/c-language-using.html#c-language-using-pattern" rel="noopener noreferrer" target="_blank">encrypt-mode session</a> with your keyring and pass in the CMM. In the AWS Encryption SDK for C, you use a session to encrypt a single plaintext message or decrypt a single ciphertext message, regardless of its size. The session maintains the state of the message throughout its processing.</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-text">
+struct aws_cryptosdk_session *session = aws_cryptosdk_session_new_from_keyring(alloc, AWS_CRYPTOSDK_ENCRYPT, kms_keyring);
+</code></pre> 
+</div> 
+<p>With the keyring and encrypt-mode session, the data processing application can ask the Encryption SDK to encrypt the data under the CMKs that you specified in two different AWS regions:</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-text">
+aws_cryptosdk_session_process(
+    session,
+    out_ciphertext,
+    out_ciphertext_buf_sz,
+    out_ciphertext_len,
+    in_plaintext,
+    in_plaintext_len,
+    &amp;in_plaintext_consumed))
+</code></pre> 
+</div> 
+<p>The result is an encrypted message that contains the ciphertext and two encrypted copies of the same data key. One encrypted data key was encrypted by your CMK in us-west-2 and other encrypted data key was encrypted by your CMK in eu-central-1.</p> 
+<h2>Decryption path </h2> 
+<p>In the AWS Encryption SDK for C, you use keyrings for both encrypting and decrypting. You can use the same keyring for both, or you can use different keyrings for each operation. </p> 
+<p>Why would you want to use a different keyring for decryption? At a high level, encrypt keyrings specify all CMKs that can decrypt the ciphertext. Decrypt keyrings constrain the CMKs the application is permitted to use. </p> 
+<p>Reusing a keyring for both encrypt and decrypt mode can simplify your AWS Encryption SDK client configuration, but splitting the keyring and using different AWS KMS clients provides more flexibility to meet your security and architecture goals. The <a href="https://docs.aws.amazon.com/encryption-sdk/latest/developer-guide/choose-keyring.html" rel="noopener noreferrer" target="_blank">option you choose</a> depends in part on the constraints you want to place on the CMKs your application uses. </p> 
+<p>The <span style="font-family: courier">Decrypt</span> API in the AWS KMS service doesn’t permit you to specify a CMK as a request parameter. But the AWS Encryption SDK lets you specify one or many CMKs in a decryption keyring, or even <a href="https://docs.aws.amazon.com/encryption-sdk/latest/developer-guide/choose-keyring.html#kms-keyring-discovery" rel="noopener noreferrer" target="_blank">discover which CMKs to try automatically</a>. I’ll discuss each option in the next section.</p> 
+<h2>Decryption path 1: Use a specific CMK</h2> 
+<p>This keyring option configures the AWS Encryption SDK to use only a specified CMK in the specified AWS Region. This implies that your data processing application will need <span style="font-family: courier">kms:Decrypt</span> permissions on that specific CMK and your application will always call the same AWS KMS endpoints in the specified AWS Region. CloudTrail events from the <span style="font-family: courier">Decrypt</span> API will also only appear in the specified AWS Region. </p> 
+<p>You might use a specific CMK when the user or application that is decrypting the data has <span style="font-family: courier">kms:Decrypt</span> permission on only one of the CMKs that encrypted the data keys. </p> 
+<p>The CMK that you specify to decrypt the data must be one of the CMKs that was used to encrypt the data. Make sure that at least one of the CMKs from your encrypt keyring is included in the decrypt keyring and that the caller has <span style="font-family: courier">kms:Decrypt</span> permission to use it.</p> 
+<p>In my example, I encrypted the data keys using CMKs in us-west-2 and eu-central-1, so I’ll start decrypting in eu-central-1 because I want to have a specific decrypt instantiation of the data processing application dedicated to eu-central-1. Assume the eu-central-1 data processing application has configured AWS IAM credentials for a principal with permission to call the <span style="font-family: courier">Decrypt</span> operation on the eu-central-1 CMK.</p> 
+<p>Configure a keyring that asks the AWS Encryption SDK to use the CMK in eu-central-1 to decrypt:</p> 
+<p><span style="font-family: courier">Aws::Cryptosdk::KmsKeyring::Builder().Build(KEY_ARN_EU_CENTRAL_1)</span></p> 
+<p>The Encryption SDK reads the encrypted message, finds the encrypted data key that was encrypted using the CMK in eu-central-1, and uses this keyring to decrypt.</p> 
+<h2>Decryption path 2: Use any of several CMKs</h2> 
+<p>This keyring option configures the AWS Encryption SDK to try several specific CMKs during its decryption attempts, stopping as soon as it succeeds. You should configure the AWS IAM credentials used by your data processing application to have <span style="font-family: courier">kms:Decrypt</span> permissions on each of the specified regional CMKs. </p> 
+<p>Your application could end up calling multiple regional AWS KMS endpoints. CloudTrail events from the <span style="font-family: courier">Decrypt</span> API will appear in the AWS Region in which the decrypt operation succeeds, and in any of the other AWS Regions that the keyring attempts to use. The CMK that you specify to decrypt the data must be one of the CMKs that was used to encrypt the data. Make sure that at least one of the CMKs from your encrypt keyring is included in the decrypt keyring and that the application has <span style="font-family: courier">kms:Decrypt</span> permission to use it.</p> 
+<p>You might define an encryption keyring that includes multiple CMKs so that users with different permissions can decrypt the same message. For example, you might include in your encryption keyring keys in multiple AWS regions. </p> 
+<p>Here’s an example keyring constructed with multiple CMKs:</p> 
+<p><span style="font-family: courier">Aws::Cryptosdk::KmsKeyring::Builder().Build(KEY_ARN_EU_CENTRAL_1, { KEY_ARN_US_WEST_2 })</span></p> 
+<p>The AWS Encryption SDK reads each of the encrypted data keys stored in the encrypted message in the order that they appear. For each data key, the Encryption SDK searches the keyring for the matching CMK that encrypted it. If it finds that CMK, the AWS Encryption SDK calls AWS KMS in the AWS Region where the CMK exists to decrypt that data key, then uses that decrypted key to decrypt the message. If the decryption operation fails for any reason, the AWS Encryption SDK moves on to the next encrypted data key in the message and tries again.</p> 
+<p>The AWS Encryption SDK will try to decrypt the encrypted message in this way until either decryption succeeds, or the AWS Encryption SDK has attempted and failed to decrypt any of the encrypted data keys using the CMKs specified in the keyring.</p> 
+<p>If this keyring configuration looks familiar, it’s because it’s similar to the configuration you used on the encrypt path when you encrypted under multiple CMKs. The difference is this:</p> 
+<ul> 
+ <li>Encryption: The AWS Encryption SDK uses every CMK in the keyring to encrypt the data key, and adds all of the encrypted data keys to the encrypted message.</li> 
+ <li>Decryption: The AWS Encryption SDK attempts to decrypt one of the encrypted data key using only the CMKs in the keyring. It stops as soon as it succeeds.</li> 
+</ul> 
+<h2>Decryption path 3: Strategic ARNs reduction using the Discovery keyring</h2> 
+<p>The previous decryption paths required you to keep track of the exact CMKs used during the encryption operation, which may suit your needs for security and event logging. But what if you want more flexibility? What if you want to change the CMKs that you use in encryption operations without updating the data processing application that decrypts your data? You can configure a keyring that doesn’t specify CMKs to use for decryption, but instead tries each CMK that encrypted a data key until decryption succeeds or all referenced CMKs fail. We call this configuration a KMS Discovery keyring.</p> 
+<p>A Discovery keyring is equivalent to a keyring that includes all of the same CMKs that were used to encrypt the data, but it’s simpler and less error-prone. You might use a KMS Discovery keyring if you have no preference among the CMKs that encrypted a data key, and don’t mind the latency tradeoffs of trying CMKs in remote AWS Regions, or trying CMKs that will fail a permissions check while searching for one that succeeds. You can think of the KMS Discovery keyring as a universal keyring that you can use and reuse in your applications in many AWS Regions.</p> 
+<p>When you use a KMS Discovery keyring, the AWS Encryption SDK reads each encrypted data key and discovers the ARN of the CMK used to encrypt it. The AWS Encryption SDK then uses the configured IAM credentials to call AWS KMS in that CMK’s AWS Region to decrypt the data key. The AWS Encryption SDK repeats that process until it has decrypted the data key or runs out of encrypted data keys to try. .</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-text">
+Aws::Cryptosdk::KmsKeyring::Builder().BuildDiscovery();
+</code></pre> 
+</div> 
+<p>While KMS Discovery keyrings are simpler, you run the risk of having your data processing application make a cross-region call to an AWS KMS endpoint that adds unwanted latency. In my example, you might not want the decrypting application running in us-west-2 to wait for the AWS Encryption SDK to call AWS KMS in eu-central-1. To use only the CMKs in a particular AWS Region to decrypt the data keys, create a KMS Regional Discovery keyring that specifies the AWS Region, but not the CMK ARNs. In my example, the following keyring allows the AWS Encryption SDK to use only CMKs in us-west-2.</p> 
+<div class="hide-language"> 
+ <pre><code class="lang-text">
+Aws::Cryptosdk::KmsKeyring::Builder()
+        .WithKmsClient(create_kms_client(Aws::Region::US_WEST_2)).BuildDiscovery());
+</code></pre> 
+</div> 
+<p>Because this example KMS Regional Discovery keyring specifies a client for the us-west-2 AWS Region, not a CMK ARN, the AWS Encryption SDK will only try to decrypt any encrypted data key it finds that was encrypted using any CMK in us-west-2. If, for some reason, none of the encrypted data keys was encrypted using a CMK in us-west-2, or the application decrypting the data doesn’t have permission to use CMKs in us-west-2, the AWS Encryption SDK call to decrypt the message with this keyring fails and fails fast. This may provide you with more options for deterministic error handling.</p> 
+<p>Keep in mind that the KMS Regional Discovery keyring allows the AWS Encryption SDK to try the CMK for each encrypted data key in the specified AWS Region. However, AWS KMS never uses a CMK until it verifies that the caller has permission to perform the requested operation. If the application doesn’t have <span style="font-family: courier">kms:Decrypt</span> permission for any of the CMKs that were used to encrypt the data keys, decryption fails.</p> 
+<h2>Summary</h2> 
+<p>Encrypting KMS data keys using multiple CMKs provides a variety of options to decrypt ciphertexts to meet your security, auditing, and latency requirements. My examples show how encrypted messages can be decrypted by using AWS KMS CMKs in multiple AWS Regions. You can also use the Encryption SDK with master keys supplied by a custom key management infrastructure independent of AWS. </p> 
+<p>The AWS Encryption SDK’s portable and interoperable encrypted message format makes it easier to combine multiple encrypted data keys with your encrypted data to support the decryption access scheme you want. The AWS Encryption SDK for C brings these utilities to a new, broader set of platform and application environments to complement the existing <a href="https://github.com/aws/aws-encryption-sdk-java" rel="noopener noreferrer" target="_blank">Java</a> and <a href="https://github.com/aws/aws-encryption-sdk-python" rel="noopener noreferrer" target="_blank">Python</a> versions.</p> 
+<p>You can find the AWS Encryption SDK for C on <a href="https://github.com/aws/aws-encryption-sdk-c/" rel="noopener noreferrer" target="_blank">GitHub</a>.</p> 
+<p>If you have feedback about this blog post, submit comments in the Comments section below. If you have questions about this blog post, start a new thread on the <a href="https://forums.aws.amazon.com/forum.jspa?forumID=302">AWS Crypto Tools forum</a> or <a href="https://console.aws.amazon.com/support/home" title="contact AWS Support" target="_blank" rel="noopener noreferrer">contact AWS Support</a>.</p> 
+<p><strong>Want more AWS Security how-to content, news, and feature announcements? Follow us on <a href="https://twitter.com/AWSsecurityinfo" title="Twitter" target="_blank" rel="noopener noreferrer">Twitter</a>.</strong></p> 
+<footer> 
+ <div class="blog-author-box"> 
+  <div class="blog-author-image"> 
+   <img src="https://d2908q01vomqb2.cloudfront.net/22d200f8670dbdb3e253a90eee5098477c95c23d/2019/04/30/author-bio-2.jpg" alt="Author" width="105" height="160" class="aligncenter size-full wp-image-10520" /> 
+  </div> 
+  <h3 class="lb-h4">Liz Roth</h3> 
+  <p>Liz is a Senior Software Development Engineer at Amazon Web Services. She has been at Amazon for more than 8 years and has more than 10 years of industry experience across a variety of areas, including security, networks, and operations.</p> 
+  <p></p>
+ </div> 
+</footer>

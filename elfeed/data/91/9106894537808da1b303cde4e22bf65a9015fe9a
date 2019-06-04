@@ -1,0 +1,52 @@
+<p><a href="https://aws.amazon.com/codebuild/">AWS CodeBuild</a> now makes it possible for you to access Docker images from any Amazon Elastic Container Registry repository in another account as the build environment. With this feature, AWS CodeBuild allows you to pull any image from a repository to which you have been granted resource-level permissions.</p> 
+<p>In this blog post, we will show you how to provision a build environment using an image from another AWS account.</p> 
+<p>Here is a quick overview of the services used in our example:</p> 
+<p><a href="https://aws.amazon.com/codebuild/">AWS CodeBuild</a>&nbsp;is a fully managed continuous integration service that compiles source code, runs tests, and produces software packages that are ready to deploy. It provides a fully preconfigured build platform for most popular programming languages and build tools, including Apache Maven, Gradle, and more.</p> 
+<p><a href="https://aws.amazon.com/ecr/">Amazon Elastic ECR</a>&nbsp;is a fully managed Docker container registry that makes it easy for developers to store, manage, and deploy Docker container images.</p> 
+<p>We will use a sample Docker image in an Amazon ECR image repository in AWS account B. The CodeBuild project in AWS account A will pull the images from the Amazon ECR image repository in AWS account B.</p> 
+<p><img class="alignnone wp-image-2917 size-full" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2019/01/30/Untitled-Diagram-5.png" alt="" width="692" height="311" /></p> 
+<p><strong>Prerequisites:</strong></p> 
+<p>To get started you need:</p> 
+<p>&middot;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Two AWS accounts (AWS account A and AWS account B).</p> 
+<p>&middot;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; In AWS account A, an image registry in Amazon ECR. In AWS account B, images that you would like to use for your build environment. If you do not have an image registry and a sample image, see Docker Sample in the AWS CodeBuild User Guide.</p> 
+<p>&middot;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; In AWS account A, an AWS CodeCommit repository with a buildspec.yml file and sample code.</p> 
+<p>&middot;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Using the following steps, permissions in your Amazon ECR image repository for AWS CodeBuild to pull the repository’s Docker image into the build environment.</p> 
+<p><strong>To grant CodeBuild permissions to pull the Docker image into the build environment</strong></p> 
+<p>1.&nbsp;&nbsp;&nbsp;&nbsp; Open the Amazon ECS console at https://console.aws.amazon.com/ecs/.</p> 
+<p>2.&nbsp;&nbsp;&nbsp;&nbsp; Choose the name of the repository you created.</p> 
+<p>3.&nbsp;&nbsp;&nbsp;&nbsp; On the Permissions tab, choose Edit JSON policy.</p> 
+<p>4.&nbsp;&nbsp;&nbsp;&nbsp; Apply the following policy and save.</p> 
+<pre><code class="lang-json">{
+  &quot;Version&quot;: &quot;2012-10-17&quot;,
+  &quot;Statement&quot;: [
+    {
+      &quot;Sid&quot;: &quot;CodeBuildAccess&quot;,
+      &quot;Effect&quot;: &quot;Allow&quot;,
+      &quot;Principal&quot;: {
+        &quot;AWS&quot;: &quot;&lt;arn of the service role&gt;&quot;  
+      },
+      &quot;Action&quot;: [
+        &quot;ecr:GetDownloadUrlForLayer&quot;,
+        &quot;ecr:BatchGetImage&quot;,
+        &quot;ecr:BatchCheckLayerAvailability&quot;
+      ]
+    }
+  ]
+}
+</code></pre> 
+<p><strong>To use an image from account B and set up a build project in account A</strong></p> 
+<p>1. Open the AWS CodeBuild console at https://console.aws.amazon.com/codesuite/codebuild/home.</p> 
+<p>2. Choose Create project.</p> 
+<p>3. In Project configuration, enter a name and description for the build project.</p> 
+<p>4. In Source, for Source provider, choose the source code provider type. In this example, we use the AWS CodeCommit repository name.</p> 
+<p>&nbsp;</p> 
+<p><img class="alignnone wp-image-2887 size-full" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2019/01/23/Screen-Shot-2019-01-23-at-1.35.56-PM.png" alt="" width="1634" height="702" /></p> 
+<p>5.&nbsp; For&nbsp;Environment, we will pull the Docker image from AWS account B and use the image to create the build environment to build artifacts. To configure the build environment, choose Custom Image. For Image registry, choose Amazon ECR. For ECR account, choose Other ECR account.</p> 
+<p><img class="alignnone wp-image-2890 size-full" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2019/01/23/Screen-Shot-2019-01-23-at-12.33.49-PM.png" alt="" width="1646" height="954" /></p> 
+<p>6.&nbsp;&nbsp;In Amazon ECR repository URI, enter the URI for the image repository from AWS account B and then choose Create build project.</p> 
+<p><img class="alignnone wp-image-2889 size-full" src="https://d2908q01vomqb2.cloudfront.net/7719a1c782a1ba91c031a682a0a2f8658209adbf/2019/01/23/Screen-Shot-2019-01-23-at-12.49.10-PM.png" alt="" width="1662" height="940" /></p> 
+<p>7. Go to the build project you just created, and choose Start build. The build execution will download the source code from the AWS CodeCommit repository and provision the build environment using the image retrieved from the image registry.</p> 
+<p><strong>Next steps</strong></p> 
+<p>Now that you have seen how to use cross-account ECR images, you can integrate a build step in AWS CodePipeline and use the build environment to create artifacts and deploy your application. To integrate a build step in your pipeline,&nbsp;<a href="https://docs.aws.amazon.com/codedeploy/latest/userguide/deployments.html">see Working with Deployments in AWS CodeDeploy in the AWS CodeDeploy User Guide</a></p> 
+<p>If you have any feedback, please leave it in the&nbsp;Comments&nbsp;section below. If you have questions, please start a thread on the&nbsp;<a href="https://forums.aws.amazon.com/forum.jspa?forumID=230">AWS CodeBuild forum</a> or contact&nbsp;<a href="https://console.aws.amazon.com/support/home?">AWS Support</a>.</p> 
+<p>&nbsp;</p>
