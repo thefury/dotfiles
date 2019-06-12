@@ -1,2 +1,0 @@
-<p pid="67">In this blog post, we will demonstrate how to build a complete GKE security stack for anomaly detection and prevent container runtime security threats. We will integrate the&nbsp;<a href="https://falco.org/" rel="nofollow noopener noreferrer" target="_blank">Falco</a> runtime security engine with Google Cloud Functions and Pub/Sub.</p>
-<p pid="72">This GKE security stack is composed of two different deployments:</p>

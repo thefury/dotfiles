@@ -1,2 +1,0 @@
-<p pid="1">Running native queries to a relational database using Java often leads to confusing the source code, particularly when one has too many filter conditions and/or changes in table bindings.</p>
-<p pid="2">Because of this, I decided to create the &quot;Spring Native Query&quot; library to facilitate the execution of native queries, with a focus on simplifying the source code, making it more readable and clean, creating files that contain the native queries, and dynamically injecting assets to execute those queries.</p>

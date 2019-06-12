@@ -1,6 +1,0 @@
-<p><b>May 14, 2019 10:00 AM PDT</b></p> 
-<p><b>CVE Identifiers:&nbsp;CVE-2018-12126, CVE-2018-12127, CVE-2018-12130, CVE-2019-11091</b></p> 
-<p><b>Xen Security Advisories: XSA-297<br /> </b></p> 
-<p>Intel has published a security advisory (<a href="https://www.intel.com/content/www/us/en/security-center/advisory/intel-sa-00233.html" target="_blank">INTEL-SA-00233</a>) regarding new information disclosure methods &quot;Microarchitectural Data Sampling&quot; (MDS) related to their processors. In parallel, the Xen security team have released <a href="http://xenbits.xen.org/xsa/advisory-297.html" target="_blank">Xen Security Advisory 297</a>.</p> 
-<p>AWS has designed and implemented its infrastructure with protections against these types of bugs, and has also deployed additional protections for MDS. All EC2 host infrastructure has been updated with these new protections, and no customer action is required at the infrastructure level. &nbsp;</p> 
-<p>Updated kernels and microcode packages for Amazon Linux AMI 2018.03 and Amazon Linux 2 are available in the respective repositories (<a href="https://alas.aws.amazon.com/ALAS-2019-1205.html" target="_blank">ALAS-2019-1205</a>). As a general security best practice, we recommend that customers patch their operating systems or software as relevant patches become available to address emerging issues.&nbsp;<br /> </p>

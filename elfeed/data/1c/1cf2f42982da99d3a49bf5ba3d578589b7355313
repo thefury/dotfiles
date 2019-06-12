@@ -1,6 +1,0 @@
-<div>
- <img src="https://blogs.mulesoft.com/wp-content/uploads/dataweave-code-blog.jpg" class="fr-fin fr-dib" />
- <blockquote>
-  <p>In this post, I will discuss how I format my DataWeave code to improve its readability.</p>
- </blockquote>
- <p>In my <a href="https://dzone.com/articles/mule-programming-style-guide-a-simple-main-flow">previous post</a> about my Mule programming style, I discussed a couple of things: first, why the readability of your code is so important, and second, how having a single flow that describes the overall intent of the code through descriptive doc:name attributes can really improve the readability of your code.</p>

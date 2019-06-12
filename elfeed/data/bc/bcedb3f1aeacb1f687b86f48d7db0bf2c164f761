@@ -1,2 +1,0 @@
-<p pid="44">This document discusses&nbsp;having a common security framework to protect our REST APIs against different types of attacks, e.g. OWASP top 10 threats, unauthorized access, denial of service attacks, masking confidential data, etc., and at the same time, also ensure that APIs cater to the needs of an omni-channel experience.</p>
-<p pid="3">Before we jump into the security, we need to understand few basic concepts about clients and API types, explained below:</p>

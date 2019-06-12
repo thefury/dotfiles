@@ -1,2 +1,0 @@
-<p pid="2">In this article, we'll have a look at a data structure known as a doubly linked list. If you're unfamiliar with linked lists, I highly recommend that you check out this <a href="https://www.aoprogrammer.com/blog/implementing-a-linked-list/" target="_blank">tutorial on linked lists</a> before proceeding.</p>
-<p pid="3">A doubly linked list (often abbreviated as DLL) is very much like a regular singly linked list (SLL).<br />Both DLL and SLL contain a pointer to the next node, as well as a data field to represent the actual value stored in the node.</p>

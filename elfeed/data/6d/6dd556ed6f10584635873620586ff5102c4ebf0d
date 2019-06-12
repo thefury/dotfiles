@@ -1,1 +1,0 @@
-VFront 0.99.5 has Reflected XSS via the admin/menu_registri.php descrizione_g parameter or the admin/sync_reg_tab.php azzera parameter.

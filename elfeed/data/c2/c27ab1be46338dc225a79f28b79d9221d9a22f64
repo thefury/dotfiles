@@ -1,1 +1,0 @@
-The function getopt_simple as described in Advanced Bash Scripting Guide (ISBN 978-1435752184) allows privilege escalation and execution of commands when used in a shell script called, for example, via sudo.

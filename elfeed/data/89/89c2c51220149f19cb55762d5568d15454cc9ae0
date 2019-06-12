@@ -1,1 +1,0 @@
-Apache Camel prior to 2.24.0 contains an XML external entity injection (XXE) vulnerability (CWE-611) due to using an outdated vulnerable JSON-lib library. This affects only the camel-xmljson component, which was removed.

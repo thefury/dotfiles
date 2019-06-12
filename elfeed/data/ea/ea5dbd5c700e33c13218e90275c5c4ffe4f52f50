@@ -1,1 +1,0 @@
-Improper access control and open directories in Ivanti LANDESK Management Suite (LDMS, aka Endpoint Manager) 10.0.1.168 Service Update 5 may lead to remote disclosure of administrator passwords.

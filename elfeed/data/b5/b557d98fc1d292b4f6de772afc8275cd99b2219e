@@ -1,3 +1,0 @@
-<p><b>January 4, 2019 9:00 AM PST</b></p> 
-<p>AWS is aware of the two recent security issues disclosed within Kubernetes regarding the Kubernetes API server (&quot;kubectl proxy&quot;), and the Kubernetes Dashboard (<a href="https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-18264" target="_blank">CVE-2018-18264</a>). Amazon Elastic Container Service for Kubernetes (EKS) is not affected by the &quot;kubectl proxy&quot; issue, and no customer action is required.</p> 
-<p>Amazon EKS does not install the Kubernetes Dashboard on customer clusters. For customers who have customized their EKS cluster and installed a version of the Kubernetes Dashboard older than v1.10.1, AWS recommends to upgrade the Kubernetes Dashboard to the latest version.</p>

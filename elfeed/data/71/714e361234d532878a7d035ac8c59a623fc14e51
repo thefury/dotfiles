@@ -1,4 +1,0 @@
-<div>
- <img src="https://blogs.mulesoft.com/wp-content/uploads/query-command-event.jpg" class="fr-fin fr-dib" />
- <p>One of the debates that's been smoldering since the <a href="https://blogs.mulesoft.com/dev/microservices-organizational-agility/" target="_blank">microservices</a> movement began is how microservices should communicate with one another.</p>
- <p>In the James Lewis and Martin Fowler <a href="https://martinfowler.com/articles/microservices.html" target="_blank">bliki post</a> that popularized the approach, they said this about communication protocols:</p>

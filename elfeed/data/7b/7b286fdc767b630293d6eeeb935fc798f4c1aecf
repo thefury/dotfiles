@@ -1,1 +1,0 @@
-The Orpak SiteOmat OrCU component is vulnerable to code injection, for all versions prior to 2017-09-25, due to a search query that uses a direct shell command. By tampering with the request, an attacker is able to run shell commands and receive valid output from the device.

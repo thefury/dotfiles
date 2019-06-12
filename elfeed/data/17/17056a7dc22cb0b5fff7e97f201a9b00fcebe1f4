@@ -1,1 +1,0 @@
-Privilege escalation in the &quot;HTC Account Service&quot; and &quot;ViveportDesktopService&quot; in HTC VIVEPORT before 1.0.0.36 allows local attackers to escalate privileges to SYSTEM via reconfiguration of either service.

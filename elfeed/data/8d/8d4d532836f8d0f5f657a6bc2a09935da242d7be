@@ -1,3 +1,0 @@
-<h2 pid="1"><strong id="docs-internal-guid-dfccbfa7-7fff-6f49-ad33-9d8250426d0f">How Often Does Your App Crash?</strong></h2>
-<p pid="2">It’s a great question because there are several nuances to it. For one, the question is better phrased as “How often do your users have a poor experience?” This is because true “crashes” (those cases where the app suddenly closes and there is a stack trace for the closure) represent only a small fraction of cases that the user would label as a crash. </p>
-<p pid="3">We’ve found that OOMs (Out of Memory), which are instances where the app suddenly closes and doesn’t leave a stack trace, affect users five to ten times more frequently as crashes and frustrate the user just as much as a technical “crash.” </p>

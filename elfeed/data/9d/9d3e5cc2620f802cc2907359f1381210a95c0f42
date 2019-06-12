@@ -1,4 +1,0 @@
-<div>
- <p>The Telegraf Elasticsearch <a href="https://github.com/influxdata/telegraf/tree/release-1.10/plugins/inputs/elasticsearch" target="_blank">plugin</a> is really easy to use, and it can show you a lot of useful information. To begin, let's get the InfluxDB sandbox up and running as well as an Elasticsearch node that we can populate with some data using Kibana.</p>
- <h2>Installing the InfluxDB Sandbox</h2>
- <p>For this tutorial I've opted to use the InfluxDB Sandbox, which is really easy to get running. Just clone the repository and run the <code>./sandbox up</code> command and you've got all four components of the TICK stack running in their own containers. Follow the instructions <a href="https://docs.influxdata.com/platform/installation/sandbox-install/" target="_blank">here</a> to clone the repository and get it running.</p>

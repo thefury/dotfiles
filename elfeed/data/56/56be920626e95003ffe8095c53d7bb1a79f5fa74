@@ -1,1 +1,0 @@
-BACnet Protocol Stack through 0.8.6 could allow an unauthenticated, remote attacker to cause a denial of service (bacserv daemon crash) because there is an invalid read in bacdcode.c during parsing of alarm tag numbers.

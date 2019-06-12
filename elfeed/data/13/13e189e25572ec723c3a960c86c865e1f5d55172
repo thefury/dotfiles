@@ -1,1 +1,0 @@
-Web Port 1.19.1 allows XSS via the /log type parameter.

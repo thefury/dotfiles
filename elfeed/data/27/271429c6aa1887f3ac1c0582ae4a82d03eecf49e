@@ -1,1 +1,0 @@
-The WebApp v04.68 in the supervisor on SAET Impianti Speciali TEBE Small 05.01 build 1137 devices allows remote attackers to make several types of API calls without authentication, as demonstrated by retrieving password hashes via an inc/utils/REST_API.php?command=CallAPI&amp;customurl=alladminusers call.

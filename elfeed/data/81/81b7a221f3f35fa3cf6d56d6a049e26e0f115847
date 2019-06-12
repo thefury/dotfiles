@@ -1,3 +1,0 @@
-<p pid="5">In this article, we will take a look at the use of Google Home as an end-to-end credit card acquisition process using UiPath, Dialogflow, and Node JS libraries.</p>
-<h2 pid="7"><strong>Introduction</strong></h2>
-<p pid="8">Google Home is a smart device used to receive voice commands and act accordingly to such commands. Depending on the task it is asked to develop, it may play some music from any subscribed music provider service, make an appointment in your calendar, and you can even ask it to tell a joke. However, if you want to use your Google Home not only for amusement purposes but also for running a business, you may want to get informed about the capabilities of using Dialogflow and Google Home.</p>

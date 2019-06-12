@@ -1,1 +1,0 @@
-An issue was discovered in dlpar_parse_cc_property in arch/powerpc/platforms/pseries/dlpar.c in the Linux kernel through 5.1.6. There is an unchecked kstrdup of prop-&gt;name, which might allow an attacker to cause a denial of service (NULL pointer dereference and system crash).

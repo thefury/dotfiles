@@ -1,2 +1,0 @@
-<p pid="25">In my <a href="https://dzone.com/articles/real-time-machine-learning-with-tensorflow-in-data">previous post</a>,&nbsp;we looked at using TensorFlow models in dataflow pipelines to generate predictions and classifications in real-time. In this post, I will walk you through using Databricks ML models in StreamSets Data Collector for low-latency inference.</p>
-<p pid="25"> In Machine Learning there are two major phases.</p>

@@ -1,1 +1,0 @@
-A heap buffer overflow in Fortinet FortiOS all versions below 6.0.5 in the SSL VPN web portal may cause the SSL VPN web service termination for logged in users due to a failure to properly handle javascript href data when proxying webpages.

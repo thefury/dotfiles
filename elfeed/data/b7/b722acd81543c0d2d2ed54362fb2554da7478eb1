@@ -1,1 +1,0 @@
-An insecure communication was found between a user and the Orpak SiteOmat management console for all known versions, due to an invalid SSL certificate. The attack allows for an eavesdropper to capture the communication and decrypt the data.
