@@ -44,5 +44,6 @@
   (elfeed-db-save)
   (quit-window))
 
+(setq elfeed-db-directory "~/Nextcloud/workflow/elfeed")
 
 (provide 'setup-elfeed)
