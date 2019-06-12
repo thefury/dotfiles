@@ -33,7 +33,9 @@
 (setq org-agenda-files
       (list org-root-path))
 
-(defvar fury/org-kinetic-files '("~/Nextcloud/workflow/org/kinetic.org"))
+(defvar fury/org-kinetic-files
+  '("~/Nextcloud/workflow/org/kinetic.org"
+    "~/Nextcloud/workflow/org/routines.org"))
 
 ;; Do not dim blocked tasks
 (setq org-agenda-dim-blocked-tasks nil)
@@ -76,10 +78,10 @@ this with to-do items than with projects or headings."
 
 
 (defun fury/org-skip-scheduled-tasks ()
-  (org-agenda-skip-entry-if 'notscheduled 'regexp ":PROJECT:"))
+  (org-agenda-skip-entry-if 'scheduled 'regexp "PROJECT" 'regexp "RECURRING"))
   
 (defun fury/org-skip-unscheduled-tasks ()
-  (org-agenda-skip-entry-if 'scheduled 'regexp ":PROJECT:"))
+  (org-agenda-skip-entry-if 'notscheduled 'regexp "RECURRING" 'regexp "PROJECT"))
 
 (defun fury/org-skip-active-projects ()
   "Skip project trees that are TODO or STARTED"
@@ -121,7 +123,7 @@ this with to-do items than with projects or headings."
 	       ((todo "TODO"
 		      ((org-agenda-overriding-header "Unscheduled Tasks:")
 		       (org-agenda-todo-list-sublevels nil)
-		       (org-agenda-skip-function 'fury/org-skip-unscheduled-tasks)))))
+		       (org-agenda-skip-function 'fury/org-skip-scheduled-tasks)))))
               (" " "Review"
 	       ((tags "REFILE"
                       ((org-agenda-overriding-header "Tasks to Refile:")
@@ -141,11 +143,14 @@ this with to-do items than with projects or headings."
 		;; (org-agenda-list-stuck-projects)
 		(todo "TODO"
 		      ((org-agenda-overriding-header "Scheduled Tasks:")
-		       (org-agenda-skip-function 'fury/org-skip-scheduled-tasks)
+		       (org-agenda-skip-function 'fury/org-skip-unscheduled-tasks)
 		       (org-tags-match-list-sublevels nil)))
+		(tags "RECURRING"
+		      ((org-agenda-overriding-header "Recurring Tasks:")
+		       (org-agenda-match-list-sublevels nil)))
 		(todo "TODO"
 		      ((org-agenda-overriding-header "Unscheduled Tasks:")
-		       (org-agenda-skip-function 'fury/org-skip-unscheduled-tasks)
+		       (org-agenda-skip-function 'fury/org-skip-scheduled-tasks)
 		       (org-tags-match-list-sublevels nil)))
 		(todo "WAITING|HOLD"
 		      ((org-agenda-overriding-header "Waiting and Postponed Tasks:")
