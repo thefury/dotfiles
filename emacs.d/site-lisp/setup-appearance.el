@@ -5,7 +5,8 @@
 (tooltip-mode    -1)
 
 ;; Fonts and original window size
-(add-to-list 'default-frame-alist '(font . "mononoki-16"))
+					;(add-to-list 'default-frame-alist '(font . "mononoki-16"))
+(set-default-font "Menlo 14")
 (add-to-list 'default-frame-alist '(height . 24))
 (add-to-list 'default-frame-alist '(width . 80))
 
