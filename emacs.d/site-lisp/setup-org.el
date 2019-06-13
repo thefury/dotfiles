@@ -7,6 +7,7 @@
 (setq org-refile-file "~/Nextcloud/workflow/org/refile.org")
 (setq org-journal-file "~/Nextcloud/workflow/org/journal.org")
 (setq org-review-template "~/Nextcloud/wprkflow/org/templates/weekly-review.txt")
+(setq org-agenda-window-setup only-window)
 
 (setq org-enforce-todo-dependencies t ; can't close without subtasks being done
       org-use-fast-todo-selection t)
