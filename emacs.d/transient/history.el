@@ -1,1 +1,3 @@
-nil
+((magit-diff
+  (("--" ".gitignore")))
+ (magit:-- ".gitignore"))

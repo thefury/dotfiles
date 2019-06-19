@@ -1,1 +1,1 @@
-("~/dotfiles/")
+("~/dotfiles/" "~/dev/KCS/kiehls-sftp-server/" "~/dev/KCS/kcs-infrastructure/" "~/dev/kiehls-contact-schema/" "~/dev/gitcheck/")
