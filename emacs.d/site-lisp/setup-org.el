@@ -12,14 +12,13 @@
       org-use-fast-todo-selection t)
 
 (setq org-todo-keywords
-      '((sequence "TODO(t)" "STARTED(s)" "|" "DONE(d)")
-	(sequence "WAITING(w@/!)" "SOMEDAY(h)" "|" "CANCELLED(c@/!)")))
+      '((sequence "TODO(t)" "|" "DONE(d)")
+	(sequence "WAIT(w@/!)" "SOMEDAY(h)" "|" "CANCELLED(c@/!)")))
 
 (setq org-todo-keyword-faces
       '(("TODO" :foreground "red" :weight bold)
-	("STARTED" :foreground "forest green" :weight bold)
 	("DONE" :foreground "forest green" :weight bold)
-	("WAITING" :foreground "orange" :weight bold)
+	("WAIT" :foreground "orange" :weight bold)
 	("SOMEDAY" :foreground "magenta" :weight bold)
 	("CANCELLED" :foreground "forest green" :weight bold)
 	("MEETING" :foreground "forest green" :weight bold)))
@@ -48,7 +47,7 @@
  org-agenda-compact-blocks 1
  org-agenda-todo-list-sublevels nil
  org-tags-exclude-from-inheritance '("PROJECT")
- org-stuck-projects '("+PROJECT/-SOMEDAY-DONE-CANCELLED" ("TODO") nil ""))
+ org-stuck-projects '("+PROJECT/-SOMEDAY-WAIT-DONE-CANCELLED" ("TODO") nil ""))
 
 ;; These two funtions scooped from Sacha
 (defun fury/org-agenda-done (&optional arg)
@@ -75,113 +74,57 @@ this with to-do items than with projects or headings."
 
 
 (defun fury/org-skip-scheduled-tasks ()
-  (org-agenda-skip-entry-if 'scheduled 'regexp "PROJECT" 'regexp "RECURRING"))
+  (org-agenda-skip-entry-if
+   'scheduled
+   'regexp "PROJECT"
+   'regexp "RECURRING"))
 
 (defun fury/org-skip-unscheduled-tasks ()
   (org-agenda-skip-entry-if 'notscheduled 'regexp "RECURRING" 'regexp "PROJECT"))
 
 (defun fury/org-skip-active-projects ()
-  "Skip project trees that are TODO or STARTED"
-  (org-agenda-skip-entry-if 'todo '("TODO" "STARTED" "DONE" "SOMEDAY")))
+  "Skip project trees that are TODO"
+  (org-agenda-skip-entry-if 'todo '("TODO" "DONE" "SOMEDAY")))
 
 (defun fury/org-skip-stuck-projects ()
-  "Skip project trees that are TODO or STARTED"
-  (org-agenda-skip-entry-if 'todo '("WAITING" "CANCELLED" "SOMEDAY" "DONE")))
+  "Skip project trees that are TODO"
+  (org-agenda-skip-entry-if 'todo '("WAIT" "CANCELLED" "SOMEDAY" "DONE")))
 
 (defun fury/org-skip-incomplete-projects ()
-  "Skip project trees that are TODO or STARTED"
-  (org-agenda-skip-entry-if 'todo '("TODO" "STARTED" "WAITING" "SOMEDAY")))
+  "Skip project trees that are TODO"
+  (org-agenda-skip-entry-if 'todo '("TODO" "WAIT" "SOMEDAY")))
 
 (setq org-agenda-custom-commands
       (quote (("N" "Notes" tags "NOTE"
                ((org-agenda-overriding-header "Notes")
                 (org-tags-match-list-sublevels t)))
-
-	      ("p" "Priority Tasks"
-	       ((tags "+WORK+TODO=\"TODO\"+PRIORITY=\"A\""
-		      ((org-agenda-overriding-header "Work Priorities")))
-		(tags "+HOME+TODO=\"TODO\"+PRIORITY=\"A\""
-		      ((org-agenda-overriding-header "Home Priorities")))))
-	      ("A" "All Tasks"
+      
+	      (" " "All Tasks"
 	       ((agenda "" ((org-agenda-span 1)))
 		(tags "REFILE"
 		      ((org-agenda-overriding-header "Refile")))
 
 		(tags "-RECURRING+TODO=\"TODO\""
 		      ((org-agenda-overriding-header "Next Actions")
-		       (org-agenda-skip-function 'fury/org-skip-stuck-projects)))
+		       (org-agenda-skip-function 'fury/org-skip-scheduled-tasks)))
 
-		
-		(tags "+PROJECT/-SOMEDAY-WAITING-DONE"
+		(tags "+PROJECT/-SOMEDAY-WAIT-DONE"
 		      ((org-agenda-overriding-header "Current Projects")
 		       (org-agenda-skip-function 'fury/org-skip-stuck-projects)))
 		
-		(tags "+PROJECT/-SOMEDAY-WAITING-DONE"
-		      ((org-agenda-overriding-header "Stuck Projects")
-		       (org-agenda-skip-function 'fury/org-skip-non-stuck-projects)))
-
+		(org-agenda-list-stuck-projects)
+		
 		(tags "+PROJECT/+DONE"
 		      ((org-agenda-overriding-header "Completed Projects")
 		       (org-agenda-skip-function 'fury/org-skip-non-stuck-projects)))
 
-		(todo "WAITING"
+		(todo "WAIT"
 		      ((org-agenda-overriding-header "Waiting On")
 		       (org-agenda-files fury/org-kinetic-files)))))
-
-	      
-	      ("w" "Office Tasks"
-	       ((agenda "" ((org-agenda-span 1)))
-		(tags "REFILE"
-		      ((org-agenda-overriding-header "Refile")))
-
-		(tags "+WORK-RECURRING+TODO=\"TODO\""
-		      ((org-agenda-overriding-header "Next Actions")
-		       (org-agenda-skip-function 'fury/org-skip-stuck-projects)))
-
-		
-		(tags "+WORK+PROJECT/-SOMEDAY-WAITING-DONE"
-		      ((org-agenda-overriding-header "Current Projects")
-		       (org-agenda-skip-function 'fury/org-skip-stuck-projects)))
-		
-		(tags "+WORK+PROJECT/-SOMEDAY-WAITING-DONE"
-		      ((org-agenda-overriding-header "Stuck Projects")
-		       (org-agenda-skip-function 'fury/org-skip-non-stuck-projects)))
-		(tags "+WORK+PROJECT/+DONE"
-		      ((org-agenda-overriding-header "Completed Projects")
-		       (org-agenda-skip-function 'fury/org-skip-non-stuck-projects)))
-
-		(tags "WORK/WAITING"
-		      ((org-agenda-overriding-header "Waiting On")
-		       (org-agenda-files fury/org-kinetic-files)))))
-
-
-	      ("h" "Tasks"
-	       ((agenda "" ((org-agenda-span 1)))
-		(tags "REFILE"
-		      ((org-agenda-overriding-header "Refile")))
-
-		(tags "+HOME-RECURRING+TODO=\"TODO\""
-		      ((org-agenda-overriding-header "Next Actions"))
-		      (org-agenda-skip-function 'fury/org-skip-unscheduled-tasks))
-		
-		(tags "+HOME+PROJECT/-SOMEDAY-WAITING-DONE"
-		      ((org-agenda-overriding-header "Current Projects")
-		       (org-agenda-skip-function 'fury/org-skip-stuck-projects)))
-		(tags "+HOME+PROJECT/-SOMEDAY-WAITING-DONE"
-		      ((org-agenda-overriding-header "Stuck Projects")
-		       (org-agenda-skip-function 'fury/org-skip-non-stuck-projects)))
-		(tags "+HOME+PROJECT/+DONE"
-		      ((org-agenda-overriding-header "Completed Projects")
-		       (org-agenda-skip-function 'fury/org-skip-non-stuck-projects)))
-		
-		(tags "HOME/WAITING"
-		      ((org-agenda-overriding-header "Waiting On")
-		       (org-agenda-files fury/org-kinetic-files)))))
-
 
 
 	      
-              (" " "Review"
+              ("r" "Review"
 	       ((tags "REFILE"
                       ((org-agenda-overriding-header "Tasks to Refile:")
                        (org-tags-match-list-sublevels nil)))
@@ -209,7 +152,7 @@ this with to-do items than with projects or headings."
 		      ((org-agenda-overriding-header "Unscheduled Tasks:")
 		       (org-agenda-skip-function 'fury/org-skip-scheduled-tasks)
 		       (org-tags-match-list-sublevels nil)))
-		(todo "WAITING|HOLD"
+		(todo "WAIT|HOLD"
 		      ((org-agenda-overriding-header "Waiting and Postponed Tasks:")
 		       (org-tags-match-list-sublevels nil)))
 		(todo "SOMEDAY"
@@ -287,7 +230,7 @@ this with to-do items than with projects or headings."
   (interactive)
   (find-file (fury/org-file "refile.org")))
 
-(defun fury/journal ()
+(defun journal ()
   (interactive)
   (find-file (fury/org-file "journal.org")))
 
