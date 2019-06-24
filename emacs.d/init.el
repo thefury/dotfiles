@@ -34,7 +34,21 @@
 (require 'setup-ruby)
 
 
+;; clojure
+;;p((
+;;   (
+;;p(use-package go-mode :ensure t
+;;  :config
+;;  (progn
+;;    (add-hook 'before-save-hook 'gofmt-before-save)
+;;    (add-hook 'go-mode-hook (lambda ()
+;;			      (local-set-key (kbd "C-c C-r") 'go-remove-unused-imports)))))
+;;
+;;(provide 'setup-golang)
+;;
 
+(use-package cider)
+(use-package clojure-mode)
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
@@ -43,7 +57,7 @@
  ;; If there is more than one, they won't work right.
  '(package-selected-packages
    (quote
-    (ag magit use-package terraform-mode projectile go-mode exec-path-from-shell evil elfeed-web elfeed-org doom-themes))))
+    (## cider ag magit use-package terraform-mode projectile go-mode exec-path-from-shell evil elfeed-web elfeed-org doom-themes))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
