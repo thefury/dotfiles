@@ -224,13 +224,10 @@ this with to-do items than with projects or headings."
 					; Use the current window for indirect buffer display
 (setq org-indirect-buffer-display 'current-window)
 
-
-
 ;; Org Keybindings
 (define-key global-map "\C-cl" 'org-store-link)
 (define-key global-map "\C-ca" 'org-agenda)
 (define-key global-map "\C-cc" 'org-capture)
-
 
 ;; Org defuns
 (defun fury/gtd ()
