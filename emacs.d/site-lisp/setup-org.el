@@ -17,7 +17,22 @@
 (defvar org-journal-file (concat org-work-root "/journal.org"))
 (defvar org-review-template (concat org-work-root "/templates/weekly-review.txt"))
 
+;; Babel
+(setq org-confirm-babel-evaluate nil)
+(setq org-src-fontify-natively t)
+(setq org-src-tab-acts-natively t)
 
+(require 'ob-go)
+(org-babel-do-load-languages 
+  'org-babel-load-languages
+  '((shell      . t)
+    (js         . t)
+    (emacs-lisp . t)
+    (clojure    . t)
+    (python     . t)
+    (ruby       . t)
+    (go         . t)
+    (css        . t)))
 ;; Journaling
 ;; ------------
 (use-package org-journal
@@ -229,6 +244,7 @@ this with to-do items than with projects or headings."
 (define-key global-map "\C-ca" 'org-agenda)
 (define-key global-map "\C-cc" 'org-capture)
 
+;; Babel
 ;; Org defuns
 (defun fury/gtd ()
   (interactive)
