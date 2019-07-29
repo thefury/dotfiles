@@ -3,10 +3,27 @@
 
 (add-to-list 'org-modules 'org-habit)
 
-(setq org-root-path "~/Nextcloud/workflow/org")
-(setq org-refile-file "~/Nextcloud/workflow/org/refile.org")
-(setq org-journal-file "~/Nextcloud/workflow/org/journal.org")
-(setq org-review-template "~/Nextcloud/wprkflow/org/templates/weekly-review.txt")
+;; Make things look nice
+;; ---------------------
+(use-package org-bullets
+   :ensure t
+   :init (add-hook 'org-mode-hook 'org-bullets-mode))
+
+;; useful org files - mainly shared
+;; --------------------------------
+(defvar org-work-root "~/Nextcloud/kc-share/org")
+(defvar org-home-root "~/Nextcloud/org")
+(defvar org-refile-file (concat org-work-root "/refile.org"))
+(defvar org-journal-file (concat org-work-root "/journal.org"))
+(defvar org-review-template (concat org-work-root "/templates/weekly-review.txt"))
+
+
+;; Journaling
+;; ------------
+(use-package org-journal
+  :ensure t
+   :init
+   (setq org-journal-dir (concat org-work-root "/journal")))
 
 (setq org-enforce-todo-dependencies t ; can't close without subtasks being done
       org-use-fast-todo-selection t)
@@ -23,18 +40,9 @@
 	("CANCELLED" :foreground "forest green" :weight bold)
 	("MEETING" :foreground "forest green" :weight bold)))
 
-(defun fury/org-file (filename)
-  "Create a file name in our org directory"
-  (interactive)
-  (concat org-root-path "/" filename))
-
 ;; Agenda - load all files under this directory
 (setq org-agenda-files
-      (list org-root-path))
-
-(defvar fury/org-kinetic-files
-  '("~/Nextcloud/workflow/org/kinetic.org"
-    "~/Nextcloud/workflow/org/routines.org"))
+      (list org-work-root org-home-root))
 
 ;; Custom agenda command definitions
 (defvar  bh/hide-scheduled-and-waiting-next-tasks t)
@@ -119,8 +127,7 @@ this with to-do items than with projects or headings."
 		       (org-agenda-skip-function 'fury/org-skip-non-stuck-projects)))
 
 		(todo "WAIT"
-		      ((org-agenda-overriding-header "Waiting On")
-		       (org-agenda-files fury/org-kinetic-files)))))
+		      ((org-agenda-overriding-header "Waiting On")))))
 
 
 	      
@@ -174,7 +181,7 @@ this with to-do items than with projects or headings."
 	 "* %? :PROJECT:")
 	("r" "Review" entry
 	 (file+datetree+prompt org-journal-file)
-	 (file "~/Nextcloud/workflow/org/templates/weekly-review.txt"))
+	 (file org-review-template))
 	("i" "Interuption" entry
 	 (file org-refile-file)
 	 "* DONE %? <%(org-read-date nil nil nil)> :INTERUPTION:" :clock-in :clock-resume)
