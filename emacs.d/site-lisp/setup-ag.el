@@ -1,6 +1,4 @@
- 
 (use-package ag
-  :ensure t
-  :config)
+  :ensure t)
 
 (provide 'setup-projects)
