@@ -6,14 +6,19 @@
 (defvar org-journal-file (concat org-work-root "/journal.org"))
 (defvar org-review-template (concat org-work-root "/templates/weekly-review.txt"))
 
+(require 'org-crypt)
 
 (use-package org
-  :bind (:map global-map
-	      ("C-c l" . org-store-link)
-	      ("C-c c" . org-capture))
+  :bind (("C-c d" . org-decrypt-entry)
+	 :map global-map
+	 ("C-c l" . org-store-link)
+	 ("C-c c" . org-capture))
   
   :init
-  (setq org-confirm-babel-evaluate nil
+  (org-crypt-use-before-save-magic)
+  (setq org-modules '(org-crypt)
+	org-crypt-key nil
+	org-confirm-babel-evaluate nil
 	org-src-fontify-natively t
 	org-src-tab-acts-natively t
 	org-refile-targets (quote ((nil :maxlevel . 9)
@@ -21,6 +26,7 @@
 	org-refile-use-outline-path t
 	org-outline-path-complete-in-steps nil
 	org-refile-allow-creating-parent-nodes (quote confirm)
+	org-tags-exclude-from-inheritance '("project" "crypt")
 	org-todo-keyword-faces
 	'(("TODO" :foreground "red" :weight bold)
 	  ("DONE" :foreground "forest green" :weight bold)
@@ -34,7 +40,7 @@
 	   "* TODO %?")
 	  ("p" "Project" entry
 	   (file org-refile-file)
-	   "* %? :PROJECT:")
+	   "* %? :project:")
 	  ("r" "Review" entry
 	   (file+datetree+prompt org-journal-file)
 	   (file org-review-template))
@@ -67,8 +73,7 @@
 	org-agenda-dim-agenda-tasks nil
 	org-agenda-compact-blocks 1
 	org-agenda-todo-list-sublevels nil
-	org-tags-exclude-from-inheritance '("PROJECT")
-	org-stuck-projects '("+PROJECT/-SOMEDAY-WAIT-DONE-CANCELLED" ("TODO") nil "")
+	org-stuck-projects '("+project/-SOMEDAY-WAIT-DONE-CANCELLED" ("TODO") nil "")
 	org-agenda-custom-commands (quote (("N" "Notes" tags "NOTE"
 					    ((org-agenda-overriding-header "Notes")
 					     (org-tags-match-list-sublevels t)))
@@ -82,13 +87,13 @@
 						   ((org-agenda-overriding-header "Next Actions")
 						    (org-agenda-skip-function 'fury/org-skip-scheduled-tasks)))
 
-					     (tags "+PROJECT/-SOMEDAY-WAIT-DONE"
+					     (tags "+project/-SOMEDAY-WAIT-DONE"
 						   ((org-agenda-overriding-header "Current Projects")
 						    (org-agenda-skip-function 'fury/org-skip-stuck-projects)))
 					     
 					     (org-agenda-list-stuck-projects)
 					     
-					     (tags "+PROJECT/+DONE"
+					     (tags "+project/+DONE"
 						   ((org-agenda-overriding-header "Completed Projects")
 						    (org-agenda-skip-function 'fury/org-skip-non-stuck-projects)))
 
@@ -101,15 +106,15 @@
 					    ((tags "REFILE"
 						   ((org-agenda-overriding-header "Tasks to Refile:")
 						    (org-tags-match-list-sublevels nil)))
-					     (tags "PROJECT"
+					     (tags "project"
 						   ((org-agenda-overriding-header "Current Projects:")
 						    (org-agenda-skip-function 'fury/org-skip-stuck-projects)
 						    (org-tags-match-list-sublevels nil)))
-					     (tags "PROJECT"
+					     (tags "project"
 						   ((org-agenda-overriding-header "Stuck Projects:")
 						    (org-agenda-todo-list-sublevels nil)
 						    (org-agenda-skip-function 'fury/org-skip-active-projects)))
-					     (tags "PROJECT"
+					     (tags "project"
 						   ((org-agenda-overriding-header "Completed Projects:")
 						    (org-agenda-skip-function 'fury/org-skip-incomplete-projects)
 						    (org-agenda-todo-list-sublevels nil)))
@@ -151,11 +156,11 @@ the same tree node, and the headline of the tree node in the Org-mode file."
   (defun fury/org-skip-scheduled-tasks ()
     (org-agenda-skip-entry-if
      'scheduled
-     'regexp "PROJECT"
+     'regexp "project"
      'regexp "RECURRING"))
 
   (defun fury/org-skip-unscheduled-tasks ()
-    (org-agenda-skip-entry-if 'notscheduled 'regexp "RECURRING" 'regexp "PROJECT"))
+    (org-agenda-skip-entry-if 'notscheduled 'regexp "RECURRING" 'regexp "project"))
 
   (defun fury/org-skip-active-projects ()
     "Skip project trees that are TODO"
