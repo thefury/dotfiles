@@ -1,9 +1,7 @@
 ;; useful org files - mainly shared
 ;; --------------------------------
 (defvar org-work-root "~/Nextcloud/kc-share/org")
-(defvar org-home-root "~/Nextcloud/org")
-(defvar org-refile-file (concat org-work-root "/refile.org"))
-(defvar org-journal-file (concat org-work-root "/journal.org"))
+(defvar org-refile-file (concat org-work-root "/refile.org.gpg"))
 (defvar org-review-template (concat org-work-root "/templates/weekly-review.txt"))
 
 (require 'org-crypt)
@@ -41,9 +39,6 @@
 	  ("p" "Project" entry
 	   (file org-refile-file)
 	   "* %? :project:")
-	  ("r" "Review" entry
-	   (file+datetree+prompt org-journal-file)
-	   (file org-review-template))
 	  ("i" "Interuption" entry
 	   (file org-refile-file)
 	   "* DONE %? <%(org-read-date nil nil nil)> :INTERUPTION:" :clock-in :clock-resume)
@@ -55,20 +50,23 @@
 	   "* %? :QUESTION:")
 	  ("m" "Meeting" entry
 	   (file org-refile-file)
-	   "* MEETING with %? :MEETING:")
-	  ("j" "Journal Entry" entry
-	   (file+datetree+prompt org-journal-file)
-	   "* %?" :empty-lines 1)))
+	   "* MEETING with %? :MEETING:")))
   )
 
 (use-package org-agenda
   :bind (:map org-agenda-mode-map
 	      ("x" . fury/org-agenda-done)
-	 :map global-map
-	 ("C-c a" . org-agenda))
+	      :map global-map
+	      ("C-c a" . org-agenda))
 
   :init
-  (setq org-agenda-files (list org-work-root org-home-root)
+  ;; Allow .org.gpg files in agenda
+  (unless (string-match-p "\\.gpg" org-agenda-file-regexp)
+    (setq org-agenda-file-regexp
+	  (replace-regexp-in-string "\\\\\\.org" "\\\\.org\\\\(\\\\.gpg\\\\)?"
+				    org-agenda-file-regexp)))
+  
+  (setq org-agenda-files (list org-work-root)
 	org-agenda-window-setup 'only-window
 	org-agenda-dim-agenda-tasks nil
 	org-agenda-compact-blocks 1
@@ -184,8 +182,23 @@ the same tree node, and the headline of the tree node in the Org-mode file."
   :after (org)
   :ensure t
   :init
-  (setq org-journal-dir (concat org-work-root "/journal"))
-  :config)
+  (defun org-journal-date-format-func (time)
+    "Custom function to insert journal date header,
+and some custom text on a newly created journal file."
+    (when (= (buffer-size) 0)
+      (insert
+       (pcase org-journal-file-type
+	 (`daily "#+TITLE: Daily Journal")
+	 (`weekly "#+TITLE: Weekly Journal")
+	 (`monthly "#+TITLE: Monthly Journal")
+	 (`yearly "#+TITLE: Yearly Journal"))))
+    (concat org-journal-date-prefix (format-time-string "%A, %x" time)))
+
+  (setq org-journal-dir (concat org-work-root "/journal")
+	org-journal-encrypt-journal t
+	org-journal-date-format 'org-journal-date-format-func
+	org-journal-file-type 'weekly)
+  )
 
 ;; Babel
 
@@ -200,15 +213,5 @@ the same tree node, and the headline of the tree node in the Org-mode file."
    (ruby       . t)
    (go         . t)
    (css        . t)))
-
-;; Babel
-;; Org defuns
-(defun fury/gtd ()
-  (interactive)
-  (find-file (fury/org-file "refile.org")))
-
-(defun journal ()
-  (interactive)
-  (find-file (fury/org-file "journal.org")))
 
 (provide 'setup-org)
