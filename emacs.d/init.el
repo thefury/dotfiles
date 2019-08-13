@@ -25,13 +25,15 @@
 
 ;; Additional Packages
 (require 'setup-evil)
-(require 'setup-magit)
 (require 'setup-projects)
 (require 'setup-org)
+(require 'setup-yaml)
+(require 'setup-yasnippet)
 (require 'setup-elfeed)
 (require 'setup-terraform)
 (require 'setup-golang)
 (require 'setup-ruby)
+(require 'setup-magit)
 
 
 ;; clojure
@@ -65,7 +67,3 @@
  ;; If there is more than one, they won't work right.
  )
 
-(add-to-list 'load-path
-              "~/.emacs.d/plugins/yasnippet")
-(require 'yasnippet)
-(yas-global-mode 1)

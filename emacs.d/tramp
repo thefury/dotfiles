@@ -1,6 +1,24 @@
-;; -*- emacs-lisp -*- <19/07/29 16:41:38 /Users/trevoroke/.emacs.d/tramp>
+;; -*- emacs-lisp -*- <19/08/02 16:14:33 /Users/trevoroke/.emacs.d/tramp>
 ;; Tramp connection history.  Don't change this file.
 ;; You can delete it, forcing Tramp to reapply the checks.
 
-(((tramp-file-name "ssh" nil nil "aldo.prod" nil nil nil)
-  nil))
+(((tramp-file-name "ssh" nil nil "kcs.dev" nil nil nil)
+  ("uname" "Linux 4.15.0-1044-aws")
+  ("locale" "LC_ALL=en_US.utf8")
+  ("test" "test")
+  ("remote-path"
+   ("/bin" "/usr/bin" "/sbin" "/usr/sbin" "/usr/local/bin" "/usr/local/sbin"))
+  ("remote-shell" "/bin/sh")
+  ("~" "/home/toke")
+  ("file-exists" "test -e")
+  ("case-insensitive" nil)
+  ("readlink" "\\readlink")
+  ("stat" "env QUOTING_STYLE=locale \\stat")
+  ("perl-file-spec" t)
+  ("perl-cwd-realpath" t)
+  ("perl" "\\perl")
+  ("git" "\\git")
+  ("id" "/usr/bin/id")
+  ("gid-string" "admin")
+  ("gid-integer" 113)
+  ("uid-integer" 1001)))

@@ -3,6 +3,7 @@
 (scroll-bar-mode -1)
 (tool-bar-mode   -1)
 (tooltip-mode    -1)
+(setq-default fill-column 80)
 
 ;; Fonts and original window size
 					;(add-to-list 'default-frame-alist '(font . "mononoki-16"))

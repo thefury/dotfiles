@@ -25,8 +25,8 @@
 	org-outline-path-complete-in-steps nil
 	org-refile-allow-creating-parent-nodes (quote confirm)
 	org-tags-exclude-from-inheritance '("project" "crypt")
-	org-todo-keywords
-	'((sequence "TODO(t)" "WAIT(w@/!)" "DELEGATED(D@/!)" "SOMEDAY(s)" "|" "CANCELLED(x@" "DONE(d!)"))
+	org-todo-keywords '((sequence "TODO(t)" "WAIT(w@/!)" "DELEGATED(D@/!)" "SOMEDAY(s)" "|" "CANCELLED(c@)" "DONE(d!)")
+			    (sequence "READ(r)" "|" "FINISHED(f/!)"))
 	org-todo-keyword-faces
 	'(("TODO" :foreground "red" :weight bold)
 	  ("DONE" :foreground "forest green" :weight bold)
@@ -47,6 +47,9 @@
 	  ("n" "Note" entry
 	   (file org-refile-file)
 	   "* %? :NOTE:")
+	  ("r" "Read" entry
+	   (file org-refile-file)
+	   "* READ %?")
 	  ("Q" "Question" entry
 	   (file org-refile-file)
 	   "* %? :QUESTION:")
@@ -97,6 +100,9 @@
 						   ((org-agenda-overriding-header "Completed Projects")
 						    (org-agenda-skip-function 'fury/org-skip-non-stuck-projects)))
 
+					     (todo "READ"
+						   ((org-agenda-overriding-header "To Read")))
+					     
 					     (todo "WAIT|DELEGATED"
 						   ((org-agenda-overriding-header "Waiting On")))))
 
