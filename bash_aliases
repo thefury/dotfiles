@@ -9,6 +9,7 @@ for i in $ALIASES_DIR/*; do
 done
 
 # Aliases
+alias em='emacsclient -nw ${@}'
 alias dce='docker-compose exec'
 alias reload='source ~/.zshrc'
 alias ll='ls -la'

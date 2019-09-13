@@ -17,5 +17,14 @@
          (split-string-and-unquote path ":")
          exec-path)))
 
+(defalias 'yes-or-no-p 'y-or-n-p)
+
+;; define function to shutdown emacs server instance
+(defun server-shutdown ()
+  "Save buffers, Quit, and Shutdown (kill) server"
+  (interactive)
+  (save-some-buffers)
+  (kill-emacs)
+ )
 
 (provide 'setup-core)

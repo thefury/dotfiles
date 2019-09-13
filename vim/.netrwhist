@@ -1,6 +1,8 @@
 let g:netrw_dirhistmax  =10
-let g:netrw_dirhist_cnt =4
+let g:netrw_dirhist_cnt =6
 let g:netrw_dirhist_1='/Users/trevoroke/dev/KCS/bigquery-export/packer'
 let g:netrw_dirhist_2='/Users/trevoroke/dev/KCS/kcs-infrastructure/env-staging'
 let g:netrw_dirhist_3='/Users/trevoroke/dev/KCS/kcs-infrastructure/env-prod'
 let g:netrw_dirhist_4='/Users/trevoroke/tmp'
+let g:netrw_dirhist_5='/Users/trevoroke/dev/KCS/kiehls-sessions-export/.git'
+let g:netrw_dirhist_6='/Users/trevoroke/golang/src/bitbucket.org/halogenmobile/kc_parameter_store/.git'
