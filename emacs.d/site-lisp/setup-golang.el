@@ -1,10 +1,11 @@
 (use-package go-mode :ensure t
   :config
-  (progn
+  (defun fury-go-mode-hook ()
     (add-hook 'before-save-hook 'gofmt-before-save)
-    (add-hook 'go-mode-hook (lambda ()
-			      (setq indent-tabs-mode t)
-			      (setq tab-width 4)
-			      (local-set-key (kbd "C-c C-r") 'go-remove-unused-imports)))))
+    (setq gofmt-command "goimports")
+    (setq indent-tabs-mode t)
+    (setq tab-width 4))
+  (progn
+    (add-hook 'go-mode-hook 'fury-go-mode-hook)))
 
 (provide 'setup-golang)

@@ -1,7 +1,7 @@
 ;; useful org files - mainly shared
 ;; --------------------------------
 (defvar org-work-root "~/Nextcloud/kc-share/org")
-(defvar org-refile-file (concat org-work-root "/refile.org.gpg"))
+(defvar org-refile-file (concat org-work-root "/refile.org"))
 (defvar org-review-template (concat org-work-root "/templates/weekly-review.txt"))
 
 (require 'org-crypt)
@@ -25,20 +25,24 @@
 	org-outline-path-complete-in-steps nil
 	org-refile-allow-creating-parent-nodes (quote confirm)
 	org-tags-exclude-from-inheritance '("project" "crypt")
-	org-todo-keywords '((sequence "TODO(t)" "NEXT(n)" "|" "CANCELLED(x@)" "DONE(d!)")
-			    (sequence "WAITING(w))" "HOLD(h)" "|" "CANCELLED(x@/!)" "MEETING"))
+	org-todo-keywords '((sequence "TODO(t)" "SOON(s)" "NEXT(n)" "PROG(p)" "|" "CANCELLED(x@)" "DONE(d!)")
+			    (sequence "WAIT(w)" "HOLD(h)" "|" "CANCELLED(x@/!)" "MEETING"))
 
 	org-highest-priority ?A
 	org-lowest-priority ?C
 	org-default-priority ?C
+
+	org-stuck-projects '("+project/-HOLD-WAIT-DONE-CANCELLED" ("TODO") nil "")
 
 	org-columns-default-format "%50ITEM(Task) %10CLOCKSUM %16TIMESTAMP_IA"
 	
 	org-todo-keyword-faces
 	'(("TODO" :foreground "red" :weight bold)
 	  ("NEXT" :foreground "blue" :weight bold)
+	  ("SOON" :foreground "blue" :weight bold)
+	  ("PROG" :foreground "blue" :weight bold)
 	  ("DONE" :foreground "forest green" :weight bold)
-	  ("WAITING" :foreground "orange" :weight bold)
+	  ("WAIT" :foreground "orange" :weight bold)
 	  ("HOLD" :foreground "magenta" :weight bold)
 	  ("CANCELLED" :foreground "forest green" :weight bold)
 	  ("MEETING" :foreground "forest green" :weight bold))
@@ -436,8 +440,7 @@ show this warning instead."
 	org-agenda-dim-agenda-tasks nil
 	org-agenda-compact-blocks 1
 	org-agenda-todo-list-sublevels nil
-	;; org-stuck-projects '("+project/-SOMEDAY-WAIT-DONE-CANCELLED" ("TODO") nil "")
-	org-stuck-projects (quote ("" nil nil ""))
+	;; org-stuck-projects (quote ("" nil nil ""))
 	org-agenda-time-grid (quote
 			      ((daily today remove-match)
 			       (800 1200 1600 2000)
@@ -449,6 +452,7 @@ show this warning instead."
 				      ((org-agenda-overriding-header "Notes")
 				       (org-tags-match-list-sublevels t)))
 
+ 
 				     ;; using this as an example. Might be some good code in here.
 				     ;; https://github.com/gjstein/emacs.d/blob/master/config/gs-org.el
 				     
@@ -459,15 +463,19 @@ show this warning instead."
 									 (org-agenda-start-on-weekday nil)
 									 (org-agenda-start-day "+0d")
 									 (org-agenda-todo-ignore-deadlines nil)))
-							     (tags "REFILE-ARCHIVE-REFILE=\"nil\""
+							     
+							     (tags "REFILE"
 								   ((org-agenda-overriding-header "Tasks to Refile:")
 								    (org-tags-match-list-sublevels nil)))
-							     (tags-todo "-SOMEDAY-CANCELLED-ARCHIVE/!NEXT"
-									((org-agenda-overriding-header "Next Tasks:")
-									 ))
-							     (tags-todo "-SOMEDAY-HOLD-CANCELLED-REFILEr/!"
-									((org-agenda-overriding-header "Active Projects:")
-									 (org-agenda-skip-function 'gs/select-projects)))
+
+							     (todo "NEXT"
+									((org-agenda-overriding-header "Next Tasks:")))
+
+							     (tags-todo "+project/!+TODO|+NEXT"
+									((org-agenda-overriding-header "Active Projects test:")
+									 (org-agenda-sorting-strategy
+									  '(category-keep))))
+							    
 							     (tags "ENDOFAGENDA"
 								   ((org-agenda-overriding-header "End of Agenda")
 								    (org-tags-match-list-sublevels nil)))

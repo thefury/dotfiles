@@ -33,6 +33,7 @@
 (require 'setup-terraform)
 (require 'setup-golang)
 (require 'setup-ruby)
+(require 'setup-markdown)
 (require 'setup-magit)
 
 
@@ -59,7 +60,7 @@
  ;; If there is more than one, they won't work right.
  '(package-selected-packages
    (quote
-    (org-journal ## cider ag magit use-package terraform-mode projectile go-mode exec-path-from-shell evil elfeed-web elfeed-org doom-themes))))
+    (markdown-preview-mode markdown-mode+ markdown-mode org-journal ## cider ag magit use-package terraform-mode projectile go-mode exec-path-from-shell evil elfeed-web elfeed-org doom-themes))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
