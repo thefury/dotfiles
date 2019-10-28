@@ -25,7 +25,7 @@
 	org-outline-path-complete-in-steps nil
 	org-refile-allow-creating-parent-nodes (quote confirm)
 	org-tags-exclude-from-inheritance '("project" "crypt")
-	org-todo-keywords '((sequence "TODO(t)" "SOON(s)" "NEXT(n)" "PROG(p)" "|" "CANCELLED(x@)" "DONE(d!)")
+	org-todo-keywords '((sequence "TODO(t)" "NEXT(n)" "|" "CANCELLED(x@)" "DONE(d!)")
 			    (sequence "WAIT(w)" "HOLD(h)" "|" "CANCELLED(x@/!)" "MEETING"))
 
 	org-highest-priority ?A
@@ -39,8 +39,6 @@
 	org-todo-keyword-faces
 	'(("TODO" :foreground "red" :weight bold)
 	  ("NEXT" :foreground "blue" :weight bold)
-	  ("SOON" :foreground "blue" :weight bold)
-	  ("PROG" :foreground "blue" :weight bold)
 	  ("DONE" :foreground "forest green" :weight bold)
 	  ("WAIT" :foreground "orange" :weight bold)
 	  ("HOLD" :foreground "magenta" :weight bold)
