@@ -35,6 +35,7 @@
 (require 'setup-ruby)
 (require 'setup-markdown)
 (require 'setup-magit)
+(require 'setup-dockerfile)
 
 
 ;; clojure
@@ -60,7 +61,8 @@
  ;; If there is more than one, they won't work right.
  '(package-selected-packages
    (quote
-    (markdown-preview-mode markdown-mode+ markdown-mode org-journal ## cider ag magit use-package terraform-mode projectile go-mode exec-path-from-shell evil elfeed-web elfeed-org doom-themes))))
+    (markdown-preview-mode markdown-mode+ markdown-mode org-journal ## cider ag magit use-package terraform-mode projectile go-mode exec-path-from-shell evil elfeed-web elfeed-org doom-themes)))
+ '(safe-local-variable-values (quote ((dockerfile-image-name . "your-image-name-here")))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.

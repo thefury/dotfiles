@@ -22,7 +22,6 @@ alias timestamp=$(date +%s)
 alias stripcolors="sed $'s,\x1b\\[[0-9;]*[a-zA-Z],,g'"
 alias tmux="tmux -2"
 alias j='jrnl'
-alias t='task'
 alias org="emacs ~/Nextcloud/workflow/notes/index.org"
 
 #=============================================
@@ -61,4 +60,9 @@ upgrade() {
   #now diagnotic
   brew doctor
   brew missing
+}
+
+trello() {
+  echo "$@" | mail -s "$@" trevoroke+iwxuplrxhp8afuo37qh5@boards.trello.com < /dev/null
+  echo "task added"
 }

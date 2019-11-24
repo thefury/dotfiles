@@ -79,6 +79,8 @@ elif [[ "$OSTYPE" == "linux-gnu" ]]; then
   export PATH=$PATH:$GOROOT/bin:$GOBIN
 fi
 
+# Python paths
+export PATH=$PATH:/Users/trevoroke/Library/Python/3.7/bin
 
 _include ~/.bash_aliases 
 _include ~/.work_aliases.sh
