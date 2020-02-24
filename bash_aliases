@@ -66,3 +66,8 @@ trello() {
   echo "$@" | mail -s "$@" trevoroke+iwxuplrxhp8afuo37qh5@boards.trello.com < /dev/null
   echo "task added"
 }
+
+note() {
+  echo "- $@" > ~/Nextcloud/Notes/00-inbox.md
+  echo "note added"
+}

@@ -37,3 +37,6 @@ urgency.project.coefficient=
 #include /usr/local/Cellar/task/2.5.1/share/doc/task/rc/solarized-light-256.theme
 #include /usr/local/Cellar/task/2.5.1/share/doc/task/rc/no-color.theme
 
+context.online=+online
+context.kinetic=+kinetic
+context.ant=project:ant
