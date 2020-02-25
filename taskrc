@@ -42,4 +42,5 @@ context.kinetic=project:kc
 context.ant=project:ant
 context.inbox=+inbox
 context.mit=pri:H
-context=kinetic
+context=nomad
+context.nomad=proj:kc.nomad
