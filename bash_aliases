@@ -24,6 +24,10 @@ alias tmux="tmux -2"
 alias j='jrnl'
 alias org="emacs ~/Nextcloud/workflow/notes/index.org"
 
+alias tn="task context none"
+
+alias utc='date -u'
+
 #=============================================
 # Movement Functions
 #=============================================

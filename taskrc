@@ -37,10 +37,12 @@ urgency.project.coefficient=
 #include /usr/local/Cellar/task/2.5.1/share/doc/task/rc/solarized-light-256.theme
 #include /usr/local/Cellar/task/2.5.1/share/doc/task/rc/no-color.theme
 
-context.online=+online
-context.kinetic=project:kc
-context.ant=project:ant
+context.online=+online -waiting -someday
+context.kinetic=+kc -waiting -someday
+context.ant=project:ant -waiting -someday
 context.inbox=+inbox
+context.someday=+someday
+context.waiting=+waiting
 context.mit=pri:H
-context=nomad
 context.nomad=proj:kc.nomad
+context.next=(proj: or +next) -someday -waiting
