@@ -75,3 +75,9 @@ note() {
   echo "- $@" > ~/Nextcloud/Notes/00-inbox.md
   echo "note added"
 }
+
+
+# Zettelkasten/Wiki Commands
+alias wk="vim -c VimwikiIndex"
+
+
