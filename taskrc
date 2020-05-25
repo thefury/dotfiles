@@ -20,6 +20,10 @@ urgency.active.coefficient=8.0
 urgency.tags.coefficient=
 urgency.project.coefficient=
 
+report.in.columns           = id,description
+report.in.description       = Inbox
+report.in.filter            = status:pending limit:page (+in)
+report.in.labels            = ID,Description
 
 # Color theme (uncomment one to use)
 #include /usr/local/Cellar/task/2.5.1/share/doc/task/rc/light-16.theme
@@ -37,16 +41,4 @@ urgency.project.coefficient=
 #include /usr/local/Cellar/task/2.5.1/share/doc/task/rc/solarized-light-256.theme
 #include /usr/local/Cellar/task/2.5.1/share/doc/task/rc/no-color.theme
 
-context.current=-waiting -someday
-context.online=+@online -waiting -someday
-context.home=+@home -waiting -someday
-context.errand=+@errand -waiting -someday
-context.work=+@work -waiting -someday
-context.class=+@class -waiting -someday
-
-context.ant=project:ant -waiting -someday
-context.inbox=+inbox
-context.mit=pri:H or +today
-context.nomad=proj:kc.nomad
-context.next=(proj: or +next) -someday -waiting
-context=next
+context.current=-someday or +in

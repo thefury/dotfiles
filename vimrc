@@ -24,6 +24,7 @@ Plug 'vim-ruby/vim-ruby'
 Plug 'chase/vim-ansible-yaml'
 Plug 'stephpy/vim-yaml'
 Plug 'tpope/vim-markdown'
+Plug 'hashivim/vim-terraform'
 Plug 'vimwiki/vimwiki'
 Plug 'junegunn/fzf'
 Plug 'junegunn/fzf.vim'
@@ -43,13 +44,24 @@ autocmd BufWritePre *.rb :%s/\s\+$//e
 let g:netrw_liststyle=3
 
 " VimWiki
-let wiki_kc = {}
-let wiki_kc.path = '~/Nextcloud/wiki/'
-let wiki_kc.path_html = '~/Nextcloud/workflow/wiki_html'
-"let wiki_kc.syntax = 'markdown'
-"let wiki_kc.ext = '.md'
+" use \ws to switch between wikis
+let wiki_1 = {}
+let wiki_1.path = '~/Nextcloud/wiki/'
+let wiki_1.path_html = '~/Nextcloud/wiki_html'
+let wiki_2 = {}
+let wiki_2.path = '~/Nextcloud/zettel_wiki/'
+let wiki_2.path_html = '~/Nextcloud/zettel_wiki_html'
 
-let g:vimwiki_list = [wiki_kc]
+let g:vimwiki_list = [wiki_1, wiki_2]
+
+" Zettel Stuff
+let g:zettel_format = "%file_no"
+let g:zettel_options = [{"template" :  "~/Nextcloud/zettel_wiki/zettel-template.tpl"}]
+
+nnoremap <leader>vt :VimwikiSearchTags<space>
+nnoremap <leader>vs :VimwikiSearch<space>
+nnoremap <leader>gt :VimwikiRebuildTags!<cr>:ZettelGenerateTags<cr><c-1>
+nnoremap <leader>bl :VimwikiBacklinks<cr>
 
 " delete key not working on mac
 set backspace=indent,eol,start
@@ -89,5 +101,7 @@ nmap \p :ProseMode<CR>
 
 nmap <F3> i<C-R>=strftime("%Y-%m-%d %a %I:%M %p")<CR><Esc>
 imap <F3> <C-R>=strftime("%Y-%m-%d %a %I:%M %p")<CR>
-nmap <F2> i<C-R>=strftime("%Y-%m-%d")<CR><Esc>
-imap <F2> <C-R>=strftime("%Y-%m-%d")<CR>
+nmap <F2> i<C-R>=strftime("%Y-%m-%d %a")<CR><Esc>
+imap <F2> <C-R>=strftime("%Y-%m-%d %a")<CR>
+
+

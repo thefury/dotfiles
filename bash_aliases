@@ -24,9 +24,8 @@ alias tmux="tmux -2"
 alias j='jrnl'
 alias org="emacs ~/Nextcloud/workflow/notes/index.org"
 
-alias tn="task context none"
-
 alias utc='date -u'
+
 
 #=============================================
 # Movement Functions
@@ -66,18 +65,17 @@ upgrade() {
   brew missing
 }
 
-trello() {
-  echo "$@" | mail -s "$@" trevoroke+iwxuplrxhp8afuo37qh5@boards.trello.com < /dev/null
-  echo "task added"
+# development
+todo() {
+  echo "TODO: $@" >> TODO.txt
 }
 
-note() {
-  echo "- $@" > ~/Nextcloud/Notes/00-inbox.md
-  echo "note added"
+kcrepo() {
+  open https://bitbucket.org/halogenmobile/$1
 }
 
-
-# Zettelkasten/Wiki Commands
-alias wk="vim -c VimwikiIndex"
+kcrepoget() {
+  git clone git@bitbucket.org:halogenmobile/$1.git
+}
 
 

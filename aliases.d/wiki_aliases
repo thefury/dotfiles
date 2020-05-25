@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+note() {
+  if [ $# -eq 0 ]
+  then
+    cat ~/Nextcloud/wiki/Inbox.wiki
+  else
+    echo "- $@" >> ~/Nextcloud/wiki/Inbox.wiki
+    echo "note added"
+  fi
+}
+
+alias n="note"
+
+#zettel() {
+#  echo "$@" >> ~/Nextcloud/zettel_wiki/00-inbox.wiki
+#  echo "zettel added"
+#}
+
+#alias z="zettel"
+
+# Zettelkasten/Wiki Commands
+alias wk="vim -c VimwikiIndex"
+alias zettel="vi ~/Nextcloud/zettel_wiki/index.wiki"
+

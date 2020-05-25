@@ -122,3 +122,5 @@ randpass () {
   openssl rand -base64 32 | tr -d '\n' | sed 's/=//g' 
 }
 
+PATH=$PATH:$HOME/kinetic/bin
+PATH=/usr/local/Cellar/ruby/2.7.1_2/bin:$PATH

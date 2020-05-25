@@ -1,64 +1,66 @@
 #!/usr/bin/env bash
 
-WORKFLOW_DIR="$HOME/Nextcloud/workflow"
-projects() {
-  local proj=$(python3 ~/bin/projects_without_next_action.py)
 
-  if [ "$proj" != "" ]
-  then
-    echo "Attention: The following projects don't currently have a next action:\n"
-    echo $proj
-    echo
-  fi
-}
-
-waiting() {
-  local waiting_cnt=$(task +waiting +PENDING count)
-
-  if [ "$waiting_cnt" != 0 ]
-  then
-    echo "Any progress on these waiting for items?"
-    task +waiting +PENDING ls
-  fi
-}
-
-startday() {
-  echo "Prepare for the day"
-  echo "======================="
-  projects
-  waiting
-  task next +next
-}
-
-review() {
-  echo "Daily Review"
-  echo "======================="
-  task end.after:today completed
-  echo
-  echo "Journal"
-  echo "======================="
-  jrnl -from today 
-}
-
-today() {
-  if [ $# -eq 0 ]; then
-    task -waiting due.before:tomorrow
-  else
-    task add due:eod "$@"
-  fi
-}
+alias tn="task context none"
+alias mit="task +mit"
+alias work="mit +@work"
+alias w=work
+alias home="mit -@work"
+alias h=home
+alias kc="task proj:kc"
+alias current="task context current"
+alias someday="task +someday"
+alias projects="task PROJECT"
 
 inbox() {
   if  [ $# -eq 0 ]; then
-    task +inbox
+    task +in
   else
-    task add +inbox "$@"
+    task add +in "$@"
   fi
 }
 
-alias i="inbox"
+task-complete() {
+  task add "$@"
+  task +LATEST done
+}
+
+tickle() {
+  deadline=$1
+  shift
+  inbox +tickle wait:$deadline "$@"
+}
+
+research-and-design() {
+  if  [ $# -eq 0 ]; then
+    task +rnd
+  else
+    task add +rnd +next +@computer +@online "$@"
+  fi
+}
+
+webpage_title() {
+  wget --quiet -O - https://trevoroke.com | sed -n -e 's!.*<title>\(.*\)</title>.*!\1!p'
+}
+
+read-and-review() {
+  if  [ $# -eq 0 ]; then
+    task +rnr
+  else
+    link=$1
+    shift
+    description="Read and Review: $@"
+    task add +rnr +next +@online +@computer "$description"
+    task +LATEST annotate $link
+  fi
+}
+
+
+alias in="inbox"
 alias t='task'
-alias tt="today"
-alias tom='task -waiting due.before:2d'
-alias tw='task -waiting due.before:tomorrow -home'
-alias th='task -waiting due.before:tomorrow +home'
+alias tc='task-complete'
+alias tick='tickle'
+alias think='tickle +1d +think' 
+alias rnd='research-and-design'
+alias rnr='read-and-review'
+alias next='task +next'
