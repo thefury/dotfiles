@@ -12,6 +12,9 @@ _append_to_path() {
   fi
 }
 
+export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin"
+export PATH="${PATH}:/user/local/sbin:/usr/local/bin/:${HOME}/bin"
+
 export JAVA_HOME="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home"
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -26,11 +29,8 @@ elif [[ "$OSTYPE" == "linux-gnu" ]]; then
   export PATH=$PATH:$GOROOT/bin:$GOBIN
 fi
 
-export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin"
-export PATH="${PATH}:/user/local/sbin:/usr/local/bin/:${HOME}/bin"
 
 export PATH=${PATH}:${HOME}/kinetic/bin
 export PATH=/usr/local/lib/ruby/gems/2.7.0/bin/:${PATH}
 export PATH=/usr/local/Cellar/ruby/2.7.1_2/bin:${PATH}
-export PATH=${PATH}:${HOME}/bin/bioinformatics
 
