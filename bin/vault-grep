@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# Search recursively through the current directory for encrypted values
+#   - assumes your vault password is in a file vpass
+
+grep -ril ANSIBLE_VAULT group_vars/ | while read N 
+do 
+  echo -n $N: 
+  ansible-vault --vault-pass vpass view $N | grep $1
+done

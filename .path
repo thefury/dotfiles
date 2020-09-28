@@ -1,0 +1,36 @@
+#!/usr/bin/env zsh
+
+_prepend_to_path() {
+  if [ -d $1 -a -z ${path[(r)$1]} ]; then
+    path=($1 $path);
+  fi
+}
+
+_append_to_path() {
+  if [ -d $1 -a -z ${path[(r)$1]} ]; then
+    path=($1 $path);
+  fi
+}
+
+export JAVA_HOME="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home"
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  export GOPATH=$HOME/golang
+  export GOROOT=/usr/local/opt/go/libexec
+  export GOBIN=$GOPATH/bin
+  export PATH=$PATH:$GOPATH:$GOBIN:$GOROOT/bin
+elif [[ "$OSTYPE" == "linux-gnu" ]]; then
+  export GOPATH=$HOME/golang
+  export GOROOT=/usr/local/go
+  export GOBIN=$GOPATH/bin
+  export PATH=$PATH:$GOROOT/bin:$GOBIN
+fi
+
+export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin"
+export PATH="${PATH}:/user/local/sbin:/usr/local/bin/:${HOME}/bin"
+
+export PATH=${PATH}:${HOME}/kinetic/bin
+export PATH=/usr/local/lib/ruby/gems/2.7.0/bin/:${PATH}
+export PATH=/usr/local/Cellar/ruby/2.7.1_2/bin:${PATH}
+export PATH=${PATH}:${HOME}/bin/bioinformatics
+

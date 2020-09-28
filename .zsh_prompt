@@ -1,0 +1,5 @@
+#!/bin/zsh
+
+# TODO Add some git initegration to this prompt
+
+PROMPT='%B%F{green}%2~ %f%b%# '

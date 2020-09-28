@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+# Exports - move to new file
+export EDITOR=vim
+export VISUAL=vim
+
+
+# Aliases - move to different file
+# History control.
+export SAVEHIST=50000000
+export HISTSIZE=50000000
+export HISTFILESIZE=${HISTSIZE}
+if [ -e ~/priv/ ]; then
+  export HISTFILE=~/priv/zsh_history
+elif [ -e ~/secure/ ]; then
+  export HISTFILE=~/secure/zsh_history
+else
+  export HISTFILE=~/.zsh_history
+fi
+
+if [ -n "$HISTFILE" -a ! -w $HISTFILE ]; then
+  echo
+  echo "[31;1m HISTFILE [$HISTFILE] not writable! [0m"
+  echo
+fi
+
+

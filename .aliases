@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+
+alias reload='source ~/.zshrc'
+
+pbcopy() {
+    stdin=$(</dev/stdin);
+    pbcopy="$(which pbcopy)";
+    if [[ -n "$pbcopy" ]]; then
+        echo "$stdin" | "$pbcopy"
+    else
+        echo "$stdin" | xclip -selection clipboard
+    fi
+}
+
+pbpaste() {
+    pbpaste="$(which pbpaste)";
+    if [[ -n "$pbpaste" ]]; then
+        "$pbpaste"
+    else
+        xclip -selection clipboard
+    fi
+}
+
+pin() {
+  rm -f ~/.pindir
+  echo $PWD >~/.pindir
+  chmod 0600 ~/.pindir >/dev/null 2>&1
+}
+
+pout() {
+  cd `cat ~/.pindir`
+}
+
+
+# movement
+alias ..="cd .."
+alias ...="cd ../.."
+alias .....="cd ../../.."
+
+# Shortcuts
+alias dl="cd ~/Downloads"
+alias g="git"
+alias h="history"
+
+if ls --color > /dev/null 2>&1; then # GNU `ls`
+	colorflag="--color"
+else # OS X `ls`
+	colorflag="-G"
+fi
+
+alias ll="ls -lhF ${colorflag}"
+alias la="ls -lahF ${colorflag}"
+alias lsd="ls -lhF ${colorflag} | grep --color=never '^d'"
+# Always enable colored `grep` output
+alias grep='grep --color=auto '
+
+# Enable aliases to be sudo’ed
+alias sudo='sudo '
+
+alias hosts='sudo vim /etc/hosts'
+
+# Flush Directory Service cache
+alias flush="dscacheutil -flushcache && killall -HUP mDNSResponder"
+
+# View HTTP traffic
+alias sniff="sudo ngrep -d 'en1' -t '^(GET|POST) ' 'tcp and port 80'"
+alias httpdump="sudo tcpdump -i en1 -n -s 0 -w - | grep -a -o -E \"Host\\: .*|GET \\/.*\""
+
+# Stopwatch
+alias timer='echo "Timer started. Stop with Ctrl-D." && date && time cat && date'
+
+# IP addresses
+alias pubip="dig +short myip.opendns.com @resolver1.opendns.com"
+alias localip="sudo ifconfig | grep -Eo 'inet (addr:)?([0-9]*\\.){3}[0-9]*' | grep -Eo '([0-9]*\\.){3}[0-9]*' | grep -v '127.0.0.1'"
+alias ips="sudo ifconfig -a | grep -o 'inet6\\? \\(addr:\\)\\?\\s\\?\\(\\(\\([0-9]\\+\\.\\)\\{3\\}[0-9]\\+\\)\\|[a-fA-F0-9:]\\+\\)' | awk '{ sub(/inet6? (addr:)? ?/, \"\"); print }'"
+
+alias pubkey="more ~/.ssh/id_rsa.pub | pbcopy | echo '=> Public key (id_rsa.pub) copied to clipboard'"
+alias prikey="more ~/.ssh/id_rsa | pbcopy | echo '=> Private key (id_rsa) copied to clipboard'"
+
+alias urlencode='python -c "import sys, urllib as ul; print ul.quote_plus(sys.argv[1]);"'
+
+
+alias passgen="openssl rand -hex 16"
+alias kb="go-kb"
+
+wip() {
+  git add .
+  git commit -m "wip: $1"
+}
+
+delmerged () {  
+  git checkout master
+  git branch --merged | grep -v '* ' | xargs git branch -D 
+}
+
+git_new() {
+  mkdir $1
+  cd $1
+  touch README.md
+  git init
+  git add . && git commit -m 'initial commit'
+}
+
+alias gn='git_new'
+alias gc='git commit'
+alias ga='git add'
+alias gco='git checkout'
+alias gb='git branch'
+alias gst='git status'
+alias gup='git pull --rebase'
+alias gpoh='git push origin HEAD'
+alias gprune='gco master && git branch --merged | grep -v "\\*\\|master\\|develop" | xargs -n 1 git branch -d'
+alias gclean="gco master && git branch -r --merged | grep origin | grep -v '>' | grep -v master | xargs -L1 | awk '{split($0,a,"/"); print a[2]}'"
+alias grh='git reset HEAD --hard'
+
+wip() {
+  git add .
+  git commit -m "wip: $1"
+}
+
+delmerged () {  
+  git checkout master
+  git branch --merged | grep -v '* ' | xargs git branch -D 
+}
+
+git_new() {
+  mkdir $1
+  cd $1
+  touch README.md
+  git init
+  git add . && git commit -m 'initial commit'
+}
+
+alias gn='git_new'
+alias gc='git commit'
+alias ga='git add'
+alias gco='git checkout'
+alias gb='git branch'
+alias gst='git status'
+alias gup='git pull --rebase'
+alias gpoh='git push origin HEAD'
+alias gprune='gco master && git branch --merged | grep -v "\\*\\|master\\|develop" | xargs -n 1 git branch -d'
+alias gclean="gco master && git branch -r --merged | grep origin | grep -v '>' | grep -v master | xargs -L1 | awk '{split($0,a,"/"); print a[2]}'"
+alias grh='git reset HEAD --hard'
+

@@ -1,0 +1,37 @@
+#!/usr/bin/env ruby
+
+def usage
+  puts "Usage: timer <minutes>"
+end
+
+def clear_line
+  print "\033[A\033[K"
+end
+
+def remaining seconds
+  "#{seconds/60}m #{seconds % 60}s remaining"
+end
+
+begin
+  minutes = Integer(ARGV[0])
+rescue
+  usage
+  exit
+end
+
+seconds = minutes * 60
+
+puts "timebox timer: #{remaining seconds}"
+puts remaining seconds
+
+while seconds > 0  do
+  clear_line
+  puts remaining seconds
+  seconds -= 1
+  sleep 1
+end
+
+puts
+puts "done"
+`say "Your timer has finished."`
+

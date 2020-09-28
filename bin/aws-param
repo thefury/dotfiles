@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+case ${1} in
+  list)
+    aws ssm describe-parameters --query "Parameters[*].Name"
+    ;;
+  get)
+    echo `aws ssm get-parameter --name ${2} --with-decryption | jq '.Parameter.Value'`
+esac
