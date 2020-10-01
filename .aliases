@@ -41,6 +41,7 @@ alias .....="cd ../../.."
 alias dl="cd ~/Downloads"
 alias g="git"
 alias h="history"
+alias t="vim ~/Nextcloud/Tasks.taskpaper"
 
 if ls --color > /dev/null 2>&1; then # GNU `ls`
 	colorflag="--color"
