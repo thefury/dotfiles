@@ -1,9 +1,37 @@
 #!/usr/bin/env bash
 
+set -e
+
+
+usage() {
+  cat << USAGESTR
+Usage:
+  aws-param [commad]
+
+Available Commands:
+  list    return a list of valid parameter keys
+  get     return the value for the given param
+  help    display this message
+
+Examples:
+  aws-param list
+  aws-param get /dev/my-fantastic-application/database-user
+
+USAGESTR
+}
+
+if [[ ${#} -ne 1 && ${#} -ne 2 ]]; then
+  usage
+  exit 1
+fi 
+
 case ${1} in
   list)
     aws ssm describe-parameters --query "Parameters[*].Name"
     ;;
   get)
     echo `aws ssm get-parameter --name ${2} --with-decryption | jq '.Parameter.Value'`
+    ;;
+  help)
+    usage
 esac
