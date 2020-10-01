@@ -31,6 +31,12 @@ Plug 'junegunn/fzf.vim'
 Plug 'michal-h21/vim-zettel'
 Plug 'mattn/calendar-vim'
 Plug 'tpope/vim-surround'
+
+" for taskpaper stuff
+Plug 'davidoc/taskpaper.vim'
+Plug 'vim-scripts/vim-auto-save'
+Plug 'djoshea/vim-autoread'
+
 call plug#end()
 
 " visual style
@@ -135,4 +141,6 @@ imap <F3> <C-R>=strftime("%H:%M %p")<CR>
 nmap <F2> i<C-R>=strftime("%Y-%m-%d %a")<CR><Esc>
 imap <F2> <C-R>=strftime("%Y-%m-%d %a")<CR>
 
-
+" Autosave taskpaper files                    
+autocmd filetype taskpaper let g:auto_save = 1
+autocmd filetype taskpaper :WatchForChanges!  
