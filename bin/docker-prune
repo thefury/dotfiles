@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+# docker-prune-dangling
+#
+# prune all unused docker images and volumes. This can free up a large amount
+# of space, but ti will slow down future builds.
+
+docker rmi $(docker images -f dangling=true)
+docker volume prune

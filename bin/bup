@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+# bup
+#
+# create a simple backup of a file. This is more for "I really should make a copy
+# of this before I blow things up" than it is for actually making sane backups.
+
+NOW=`date +"%y%m%d%H%M%S"`
+cp ${1} "${1}.${NOW}.bup"

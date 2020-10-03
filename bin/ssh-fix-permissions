@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+KEYS=(id_kc id_rsa id_ppt)
+
+chmod 700 ~/.ssh
+
+# not needed locally
+#chmod 644 ~/.ssh/authorized_keys
+chmod 644 ~/.ssh/known_hosts
+chmod 644 ~/.ssh/config
+
+for key in $KEYS; do
+  chmod 600 ~/.ssh/${key}
+  chmod 644 ~/.ssh/${key}.pub
+done
