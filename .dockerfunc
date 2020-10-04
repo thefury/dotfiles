@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 # Bash wrappers for docker run commands
 #
+
+checkov() {
+  docker run -t \
+    --volume ${1}:/tf \
+    bridgecrew/checkov -d /tf
+}
+
 #export DOCKER_REPO_PREFIX=jess
 #
 ##
