@@ -1,0 +1,9 @@
+# The following lines were added by compinstall
+
+zstyle ':completion:*' completer _expand _complete _ignored
+#zstyle ':completion:*' matcher-list 'l:|=* r:|=*'
+zstyle :compinstall filename '/Users/trevoroke/dotfiles/.complete'
+
+autoload -Uz compinit
+compinit
+# End of lines added by compinstall
