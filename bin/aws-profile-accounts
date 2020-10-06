@@ -8,9 +8,8 @@ def process(line)
   profile = /^\[(.*)\]/.match line
 
   if profile
-    puts "==== #{profile[1]}"
-    puts `aws sts get-caller-identity --profile #{profile[1]}`
-    puts
+    account =  `aws sts get-caller-identity --profile #{profile[1]} --query='Account'`
+    puts "#{profile[1]},#{account.gsub('"',"")}"
   end
 end
 
@@ -18,5 +17,6 @@ end
 credentials = "#{ENV['HOME']}/.aws/credentials"
 
 
+puts "profile,account"
 file = File.open(credentials)
 file.each_line { |line| process(line) }
