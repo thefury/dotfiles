@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+usage() {
+  echo "usage: $(basename "${0}") BUCKET/PATH"
+  exit
+}
+
+if [[ ${#} -ne 1 ]]; then
+  usage
+fi
+
+path=${1}
+file="$(aws s3 ls ${path} | tail -n 1 | cut -f8 -d' ')"
+
+echo "downloading most recent file (${file})..."
+aws s3 cp s3://${path}${file} .

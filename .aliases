@@ -43,6 +43,8 @@ alias dl="cd ~/Downloads"
 alias g="git"
 alias h="history"
 alias t="vim ~/Nextcloud/Tasks.taskpaper"
+alias tt="grep @today ~/Nextcloud/Tasks.taskpaper"
+alias tc="grep @current ~/Nextcloud/Tasks.taskpaper"
 
 if ls --color > /dev/null 2>&1; then # GNU `ls`
 	colorflag="--color"
@@ -114,3 +116,5 @@ alias gpoh='git push origin HEAD'
 alias gprune='gco master && git branch --merged | grep -v "\\*\\|master\\|develop" | xargs -n 1 git branch -d'
 alias gclean="gco master && git branch -r --merged | grep origin | grep -v '>' | grep -v master | xargs -L1 | awk '{split($0,a,"/"); print a[2]}'"
 alias grh='git reset HEAD --hard'
+
+
