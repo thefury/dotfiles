@@ -42,9 +42,12 @@ alias .....="cd ../../.."
 alias dl="cd ~/Downloads"
 alias g="git"
 alias h="history"
-alias t="vim ~/Nextcloud/Tasks.taskpaper"
-alias tt="grep @today ~/Nextcloud/Tasks.taskpaper"
-alias tc="grep @current ~/Nextcloud/Tasks.taskpaper"
+
+# Task management
+
+alias t="vim ${TASK_FILE}"
+alias tt="grep @today ${TASK_FILE}"
+alias tc="grep @current ${TASK_FILE}"
 
 if ls --color > /dev/null 2>&1; then # GNU `ls`
 	colorflag="--color"

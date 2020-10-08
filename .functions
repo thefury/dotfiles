@@ -113,10 +113,11 @@ repo() {
 	open "$url" &> /dev/null || (echo "Using $(type open) to open URL failed." && exit 1);
 }
 
+# Add items to my inbox
 i() {
 	if [ $# -eq 0 ]; then
-		vim ${HOME}/Nextcloud/Inbox.taskpaper
+		vim ${INBOX_FILE}
 	else
-		echo "- $@" >> ${HOME}/Nextcloud/inbox.taskpaper
+		echo "- $@" >> ${INBOX_FILE}
 	fi
 }
