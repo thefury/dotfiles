@@ -2,7 +2,7 @@
 
 bindkey -e
  
-for file in ~/.{ssh_setup,zsh_prompt,aliases,functions,path,dockerfunc,extra,exports,complete}; do
+for file in ~/.{exports,ssh_setup,zsh_prompt,aliases,functions,path,dockerfunc,extra,complete}; do
 	if [[ -r "$file" ]] && [[ -f "$file" ]]; then
 		source "$file"
 	fi
