@@ -17,20 +17,19 @@ export PATH="${PATH}:/user/local/sbin:/usr/local/bin/:${HOME}/bin"
 
 export JAVA_HOME="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home"
 
+# GO Development
+
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  export GOPATH=$HOME/golang
   export GOROOT=/usr/local/opt/go/libexec
-  export GOBIN=$GOPATH/bin
-  export PATH=$PATH:$GOPATH:$GOBIN:$GOROOT/bin
 elif [[ "$OSTYPE" == "linux-gnu" ]]; then
-  export GOPATH=$HOME/golang
   export GOROOT=/usr/local/go
-  export GOBIN=$GOPATH/bin
-  export PATH=$PATH:$GOROOT/bin:$GOBIN
 fi
 
+export GOPATH=$HOME/golang
+export GOBIN=$GOPATH/bin
+export PATH=$PATH:$GOROOT/bin:$GOBIN
 
+# Other thingers
 export PATH=${PATH}:${HOME}/kinetic/bin
 export PATH=/usr/local/lib/ruby/gems/2.7.0/bin/:${PATH}
 export PATH=/usr/local/Cellar/ruby/2.7.1_2/bin:${PATH}
-

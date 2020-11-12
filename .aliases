@@ -88,7 +88,7 @@ alias prikey="more ~/.ssh/id_rsa | pbcopy | echo '=> Private key (id_rsa) copied
 alias urlencode='python -c "import sys, urllib as ul; print ul.quote_plus(sys.argv[1]);"'
 
 
-alias passgen="openssl rand -hex 16"
+alias passgen="pwgen -cny 32 1"
 alias kb="go-kb"
 
 wip() {
@@ -120,5 +120,4 @@ alias gpoh='git push origin HEAD'
 alias gprune='gco master && git branch --merged | grep -v "\\*\\|master\\|develop" | xargs -n 1 git branch -d'
 alias gclean="gco master && git branch -r --merged | grep origin | grep -v '>' | grep -v master | xargs -L1 | awk '{split($0,a,"/"); print a[2]}'"
 alias grh='git reset HEAD --hard'
-
 

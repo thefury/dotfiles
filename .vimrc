@@ -69,7 +69,7 @@ let wiki_settings={
 let g:vimwiki_list = []
 
 " Zettel needs to be first for fzf to work correctly
-let wikis=["zettel", "personal", "workyard", "traveller"]
+let wikis=["personal", "workyard", "traveller"]
 for wiki_name in wikis
 	let wiki=copy(wiki_settings)
 	let wiki.path = vimwiki_path.wiki_name.'/'

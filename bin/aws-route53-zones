@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+aws route53 list-hosted-zones \
+  --query 'HostedZones[].{Id: Id, Name:Name, Records:ResourceRecordSetCount}' \
+  --output table

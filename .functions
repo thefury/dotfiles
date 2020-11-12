@@ -121,3 +121,15 @@ i() {
 		echo "- $@" >> ${INBOX_FILE}
 	fi
 }
+
+
+# new scripts
+newsh() {
+  echo "#\!/usr/bin/env bash" >> ${1}.sh
+  chmod +x ${1}.sh
+}
+
+newrb() {
+  echo "#\!/usr/bin/env ruby" >> ${1}.rb
+  chmod +x ${1}.rb
+}
