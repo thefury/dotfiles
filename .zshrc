@@ -9,3 +9,6 @@ for file in ~/.{exports,ssh_setup,zsh_prompt,aliases,functions,path,dockerfunc,e
 done
 
 unset file
+
+# Created by `userpath` on 2020-12-08 18:16:37
+export PATH="$PATH:/home/trevor/.local/bin"
