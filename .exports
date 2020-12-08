@@ -1,5 +1,4 @@
-#!/usr/bin/env bash
-
+#!/usr/bin/env bash 
 # Exports - move to new file
 export EDITOR=vim
 export VISUAL=vim
@@ -26,4 +25,5 @@ fi
 
 # Task System
 export TASK_FILE=${HOME}/Nextcloud/Tasks/Tasks.taskpaper
+export SOMEDAY_FILE=${HOME}/Nextcloud/Tasks/Someday.taskpaper
 export INBOX_FILE=${HOME}/Nextcloud/Tasks/Inbox.taskpaper

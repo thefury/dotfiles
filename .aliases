@@ -38,6 +38,9 @@ alias ..="cd .."
 alias ...="cd ../.."
 alias .....="cd ../../.."
 
+# rotate through the pushd stack
+alias rr="pushd +1" 
+
 # Shortcuts
 alias dl="cd ~/Downloads"
 alias g="git"
@@ -46,6 +49,7 @@ alias h="history"
 # Task management
 
 alias t="vim ${TASK_FILE}"
+alias ts="vim ${SOMEDAY_FILE}"
 alias tt="grep @today ${TASK_FILE}"
 alias tc="grep @current ${TASK_FILE}"
 alias tw="grep @waiting ${TASK_FILE}"
@@ -122,4 +126,8 @@ alias gclean="gco master && git branch -r --merged | grep origin | grep -v '>' |
 alias grh='git reset HEAD --hard'
 
 alias j="jrnl"
-alias jw="jrnl work"
+alias je="jrnl --edit"
+alias je1='jrnl -n1 --edit'
+alias jt="jrnl -from today"
+alias js="jrnl --short"
+alias jts="jrnl -from today --short"
