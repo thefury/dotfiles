@@ -1,3 +1,10 @@
+" stanard stuff
+set hlsearch
+set ignorecase
+set incsearch
+set noswapfile
+set number
+
 
 " preferred tabbing
 set expandtab
@@ -7,7 +14,6 @@ set softtabstop=2
 set smarttab
 set nocompatible
 
-set number
 
 " big line for 80 characters
 " set textwidth=80
