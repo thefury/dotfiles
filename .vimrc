@@ -5,6 +5,7 @@ set incsearch
 set noswapfile
 set number
 
+nmap <F12> :set invnumber<CR>
 
 " preferred tabbing
 set expandtab
