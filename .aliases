@@ -131,3 +131,5 @@ alias je1='jrnl -n1 --edit'
 alias jt="jrnl -from today"
 alias js="jrnl --short"
 alias jts="jrnl -from today --short"
+alias jtt="jrnl -from today @todo"
+alias jtte="jtt --edit"
