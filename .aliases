@@ -51,7 +51,6 @@ alias h="history"
 alias t="vim ${TASK_FILE}"
 alias ts="vim ${SOMEDAY_FILE}"
 alias tt="grep @today ${TASK_FILE}"
-alias tc="grep @current ${TASK_FILE}"
 alias tw="grep @waiting ${TASK_FILE}"
 
 if ls --color > /dev/null 2>&1; then # GNU `ls`
