@@ -143,6 +143,8 @@ endfunction
 command! ProseMode call ProseMode()
 nmap \p :ProseMode<CR>
 
+nmap <F4> i<C-R>=strftime("%Y-%m-%d %H:%M %p")<CR><Esc>
+imap <F4> <C-R>=strftime("%Y-%m-%d %H:%M %p")<CR>
 nmap <F3> i<C-R>=strftime("%H:%M %p")<CR><Esc>
 imap <F3> <C-R>=strftime("%H:%M %p")<CR>
 nmap <F2> i<C-R>=strftime("%Y-%m-%d %a")<CR><Esc>
