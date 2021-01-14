@@ -147,8 +147,8 @@ nmap <F4> i<C-R>=strftime("%Y-%m-%d %H:%M %p")<CR><Esc>
 imap <F4> <C-R>=strftime("%Y-%m-%d %H:%M %p")<CR>
 nmap <F3> i<C-R>=strftime("%H:%M %p")<CR><Esc>
 imap <F3> <C-R>=strftime("%H:%M %p")<CR>
-nmap <F2> i<C-R>=strftime("%Y-%m-%d %a")<CR><Esc>
-imap <F2> <C-R>=strftime("%Y-%m-%d %a")<CR>
+nmap <F2> i<C-R>=strftime("%Y-%m-%d")<CR><Esc>
+imap <F2> <C-R>=strftime("%Y-%m-%d")<CR>
 
 " Autosave taskpaper files                    
 autocmd filetype taskpaper let g:auto_save = 1

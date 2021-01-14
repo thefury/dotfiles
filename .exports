@@ -25,5 +25,5 @@ fi
 
 # Task System
 export TASK_FILE=${HOME}/Nextcloud/Tasks/Tasks.taskpaper
-export SOMEDAY_FILE=${HOME}/Nextcloud/Tasks/Someday.taskpaper
-export INBOX_FILE=${HOME}/Nextcloud/Tasks/Inbox.taskpaper
+export SOMEDAY_FILE=${HOME}/Nextcloud/Tasks/Tasks.taskpaper
+export INBOX_FILE=${HOME}/Nextcloud/Tasks/Tasks.taskpaper

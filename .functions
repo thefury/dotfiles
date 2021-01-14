@@ -116,9 +116,9 @@ repo() {
 # Add items to my inbox
 i() {
 	if [ $# -eq 0 ]; then
-		vim ${INBOX_FILE}
+		vim ${TASK_FILE}
 	else
-		echo "- $@" >> ${INBOX_FILE}
+    echo -e "- ${@} @inbox\n$(cat ${TASK_FILE})" > ${TASK_FILE}
 	fi
 }
 

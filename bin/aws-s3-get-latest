@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
 usage() {
-  echo "usage: $(basename "${0}") BUCKET/PATH"
+  echo "$(basename "${0}")"
+  echo "  downloads the latest file from a given BUCKET"
+  echo
+  echo "  usage: $(basename "${0}") BUCKET/PATH"
   exit
 }
 
@@ -12,5 +15,5 @@ fi
 path=${1}
 file="$(aws s3 ls ${path} | tail -n 1 | cut -f8 -d' ')"
 
-echo "downloading most recent file (${file})..."
+#echo "downloading most recent file (${file})..."
 aws s3 cp s3://${path}${file} .

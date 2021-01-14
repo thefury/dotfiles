@@ -2,6 +2,10 @@
 
 alias reload='source ~/.zshrc'
 
+if [[ "$OSTYPE" == "linux"* ]]; then
+  alias pbcopy='xclip -selection clipboard'
+  alias pbpaste='xclip -selection clipboard -o'
+fi
 #pbcopy() {
 #    stdin=</dev/stdin
 #    pbcopy=which pbcopy
@@ -43,15 +47,14 @@ alias rr="pushd +1"
 
 # Shortcuts
 alias dl="cd ~/Downloads"
-alias g="git"
+alias g="gtd"
 alias h="history"
 
 # Task management
 
 alias t="vim ${TASK_FILE}"
-alias ts="vim ${SOMEDAY_FILE}"
-alias tt="grep @today ${TASK_FILE}"
-alias tw="grep @waiting ${TASK_FILE}"
+alias tt="gtd due"
+alias tw="gtd waiting"
 
 if ls --color > /dev/null 2>&1; then # GNU `ls`
 	colorflag="--color"
