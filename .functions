@@ -114,14 +114,6 @@ repo() {
 }
 
 # Add items to my inbox
-i() {
-	if [ $# -eq 0 ]; then
-		vim ${TASK_FILE}
-	else
-    echo -e "- ${@} @inbox\n$(cat ${TASK_FILE})" > ${TASK_FILE}
-	fi
-}
-
 
 # new scripts
 newsh() {

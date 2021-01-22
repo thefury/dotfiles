@@ -38,3 +38,6 @@ export PATH=/usr/local/Cellar/ruby/2.7.1_2/bin:${PATH}
 export PATH="$HOME/.tfenv/bin:$PATH"
 # Local
 export PATH="$PATH:$HOME/.local/bin:$HOME/bin"
+
+# ADR Tools
+export PATH="$PATH:$HOME/src/adr-tools-3.0.0/src"

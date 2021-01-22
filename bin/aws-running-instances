@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 
+# We can pass a filter to this
+if [ $# -eq 0 ]; then
+  name='*'
+else
+  name="*${1}*"
+fi
+
+filter="Name=instance-state-name,Values=running Name=tag:Name,Values=${name}"
+
 aws ec2 describe-instances \
-    --filter Name=instance-state-name,Values=running \
+    --filter ${filter} \
     --output table \
     --query 'Reservations[].Instances[].{ID: InstanceId,Hostname: PublicDnsName,Name: Tags[?Key==`Name`].Value | [0],PrivateID: PrivateIpAddress, Type: InstanceType, Launched: LaunchTime}'

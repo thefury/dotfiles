@@ -1,0 +1,15 @@
+#!/usr/bin/env ruby
+
+if ARGV.size != 1
+  puts "budget TOTAL"
+  exit 1
+end
+
+total = Float(ARGV.first)
+
+puts "budget: $#{total}"
+puts "  Necessary Expenses: $#{(total * 0.5).round(2)}"
+puts "  Savings:            $#{(total * 0.3).round(2)}"
+puts "  ST Splurges:        $#{(total * 0.1).round(2)}"
+puts "  LT Splurges:        $#{(total * 0.1).round(2)}"
+
